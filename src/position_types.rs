@@ -1,5 +1,24 @@
 use std::ops::{Add, Neg, Sub};
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct RobotPosition {
+    x: f64, y: f64, heading: Heading
+}
+
+impl RobotPosition {
+    pub fn new() -> Self {
+        RobotPosition {x: 0.0, y: 0.0, heading: Heading::new(0)}
+    }
+
+    pub fn updated_by(&self, motion: PolarCoord) -> Self {
+        RobotPosition {
+            x: self.x + motion.x(),
+            y: self.y + motion.y(),
+            heading: self.heading + motion.theta.to_degrees() as i16
+        }
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Heading {
     degrees: i16
@@ -14,8 +33,10 @@ impl Heading {
         Heading {degrees: degrees % 360}
     }
 
+    /*
     pub fn degrees(&self) -> i16 {self.degrees}
     pub fn radians(&self) -> f64 {(self.degrees as f64).to_radians()}
+     */
 }
 
 impl Add<Heading> for Heading {
@@ -58,6 +79,7 @@ impl Neg for Heading {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct PolarCoord {
     r: f64, theta: f64
 }
@@ -75,9 +97,10 @@ impl PolarCoord {
         self.r * self.theta.sin()
     }
 
-    pub fn rotated(&self, rotation: f64) -> Self {
+    /*pub fn rotated(&self, rotation: f64) -> Self {
         Self::new(self.r, self.theta + rotation)
     }
+     */
 }
 
 impl Add for PolarCoord {
@@ -102,5 +125,14 @@ mod tests {
         assert_eq!(h + 30, Heading::new(120));
         assert_eq!(h - 405, Heading::new(45));
         assert_eq!(h + 765, Heading::new(135));
+    }
+
+    #[test]
+    fn test_position() {
+        let mut pos = RobotPosition::new();
+        pos = pos.updated_by(PolarCoord::new(10.0, 0.0));
+        assert_eq!(pos, RobotPosition {x: 10.0, y: 0.0, heading: Heading::new(0)});
+        pos = pos.updated_by(PolarCoord::new(10.0, 90.0_f64.to_radians()));
+        assert_eq!(pos, RobotPosition {x: 10.0, y: 10.0, heading: Heading::new(90)});
     }
 }
