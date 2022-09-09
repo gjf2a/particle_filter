@@ -1,21 +1,21 @@
-use ordered_float::OrderedFloat;
 use crate::distribution::Distribution;
-use crate::position_types::{PolarCoord, RobotPosition};
+pub use crate::position_types::{PolarCoord, RobotPosition};
 
 mod position_types;
 mod grid_map;
 mod distribution;
+mod sonar;
 
 pub trait SensorMap {
     type SensorReading;
 
-    fn fit(&self, reading: &Self::SensorReading) -> f64;
+    fn fit(&self, position: &RobotPosition, reading: &Self::SensorReading) -> f64;
 
     fn update_from(&mut self, reading: &Self::SensorReading);
 }
 
 #[derive(Clone)]
-struct Particle<M: Clone+SensorMap<SensorReading=S>, S:Clone> {
+pub struct Particle<M: Clone+SensorMap<SensorReading=S>, S:Clone> {
     pos: RobotPosition,
     map: M
 }
@@ -50,7 +50,7 @@ impl <M: Clone + SensorMap<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> Pola
 
     fn resample(&mut self, measurement: &S, motion: PolarCoord) {
         let particle_fits: Vec<(&Particle<M,S>, f64)> = self.particles.iter()
-            .map(|p| (p, p.map.fit(measurement))).collect();
+            .map(|p| (p, p.map.fit(&p.pos.updated_by(motion), measurement))).collect();
         let distro = Self::make_distro_from(&particle_fits);
         self.best = self.get_best_from(&particle_fits);
         let num_particles = self.particles.len();
