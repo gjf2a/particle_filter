@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::fmt::{Display, Formatter};
 use bits::BitArray;
 
 #[derive(Clone, Debug)]
@@ -105,6 +106,18 @@ impl BooleanGridMap {
     }
 }
 
+impl Display for BooleanGridMap {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for (i, value) in self.cells.iter().enumerate() {
+            write!(f, "{}", if value {1} else {0})?;
+            if (i + 1) as u64 % self.cells_per_side == 0 {
+                writeln!(f, "")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Copy, Clone)]
 enum IndexAttempt<T: Copy> {
     Valid(T), ResizeFactor(u64)
@@ -116,15 +129,26 @@ mod tests {
 
     #[test]
     fn basic_test() {
-        let mut map = BooleanGridMap::new(2, 4);
-        let targets = [(0.0, 0.0), (0.5, 0.0), (-1.0, 0.5), (-1.0, -0.5)];
+        let mut map = BooleanGridMap::new(1, 3);
+        let targets = [(-1.0, 0.0), (0.0, 1.0), (1.0, 1.0)];
         for (x, y) in targets.iter() {
             map.set(*x, *y, true);
             assert!(map.is_set(*x, *y));
         }
-        let still_clear = [(1.0, 0.0), (3.0, 2.0), (2.0, 1.0)];
+        for (x, y) in targets.iter() {
+            assert!(map.is_set(*x, *y));
+        }
+        println!("{}", map);
+        let still_clear = [(-1.0, -1.0), (0.0, -1.0), (1.0, -1.0), (0.0, 0.0), (1.0, 0.0), (-1.0, 1.0)];
         for (x, y) in still_clear.iter() {
             assert!(!map.is_set(*x, *y));
         }
+
+        let fs = format!("{}", map);
+        let ts = "\
+        000\n\
+        100\n\
+        011\n";
+        assert_eq!(fs.as_str(), ts);
     }
 }
