@@ -75,7 +75,7 @@ impl Neg for Heading {
     type Output = Heading;
 
     fn neg(self) -> Self::Output {
-        Heading {degrees: self.degrees + 180}
+        Heading::new(-self.degrees)
     }
 }
 
