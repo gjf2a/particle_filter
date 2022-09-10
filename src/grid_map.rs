@@ -130,6 +130,7 @@ mod tests {
     #[test]
     fn basic_test() {
         let mut map = BooleanGridMap::new(1, 3);
+        assert_eq!(map.cells_per_side, 3);
         let targets = [(-1.0, 0.0), (0.0, 1.0), (1.0, 1.0)];
         for (x, y) in targets.iter() {
             map.set(*x, *y, true);
@@ -138,7 +139,6 @@ mod tests {
         for (x, y) in targets.iter() {
             assert!(map.is_set(*x, *y));
         }
-        println!("{}", map);
         let still_clear = [(-1.0, -1.0), (0.0, -1.0), (1.0, -1.0), (0.0, 0.0), (1.0, 0.0), (-1.0, 1.0)];
         for (x, y) in still_clear.iter() {
             assert!(!map.is_set(*x, *y));
@@ -150,5 +150,15 @@ mod tests {
         100\n\
         011\n";
         assert_eq!(fs.as_str(), ts);
+
+        map.set(-2.0, -2.0, true);
+        assert_eq!(map.cells_per_side, 6);
+        for (x, y) in targets.iter() {
+            assert!(map.is_set(*x, *y));
+        }
+        for (x, y) in still_clear.iter() {
+            assert!(!map.is_set(*x, *y));
+        }
+        println!("{}", map);
     }
 }
