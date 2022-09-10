@@ -9,5 +9,5 @@ edition = "2021"
 bits = {git = "https://github.com/gjf2a/bits"}
 ordered-float = "2.0"
 rand = "0.8.5"
-init_with = "1.1.0"
+array-init = "2.0.1"
 counting_ratio = {git = "https://github.com/gjf2a/counting_ratio"}
