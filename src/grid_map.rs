@@ -13,11 +13,8 @@ pub struct BooleanGridMap {
 impl BooleanGridMap {
 
     pub fn new(cells_per_meter: u64, meters_per_side: u64) -> Self {
+        let meters_per_side = meters_per_side + meters_per_side % 2;
         let cells_per_side = cells_per_meter * meters_per_side;
-        // This isn't pretty, but it is workable for now.
-        // The issue is that cell_origin_offset() shifts all the original points by one
-        // cell if cells_per_side is odd. At some point, I'll seek a better solution.
-        assert_eq!(cells_per_side % 2, 0);
         let total_cells = cells_per_side.pow(2);
         let cells = BitArray::zeros(total_cells);
         BooleanGridMap {cells_per_meter, meters_per_side, cells_per_side, cells}
@@ -133,7 +130,7 @@ mod tests {
 
     #[test]
     fn basic_test() {
-        let mut map = BooleanGridMap::new(1, 4);
+        let mut map = BooleanGridMap::new(1, 3);
         assert_eq!(map.cells_per_side, 4);
         let targets = [(-1.0, 0.0), (0.0, 1.0), (1.0, 1.0)];
         for (x, y) in targets.iter() {
