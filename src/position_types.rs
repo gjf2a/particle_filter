@@ -17,6 +17,20 @@ impl RobotPosition {
             heading: self.heading + motion.theta.to_degrees() as i16
         }
     }
+
+    pub fn position(&self) -> (f64, f64) {
+        (self.x, self.y)
+    }
+
+    pub fn heading(&self) -> Heading {
+        self.heading
+    }
+
+    pub fn offset_point(&self, distance: f64, offset: f64) -> (f64, f64) {
+        let absolute_heading = offset + self.heading.radians();
+        let displacement = PolarCoord::new(distance, absolute_heading);
+        (self.x + displacement.x(), self.y + displacement.y())
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -33,9 +47,11 @@ impl Heading {
         Heading {degrees: degrees % 360}
     }
 
+    pub fn radians(&self) -> f64 {(self.degrees as f64).to_radians()}
+
     /*
     pub fn degrees(&self) -> i16 {self.degrees}
-    pub fn radians(&self) -> f64 {(self.degrees as f64).to_radians()}
+
      */
 }
 
@@ -95,6 +111,10 @@ impl PolarCoord {
 
     pub fn y(&self) -> f64 {
         self.r * self.theta.sin()
+    }
+
+    pub fn translate(&self, x: f64, y: f64) -> (f64, f64) {
+        (x + self.x(), y + self.y())
     }
 
     /*pub fn rotated(&self, rotation: f64) -> Self {

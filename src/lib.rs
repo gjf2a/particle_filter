@@ -11,7 +11,7 @@ pub trait SensorMap {
 
     fn fit(&self, position: &RobotPosition, reading: &Self::SensorReading) -> f64;
 
-    fn update_from(&mut self, reading: &Self::SensorReading);
+    fn update_from(&mut self, position: &RobotPosition, reading: &Self::SensorReading);
 }
 
 #[derive(Clone)]
@@ -44,7 +44,7 @@ impl <M: Clone + SensorMap<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> Pola
     fn add_measurement(&mut self, measurement: &S, motion: PolarCoord) {
         for particle in self.particles.iter_mut() {
             particle.pos.updated_by((self.noise_function)(motion));
-            particle.map.update_from(measurement);
+            particle.map.update_from(&particle.pos, measurement);
         }
     }
 
