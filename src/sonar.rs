@@ -63,7 +63,7 @@ impl <const N: usize> SensorMap for SonarMap<N> {
         for i in 0..N {
             if self.sonars[i].reading_in_range(reading[i]) {
                 for (x, y) in self.sonars[i].contact_points(position, reading[i], self.num_sonar_points) {
-                    self.map.set(x, y, true);
+                    self.map.set(x, y);
                 }
             }
         }

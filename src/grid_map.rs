@@ -20,7 +20,7 @@ impl BooleanGridMap {
         BooleanGridMap {cells_per_meter, meters_per_side, cells_per_side, cells}
     }
 
-    pub fn set(&mut self, x: f64, y: f64, value: bool) {
+    pub fn set(&mut self, x: f64, y: f64) {
         let i = match self.point2index(x, y) {
             IndexAttempt::Valid(i) => {i}
             IndexAttempt::ResizeFactor(r) => {
@@ -32,7 +32,7 @@ impl BooleanGridMap {
             }
         };
 
-        self.cells.set(i, value);
+        self.cells.set(i, true);
     }
 
     pub fn is_set(&self, x: f64, y: f64) -> bool {
@@ -134,7 +134,7 @@ mod tests {
         assert_eq!(map.cells_per_side, 4);
         let targets = [(-1.0, 0.0), (0.0, 1.0), (1.0, 1.0)];
         for (x, y) in targets.iter() {
-            map.set(*x, *y, true);
+            map.set(*x, *y);
             assert!(map.is_set(*x, *y));
         }
         for (x, y) in targets.iter() {
@@ -154,7 +154,7 @@ mod tests {
             assert!(!map.is_set(*x, *y));
         }
 
-        map.set(-3.0, -3.0, true);
+        map.set(-3.0, -3.0);
         assert!(map.is_set(-3.0, -3.0));
         assert_eq!(map.cells_per_side, 8);
 
