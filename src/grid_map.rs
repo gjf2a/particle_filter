@@ -21,6 +21,14 @@ impl BooleanGridMap {
     }
 
     pub fn set(&mut self, x: f64, y: f64) {
+        self.assign(x, y, true);
+    }
+
+    pub fn clear(&mut self, x: f64, y: f64) {
+        self.assign(x, y, false);
+    }
+
+    pub fn assign(&mut self, x: f64, y: f64, value: bool) {
         let i = match self.point2index(x, y) {
             IndexAttempt::Valid(i) => {i}
             IndexAttempt::ResizeFactor(r) => {
@@ -32,7 +40,7 @@ impl BooleanGridMap {
             }
         };
 
-        self.cells.set(i, true);
+        self.cells.set(i, value);
     }
 
     pub fn is_set(&self, x: f64, y: f64) -> bool {
