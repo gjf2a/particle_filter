@@ -1,3 +1,5 @@
+use std::cmp::max;
+use ordered_float::OrderedFloat;
 use crate::distribution::Distribution;
 pub use crate::position_types::{PolarCoord, RobotPosition};
 
@@ -60,7 +62,8 @@ impl <M: Clone + SensorMap<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> Pola
     fn make_distro_from(particle_fits: &Vec<(&Particle<M,S>, f64)>) -> Distribution<Particle<M,S>> {
         let mut distro: Distribution<Particle<M,S>> = Distribution::new();
         for (particle, fit) in particle_fits.iter() {
-            distro.add(particle, *fit);
+            let fit = 1.0 + max(OrderedFloat(0.0), OrderedFloat(*fit)).into_inner();
+            distro.add(particle, fit);
         }
         distro
     }
