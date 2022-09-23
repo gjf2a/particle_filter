@@ -7,6 +7,7 @@ mod position_types;
 mod grid_map;
 mod distribution;
 mod sonar;
+mod sonar3bot;
 
 pub trait SensorMap {
     type SensorReading;

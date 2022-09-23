@@ -54,7 +54,8 @@ impl <const N: usize> SensorMap for SonarMap<N> {
     fn fit(&self, position: &RobotPosition, reading: &Self::SensorReading) -> f64 {
         let mut count = CountingRatio::new();
         for (i, d) in reading.iter().enumerate() {
-            count.observe(self.sonars[i].reading_in_range(*d) && self.sonars[i].contact_points(position, *d, self.num_sonar_points).iter().any(|(x, y)| self.map.is_set(*x, *y)));
+            let observation = self.sonars[i].reading_in_range(*d) && self.sonars[i].contact_points(position, *d, self.num_sonar_points).iter().any(|(x, y)| self.map.is_set(*x, *y));
+            count.observe(observation);
         }
         count.into()
     }
