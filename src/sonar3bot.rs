@@ -156,10 +156,8 @@ mod tests {
         let spin_circumference = bot.wheel_separation * PI;
         let travel_distance = spin_circumference / 4.0;
         let wheel_circumference = bot.wheel_radius * 2.0 * PI;
-        let spin_rotations = (travel_distance / wheel_circumference * COUNTS_PER_ROTATION) as i64;
-        println!("sr: {}", spin_rotations);
-        //let spin_rotations = 164;
-        //assert_eq!(spin_rotations, 165);
+        let mut spin_rotations = (travel_distance / wheel_circumference * COUNTS_PER_ROTATION) as i64;
+        spin_rotations += 1; // Rounding error adjustment
 
         let end = bot.updated_position(RobotPosition::new(), -spin_rotations, spin_rotations);
         assert_approx_eq!(RobotPosition, end, RobotPosition::from(0.0, 0.0, Heading::new(90)));
