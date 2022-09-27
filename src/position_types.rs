@@ -1,4 +1,6 @@
 use std::ops::{Add, Neg, Sub};
+use bare_metal_modulo::{MNum, ModNumC};
+use float_cmp::{ApproxEq, F64Margin};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct RobotPosition {
@@ -8,6 +10,10 @@ pub struct RobotPosition {
 impl RobotPosition {
     pub fn new() -> Self {
         RobotPosition {x: 0.0, y: 0.0, heading: Heading::new(0)}
+    }
+
+    pub fn from(x: f64, y: f64, heading: Heading) -> Self {
+        RobotPosition {x, y, heading}
     }
 
     pub fn updated_by(&self, motion: PolarCoord) -> Self {
@@ -33,26 +39,38 @@ impl RobotPosition {
     }
 }
 
+impl Add for RobotPosition {
+    type Output = RobotPosition;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        RobotPosition {x: self.x + rhs.x, y: self.y + rhs.y, heading: self.heading + rhs.heading}
+    }
+}
+
+impl ApproxEq for RobotPosition {
+    type Margin = F64Margin;
+
+    fn approx_eq<M: Into<Self::Margin>>(self, other: Self, margin: M) -> bool {
+        let margin = margin.into();
+        self.x.approx_eq(other.x, margin) && self.y.approx_eq(other.y, margin) && self.heading == other.heading
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Heading {
-    degrees: i16
+    degrees: ModNumC<i16, 360>
 }
 
 impl Heading {
     pub fn new(degrees: i16) -> Self {
-        let mut degrees = degrees;
-        while degrees < 0 {
-            degrees += 360;
-        }
-        Heading {degrees: degrees % 360}
+        Heading {degrees: ModNumC::new(degrees)}
     }
 
-    pub fn radians(&self) -> f64 {(self.degrees as f64).to_radians()}
+    pub fn from_radians(radians: f64) -> Self {
+        Heading {degrees: ModNumC::new(radians.to_degrees() as i16)}
+    }
 
-    /*
-    pub fn degrees(&self) -> i16 {self.degrees}
-
-     */
+    pub fn radians(&self) -> f64 {(self.degrees.a() as f64).to_radians()}
 }
 
 impl Add<Heading> for Heading {
@@ -91,7 +109,7 @@ impl Neg for Heading {
     type Output = Heading;
 
     fn neg(self) -> Self::Output {
-        Heading::new(-self.degrees)
+        Heading {degrees: -self.degrees}
     }
 }
 
@@ -154,5 +172,7 @@ mod tests {
         assert_eq!(pos, RobotPosition {x: 10.0, y: 0.0, heading: Heading::new(0)});
         pos = pos.updated_by(PolarCoord::new(10.0, 90.0_f64.to_radians()));
         assert_eq!(pos, RobotPosition {x: 10.0, y: 10.0, heading: Heading::new(90)});
+        pos = pos.updated_by(PolarCoord::new(10.0, 0.0));
+        assert_eq!(pos, RobotPosition {x: 0.0, y: 10.0, heading: Heading::new(90)});
     }
 }
