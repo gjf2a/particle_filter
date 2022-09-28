@@ -78,6 +78,10 @@ impl TwoWheelBase {
         TwoWheelBase {wheel_separation, wheel_radius}
     }
 
+    pub fn wheel_circumference(&self) -> f64 {
+        self.wheel_radius * 2.0 * PI
+    }
+
     pub fn wheel_distance_traveled(&self, rotation_counts: i64) -> f64 {
         self.wheel_radius * 2.0 * PI * rotation_counts as f64 / COUNTS_PER_ROTATION
     }
@@ -92,9 +96,21 @@ impl TwoWheelBase {
             let left_turn_radius = left_arc_length * self.wheel_separation / (right_arc_length - left_arc_length);
             let right_turn_radius = left_turn_radius + self.wheel_separation;
             let center_turn_radius = (left_turn_radius + right_turn_radius) / 2.0;
-            let delta_heading = left_arc_length / left_turn_radius;
+            let delta_heading = Self::find_heading_offset(left_arc_length, left_turn_radius, right_arc_length, right_turn_radius);
             let offset = PolarCoord::new(center_turn_radius, delta_heading);
+            println!("arcs:        {:.2},{:.2}", left_arc_length, right_arc_length);
+            println!("turn_radii:  {:.2},{:.2},{:.2}", left_turn_radius, center_turn_radius, right_turn_radius);
+            println!("d_heading:   {:?}", Heading::from_radians(delta_heading));
+            println!("offset:      {:?}", offset);
             current_pos + RobotPosition::from(-center_turn_radius + offset.x(), offset.y(), Heading::from_radians(delta_heading))
+        }
+    }
+
+    fn find_heading_offset(arc_len_1: f64, turn_radius_1: f64, arc_len_2: f64, turn_radius_2: f64) -> f64 {
+        if turn_radius_1 == 0.0 {
+            arc_len_2 / turn_radius_2
+        } else {
+            arc_len_1 / turn_radius_1
         }
     }
 }
@@ -147,7 +163,14 @@ mod tests {
 
     #[test]
     fn test_forward_turn() {
+        let bot = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS);
+        let turn_circumference = bot.wheel_separation * 2.0 * PI;
+        let travel_distance = turn_circumference / 4.0;
+        let mut turn_rotations = (travel_distance / bot.wheel_circumference() * COUNTS_PER_ROTATION) as i64;
+        turn_rotations += 1; // Rounding error adjustment
 
+        let end = bot.updated_position(RobotPosition::new(), 0, turn_rotations);
+        assert_approx_eq!(RobotPosition, end, RobotPosition::from(-5.042617993760259, 5.039999320050417, Heading::new(90)));
     }
 
     #[test]
@@ -155,8 +178,7 @@ mod tests {
         let bot = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS);
         let spin_circumference = bot.wheel_separation * PI;
         let travel_distance = spin_circumference / 4.0;
-        let wheel_circumference = bot.wheel_radius * 2.0 * PI;
-        let mut spin_rotations = (travel_distance / wheel_circumference * COUNTS_PER_ROTATION) as i64;
+        let mut spin_rotations = (travel_distance / bot.wheel_circumference() * COUNTS_PER_ROTATION) as i64;
         spin_rotations += 1; // Rounding error adjustment
 
         let end = bot.updated_position(RobotPosition::new(), -spin_rotations, spin_rotations);
