@@ -3,11 +3,11 @@ use ordered_float::OrderedFloat;
 use crate::distribution::Distribution;
 pub use crate::position_types::{PolarCoord, RobotPosition};
 
-mod position_types;
+pub mod position_types;
 mod grid_map;
 mod distribution;
 mod sonar;
-mod sonar3bot;
+pub mod sonar3bot;
 
 pub trait SensorMap {
     type SensorReading;
