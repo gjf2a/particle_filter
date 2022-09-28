@@ -190,6 +190,8 @@ mod tests {
         let mut spin_rotations = (travel_distance / bot.wheel_circumference() * COUNTS_PER_ROTATION) as i64;
         spin_rotations += 1; // Rounding error adjustment
 
+        assert_eq!(spin_rotations, 165);
+
         let end = bot.updated_position(RobotPosition::new(), -spin_rotations, spin_rotations);
         assert_approx_eq!(RobotPosition, end, RobotPosition::from(0.0, 0.0, Heading::new(90)));
 
