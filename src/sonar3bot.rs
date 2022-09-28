@@ -98,10 +98,6 @@ impl TwoWheelBase {
             let center_turn_radius = (left_turn_radius + right_turn_radius) / 2.0;
             let delta_heading = Self::find_heading_offset(left_arc_length, left_turn_radius, right_arc_length, right_turn_radius);
             let offset = PolarCoord::new(center_turn_radius, delta_heading);
-            println!("arcs:        {:.2},{:.2}", left_arc_length, right_arc_length);
-            println!("turn_radii:  {:.2},{:.2},{:.2}", left_turn_radius, center_turn_radius, right_turn_radius);
-            println!("d_heading:   {:?}", Heading::from_radians(delta_heading));
-            println!("offset:      {:?}", offset);
             current_pos + RobotPosition::from(-center_turn_radius + offset.x(), offset.y(), Heading::from_radians(delta_heading))
         }
     }
@@ -169,8 +165,19 @@ mod tests {
         let mut turn_rotations = (travel_distance / bot.wheel_circumference() * COUNTS_PER_ROTATION) as i64;
         turn_rotations += 1; // Rounding error adjustment
 
+        let expected = 5.04;
+
         let end = bot.updated_position(RobotPosition::new(), 0, turn_rotations);
-        assert_approx_eq!(RobotPosition, end, RobotPosition::from(-5.042617993760259, 5.039999320050417, Heading::new(90)));
+        assert_approx_eq!(RobotPosition, end, RobotPosition::from(-expected, expected, Heading::new(90)), epsilon = 0.01);
+
+        let end = bot.updated_position(RobotPosition::new(), 0, -turn_rotations);
+        assert_approx_eq!(RobotPosition, end, RobotPosition::from(-expected, -expected, Heading::new(-90)), epsilon = 0.01);
+
+        let end = bot.updated_position(RobotPosition::new(), turn_rotations, 0);
+        assert_approx_eq!(RobotPosition, end, RobotPosition::from(expected, expected, Heading::new(-90)), epsilon = 0.01);
+
+        let end = bot.updated_position(RobotPosition::new(), -turn_rotations, 0);
+        assert_approx_eq!(RobotPosition, end, RobotPosition::from(expected, -expected, Heading::new(90)), epsilon = 0.01);
     }
 
     #[test]
@@ -186,10 +193,5 @@ mod tests {
 
         let end = bot.updated_position(RobotPosition::new(), spin_rotations, -spin_rotations);
         assert_approx_eq!(RobotPosition, end, RobotPosition::from(0.0, 0.0, Heading::new(-90)));
-    }
-
-    #[test]
-    fn test_backward_turn() {
-
     }
 }
