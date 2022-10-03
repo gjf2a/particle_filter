@@ -1,0 +1,6 @@
+https://crates.io/crates/abow
+https://crates.io/crates/correlation_flow
+https://crates.io/crates/arrsac
+https://crates.io/crates/p3p
+https://crates.io/crates/akaze
+https://crates.io/crates/erdos
