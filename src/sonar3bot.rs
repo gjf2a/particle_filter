@@ -72,6 +72,8 @@ impl RobotSensorPosition {
         self.pos = self.base.updated_position(self.pos,
                                               datum.motor_left - self.last_left,
                                               datum.motor_right - self.last_right);
+        self.last_left = datum.motor_left;
+        self.last_right = datum.motor_right;
     }
 }
 
