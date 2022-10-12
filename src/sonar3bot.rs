@@ -82,6 +82,10 @@ impl RobotPath {
         Ok(RobotPath {points, base})
     }
 
+    pub fn add(&mut self, point: SensorData) {
+        self.points.push(point);
+    }
+
     pub fn len(&self) -> usize {self.points.len()}
 
     pub fn position_sequence(&self) -> Vec<RobotPosition> {
