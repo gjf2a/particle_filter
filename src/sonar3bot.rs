@@ -55,6 +55,26 @@ impl SensorData {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct RobotSensorPosition {
+    base: TwoWheelBase,
+    last_left: i64,
+    last_right: i64,
+    pos: RobotPosition
+}
+
+impl RobotSensorPosition {
+    pub fn new(base: TwoWheelBase) -> Self {
+        RobotSensorPosition {base, last_left: 0, last_right: 0, pos: RobotPosition::new()}
+    }
+
+    pub fn update(&mut self, datum: SensorData) {
+        self.pos = self.base.updated_position(self.pos,
+                                              datum.motor_left - self.last_left,
+                                              datum.motor_right - self.last_right);
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RobotPath {
     base: TwoWheelBase,
@@ -204,26 +224,30 @@ mod tests {
 
     #[test]
     fn test_spin() {
-        let bot = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS);
-        let spin_circumference = bot.wheel_separation * PI;
+        let spin_circumference = BOT.wheel_separation * PI;
         let travel_distance = spin_circumference / 4.0;
-        let mut spin_rotations = (travel_distance / bot.wheel_circumference() * COUNTS_PER_ROTATION) as i64;
+        let mut spin_rotations = (travel_distance / BOT.wheel_circumference() * COUNTS_PER_ROTATION) as i64;
         spin_rotations += 1; // Rounding error adjustment
 
         assert_eq!(spin_rotations, 165);
 
-        let end = bot.updated_position(RobotPosition::new(), -spin_rotations, spin_rotations);
+        let end = BOT.updated_position(RobotPosition::new(), -spin_rotations, spin_rotations);
         assert_approx_eq!(RobotPosition, end, RobotPosition::from(0.0, 0.0, Heading::new(90)));
 
-        let end = bot.updated_position(RobotPosition::new(), spin_rotations, -spin_rotations);
+        let end = BOT.updated_position(RobotPosition::new(), spin_rotations, -spin_rotations);
         assert_approx_eq!(RobotPosition, end, RobotPosition::from(0.0, 0.0, Heading::new(-90)));
     }
 
     #[test]
     fn view_trail() {
-        let bot = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS);
-        let rows_500 = RobotPath::from_csv("office_500_ms.csv", bot).unwrap();
+        let rows_500 = RobotPath::from_csv("office_500_ms.csv", BOT).unwrap();
         let positions = rows_500.position_sequence();
         println!("start:{:?} end:{:?}", positions.first().unwrap(), positions.last().unwrap());
+    }
+
+    #[test]
+    fn test_robot_sensor_position() {
+        // TODO: Write a test here.
+        assert!(false)
     }
 }

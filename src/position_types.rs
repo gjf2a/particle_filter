@@ -17,12 +17,16 @@ impl RobotPosition {
         RobotPosition {x, y, heading}
     }
 
+    pub fn update(&mut self, motion: PolarCoord) {
+        self.x += motion.x();
+        self.y += motion.y();
+        self.heading = self.heading + motion.theta.to_degrees() as i16;
+    }
+
     pub fn updated_by(&self, motion: PolarCoord) -> Self {
-        RobotPosition {
-            x: self.x + motion.x(),
-            y: self.y + motion.y(),
-            heading: self.heading + motion.theta.to_degrees() as i16
-        }
+        let mut result = self.clone();
+        result.update(motion);
+        result
     }
 
     pub fn position(&self) -> (f64, f64) {
