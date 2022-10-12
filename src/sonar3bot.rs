@@ -36,6 +36,8 @@ pub const EV3_WHEEL_RADIUS: f64 = EV3_WHEEL_DIAMETER / 2.0;
 //
 pub const EV3_SEPARATION_MODEL_1: f64 = 10.08;
 
+pub const BOT: TwoWheelBase = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS);
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct SensorData {
     sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64
@@ -60,6 +62,10 @@ pub struct RobotPath {
 }
 
 impl RobotPath {
+    pub fn new(base: TwoWheelBase) -> Self {
+        RobotPath {points: vec![], base}
+    }
+
     pub fn from_csv(csv_file: &str, base: TwoWheelBase) -> std::io::Result<Self> {
         let mut points = vec![];
         let reader = BufReader::new(File::open(csv_file)?);
@@ -128,9 +134,7 @@ mod tests {
     use float_cmp::assert_approx_eq;
     use crate::position_types::Heading;
     use crate::RobotPosition;
-    use crate::sonar3bot::{COUNTS_PER_ROTATION, EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS, RobotPath, TwoWheelBase};
-
-    const BOT: TwoWheelBase = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS);
+    use crate::sonar3bot::{BOT, COUNTS_PER_ROTATION, EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS, RobotPath, TwoWheelBase};
 
     #[test]
     fn test_basic_read() {
