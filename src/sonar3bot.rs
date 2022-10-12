@@ -41,6 +41,18 @@ pub struct SensorData {
     sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64
 }
 
+impl SensorData {
+    pub fn new(sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64) -> Self {
+        SensorData {
+            sonar_front,
+            sonar_left,
+            sonar_right,
+            motor_left,
+            motor_right
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RobotPath {
     base: TwoWheelBase,

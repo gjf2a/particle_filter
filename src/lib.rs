@@ -4,10 +4,10 @@ use crate::distribution::Distribution;
 pub use crate::position_types::{PolarCoord, RobotPosition};
 
 pub mod position_types;
+pub mod sonar3bot;
 mod grid_map;
 mod distribution;
 mod sonar;
-pub mod sonar3bot;
 
 pub trait SensorMap {
     type SensorReading;
