@@ -40,17 +40,18 @@ pub const BOT: TwoWheelBase = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEE
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct SensorData {
-    sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64
+    sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64, action_tag: i64
 }
 
 impl SensorData {
-    pub fn new(sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64) -> Self {
+    pub fn new(sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64, action_tag: i64) -> Self {
         SensorData {
             sonar_front,
             sonar_left,
             sonar_right,
             motor_left,
-            motor_right
+            motor_right,
+            action_tag
         }
     }
 }
@@ -58,21 +59,37 @@ impl SensorData {
 #[derive(Copy, Clone, Debug)]
 pub struct RobotSensorPosition {
     base: TwoWheelBase,
-    last_left: i64,
-    last_right: i64,
-    pos: RobotPosition,
-    num_updates: i64
+    action_start_left: i64, action_start_right: i64, action_start_pos: RobotPosition,
+    last_left: i64, last_right: i64, pos: RobotPosition,
+    num_updates: i64,
+    action_tag: i64
 }
 
 impl RobotSensorPosition {
     pub fn new(base: TwoWheelBase) -> Self {
-        RobotSensorPosition {base, last_left: 0, last_right: 0, pos: RobotPosition::new(), num_updates: 0}
+        RobotSensorPosition {
+            base,
+            action_start_left: 0,
+            action_start_right: 0,
+            action_start_pos: RobotPosition::new(),
+            last_left: 0,
+            last_right: 0,
+            pos: RobotPosition::new(),
+            num_updates: 0,
+            action_tag: 0
+        }
     }
 
     pub fn update(&mut self, datum: SensorData) {
-        self.pos = self.base.updated_position(self.pos,
-                                              datum.motor_left - self.last_left,
-                                              datum.motor_right - self.last_right);
+        if datum.action_tag != self.action_tag {
+            self.action_start_pos = self.pos;
+            self.action_tag = datum.action_tag;
+            self.action_start_left = self.last_left;
+            self.action_start_right = self.last_right;
+        }
+        self.pos = self.base.updated_position(self.action_start_pos,
+                                              datum.motor_left - self.action_start_left,
+                                              datum.motor_right - self.action_start_right);
         self.last_left = datum.motor_left;
         self.last_right = datum.motor_right;
         self.num_updates += 1;
@@ -83,7 +100,7 @@ impl RobotSensorPosition {
     }
 
     pub fn get_encoder_counts(&self) -> (i64, i64) {
-        (self.last_left, self.last_right)
+        (self.action_start_left, self.action_start_right)
     }
 
     pub fn num_updates(&self) -> i64 {
@@ -91,8 +108,8 @@ impl RobotSensorPosition {
     }
 
     pub fn reset(&mut self) {
-        self.last_left = 0;
-        self.last_right = 0;
+        self.action_start_left = 0;
+        self.action_start_right = 0;
         self.pos = RobotPosition::new();
         self.num_updates = 0;
     }
@@ -120,7 +137,7 @@ impl RobotPath {
             let sonar_right = parts.next().unwrap();
             let motor_left = parts.next().unwrap();
             let motor_right = parts.next().unwrap();
-            points.push(SensorData {sonar_front, sonar_left, sonar_right, motor_left, motor_right});
+            points.push(SensorData {sonar_front, sonar_left, sonar_right, motor_left, motor_right, action_tag: 0});
         }
         Ok(RobotPath {points, base})
     }
@@ -181,7 +198,7 @@ mod tests {
     use float_cmp::assert_approx_eq;
     use crate::position_types::Heading;
     use crate::RobotPosition;
-    use crate::sonar3bot::{BOT, COUNTS_PER_ROTATION, EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS, RobotPath, TwoWheelBase};
+    use crate::sonar3bot::{BOT, COUNTS_PER_ROTATION, EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS, RobotPath, RobotSensorPosition, SensorData, TwoWheelBase};
 
     #[test]
     fn test_basic_read() {
@@ -270,7 +287,27 @@ mod tests {
 
     #[test]
     fn test_robot_sensor_position() {
-        println!("\u{00b0}");
+        let mut r = RobotSensorPosition::new(BOT);
+        let s = SensorData {
+            sonar_front: 0,
+            sonar_left: 0,
+            sonar_right: 0,
+            motor_left: 3084,
+            motor_right: 3085,
+            action_tag: 0
+        };
+        r.update(s);
+        println!("r: {r:?}");
+        let s = SensorData {
+            sonar_front: 0,
+            sonar_left: 0,
+            sonar_right: 0,
+            motor_left: 3084 + 271,
+            motor_right: 3085 - 261,
+            action_tag: 0
+        };
+        r.update(s);
+        println!("r: {r:?}");
         // TODO: Write a test here.
         assert!(false)
     }
