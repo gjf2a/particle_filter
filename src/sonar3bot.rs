@@ -60,12 +60,13 @@ pub struct RobotSensorPosition {
     base: TwoWheelBase,
     last_left: i64,
     last_right: i64,
-    pos: RobotPosition
+    pos: RobotPosition,
+    num_updates: i64
 }
 
 impl RobotSensorPosition {
     pub fn new(base: TwoWheelBase) -> Self {
-        RobotSensorPosition {base, last_left: 0, last_right: 0, pos: RobotPosition::new()}
+        RobotSensorPosition {base, last_left: 0, last_right: 0, pos: RobotPosition::new(), num_updates: 0}
     }
 
     pub fn update(&mut self, datum: SensorData) {
@@ -74,6 +75,7 @@ impl RobotSensorPosition {
                                               datum.motor_right - self.last_right);
         self.last_left = datum.motor_left;
         self.last_right = datum.motor_right;
+        self.num_updates += 1;
     }
 
     pub fn get_pos(&self) -> RobotPosition {
@@ -84,10 +86,15 @@ impl RobotSensorPosition {
         (self.last_left, self.last_right)
     }
 
+    pub fn num_updates(&self) -> i64 {
+        self.num_updates
+    }
+
     pub fn reset(&mut self) {
         self.last_left = 0;
         self.last_right = 0;
         self.pos = RobotPosition::new();
+        self.num_updates = 0;
     }
 }
 
