@@ -75,6 +75,14 @@ impl RobotSensorPosition {
         self.last_left = datum.motor_left;
         self.last_right = datum.motor_right;
     }
+
+    pub fn get_pos(&self) -> RobotPosition {
+        self.pos
+    }
+
+    pub fn get_encoder_counts(&self) -> (i64, i64) {
+        (self.last_left, self.last_right)
+    }
 }
 
 #[derive(Clone, Debug)]
