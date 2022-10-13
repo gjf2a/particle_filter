@@ -257,6 +257,7 @@ mod tests {
 
     #[test]
     fn test_robot_sensor_position() {
+        println!("\u{00b0}");
         // TODO: Write a test here.
         assert!(false)
     }

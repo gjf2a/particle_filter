@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
 use std::ops::{Add, Neg, Sub};
 use bare_metal_modulo::{MNum, ModNumC};
 use float_cmp::{ApproxEq, F64Margin};
@@ -151,6 +152,13 @@ impl Heading {
 
     pub fn radians(&self) -> f64 {(self.degrees.a() as f64).to_radians()}
 }
+
+impl Display for Heading {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\u{00b0}", self.degrees.a())
+    }
+}
+
 
 impl Add<Heading> for Heading {
     type Output = Heading;
