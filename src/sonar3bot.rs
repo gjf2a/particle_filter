@@ -83,6 +83,12 @@ impl RobotSensorPosition {
     pub fn get_encoder_counts(&self) -> (i64, i64) {
         (self.last_left, self.last_right)
     }
+
+    pub fn reset(&mut self) {
+        self.last_left = 0;
+        self.last_right = 0;
+        self.pos = RobotPosition::new();
+    }
 }
 
 #[derive(Clone, Debug)]
