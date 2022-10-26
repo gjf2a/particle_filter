@@ -40,7 +40,7 @@ pub const BOT: TwoWheelBase = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEE
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct SensorData {
-    sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64, action_tag: i64
+    pub sonar_front: i64, pub sonar_left: i64, pub sonar_right: i64, pub motor_left: i64, pub motor_right: i64, pub action_tag: i64
 }
 
 impl SensorData {
