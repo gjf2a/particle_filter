@@ -12,7 +12,8 @@ rand = "0.8.5"
 array-init = "2.0.1"
 counting_ratio = {git = "https://github.com/gjf2a/counting_ratio"}
 float-cmp = "0.9.0"
-bare_metal_modulo = "0.11.3"
+bare_metal_modulo = "1"
+distribution_select = {git = "https://github.com/gjf2a/distribution_select"}
 
 [dev-dependencies]
 raqote = "0.8.1"

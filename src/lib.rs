@@ -1,12 +1,11 @@
 use std::cmp::max;
 use ordered_float::OrderedFloat;
-use crate::distribution::Distribution;
+use distribution_select::Distribution;
 pub use crate::position_types::{PolarCoord, RobotPosition};
 
 pub mod position_types;
 pub mod sonar3bot;
 mod grid_map;
-mod distribution;
 mod sonar;
 
 pub trait SensorMap {
