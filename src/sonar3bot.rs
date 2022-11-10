@@ -39,30 +39,33 @@ pub const EV3_SEPARATION_MODEL_1: f64 = 10.08;
 pub const BOT: TwoWheelBase = TwoWheelBase::new(EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct SensorData {
-    pub sonar_front: i64, pub sonar_left: i64, pub sonar_right: i64, pub motor_left: i64, pub motor_right: i64, pub action_tag: i64
+pub struct MotorData {
+    pub left_count: i64, pub right_count: i64,
+    pub left_speed: i64, pub right_speed: i64
 }
 
-impl SensorData {
-    pub fn new(sonar_front: i64, sonar_left: i64, sonar_right: i64, motor_left: i64, motor_right: i64, action_tag: i64) -> Self {
-        SensorData {
-            sonar_front,
-            sonar_left,
-            sonar_right,
-            motor_left,
-            motor_right,
-            action_tag
-        }
+impl MotorData {
+    pub fn speeds(&self) -> (i64, i64) {
+        (self.left_speed, self.right_speed)
     }
+
+    pub fn counts(&self) -> (i64, i64) {
+        (self.left_count, self.right_count)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Sonar3Data {
+    pub sonar_front: i64, pub sonar_left: i64, pub sonar_right: i64
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct RobotSensorPosition {
     base: TwoWheelBase,
     action_start_left: i64, action_start_right: i64, action_start_pos: RobotPosition,
-    last_left: i64, last_right: i64, pos: RobotPosition,
+    pos: RobotPosition,
     num_updates: i64,
-    action_tag: i64
+    last_action: MotorData
 }
 
 impl RobotSensorPosition {
@@ -72,26 +75,22 @@ impl RobotSensorPosition {
             action_start_left: 0,
             action_start_right: 0,
             action_start_pos: RobotPosition::new(),
-            last_left: 0,
-            last_right: 0,
+            last_action: MotorData {left_count: 0, left_speed: 0, right_count: 0, right_speed: 0},
             pos: RobotPosition::new(),
             num_updates: 0,
-            action_tag: 0
         }
     }
 
-    pub fn update(&mut self, datum: SensorData) {
-        if datum.action_tag != self.action_tag {
+    pub fn motor_update(&mut self, datum: MotorData) {
+        if datum.speeds() != self.last_action.speeds() {
             self.action_start_pos = self.pos;
-            self.action_tag = datum.action_tag;
-            self.action_start_left = self.last_left;
-            self.action_start_right = self.last_right;
+            self.action_start_left = self.last_action.left_count;
+            self.action_start_right = self.last_action.right_count;
         }
         self.pos = self.base.updated_position(self.action_start_pos,
-                                              datum.motor_left - self.action_start_left,
-                                              datum.motor_right - self.action_start_right);
-        self.last_left = datum.motor_left;
-        self.last_right = datum.motor_right;
+                                              datum.left_count - self.action_start_left,
+                                              datum.right_count - self.action_start_right);
+        self.last_action = datum;
         self.num_updates += 1;
     }
 
@@ -118,7 +117,7 @@ impl RobotSensorPosition {
 #[derive(Clone, Debug)]
 pub struct RobotPath {
     base: TwoWheelBase,
-    points: Vec<SensorData>
+    points: Vec<MotorData>
 }
 
 impl RobotPath {
@@ -132,17 +131,17 @@ impl RobotPath {
         for line in reader.lines().skip(1) {
             let line = line?;
             let mut parts = line.split(",").map(|p| p.trim().parse().unwrap());
-            let sonar_front = parts.next().unwrap();
-            let sonar_left = parts.next().unwrap();
-            let sonar_right = parts.next().unwrap();
-            let motor_left = parts.next().unwrap();
-            let motor_right = parts.next().unwrap();
-            points.push(SensorData {sonar_front, sonar_left, sonar_right, motor_left, motor_right, action_tag: 0});
+            let _sonar_front = parts.next().unwrap();
+            let _sonar_left = parts.next().unwrap();
+            let _sonar_right = parts.next().unwrap();
+            let left_count = parts.next().unwrap();
+            let right_count = parts.next().unwrap();
+            points.push(MotorData {left_count, right_count, left_speed: 0, right_speed: 0});
         }
         Ok(RobotPath {points, base})
     }
 
-    pub fn add(&mut self, point: SensorData) {
+    pub fn add(&mut self, point: MotorData) {
         self.points.push(point);
     }
 
@@ -151,8 +150,8 @@ impl RobotPath {
     pub fn position_sequence(&self) -> Vec<RobotPosition> {
         let mut result = vec![RobotPosition::new()];
         for (i, datum) in self.points.iter().enumerate() {
-            let (prev_l, prev_r) = if i == 0 {(0, 0)} else {(self.points[i-1].motor_left, self.points[i-1].motor_right)};
-            result.push(self.base.updated_position(*result.last().unwrap(), datum.motor_left - prev_l, datum.motor_right - prev_r));
+            let (prev_l, prev_r) = if i == 0 {(0, 0)} else {(self.points[i-1].left_count, self.points[i-1].right_count)};
+            result.push(self.base.updated_position(*result.last().unwrap(), datum.left_count - prev_l, datum.right_count - prev_r));
         }
         result
     }
@@ -198,13 +197,13 @@ mod tests {
     use float_cmp::assert_approx_eq;
     use crate::position_types::Heading;
     use crate::RobotPosition;
-    use crate::sonar3bot::{BOT, COUNTS_PER_ROTATION, EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS, RobotPath, RobotSensorPosition, SensorData, TwoWheelBase};
+    use crate::sonar3bot::{BOT, COUNTS_PER_ROTATION, EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS, MotorData, RobotPath, RobotSensorPosition, TwoWheelBase};
 
     #[test]
     fn test_basic_read() {
         let rows_500 = RobotPath::from_csv("office_500_ms.csv", BOT).unwrap();
         assert_eq!(rows_500.len(), 107);
-        assert_eq!(format!("{:?}", rows_500), "RobotPath { base: TwoWheelBase { wheel_separation: 10.08, wheel_radius: 2.75 }, points: [SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 122, motor_right: 122 }, SensorData { sonar_front: 1805, sonar_left: 2550, sonar_right: 2550, motor_left: 306, motor_right: 305 }, SensorData { sonar_front: 1343, sonar_left: 2550, sonar_right: 2550, motor_left: 490, motor_right: 489 }, SensorData { sonar_front: 1297, sonar_left: 2550, sonar_right: 2550, motor_left: 675, motor_right: 673 }, SensorData { sonar_front: 1550, sonar_left: 2550, sonar_right: 2550, motor_left: 858, motor_right: 857 }, SensorData { sonar_front: 1474, sonar_left: 2550, sonar_right: 2550, motor_left: 1043, motor_right: 1042 }, SensorData { sonar_front: 1379, sonar_left: 2550, sonar_right: 530, motor_left: 1227, motor_right: 1226 }, SensorData { sonar_front: 792, sonar_left: 2550, sonar_right: 500, motor_left: 1413, motor_right: 1412 }, SensorData { sonar_front: 1278, sonar_left: 2550, sonar_right: 2550, motor_left: 1598, motor_right: 1597 }, SensorData { sonar_front: 1160, sonar_left: 2550, sonar_right: 2550, motor_left: 1781, motor_right: 1780 }, SensorData { sonar_front: 756, sonar_left: 2550, sonar_right: 2550, motor_left: 1970, motor_right: 1969 }, SensorData { sonar_front: 1106, sonar_left: 2550, sonar_right: 2550, motor_left: 2156, motor_right: 2155 }, SensorData { sonar_front: 954, sonar_left: 2550, sonar_right: 2550, motor_left: 2342, motor_right: 2342 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 2527, motor_right: 2526 }, SensorData { sonar_front: 1273, sonar_left: 2550, sonar_right: 410, motor_left: 2711, motor_right: 2710 }, SensorData { sonar_front: 1101, sonar_left: 2550, sonar_right: 450, motor_left: 2894, motor_right: 2893 }, SensorData { sonar_front: 1628, sonar_left: 2550, sonar_right: 430, motor_left: 3081, motor_right: 3081 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 410, motor_left: 3265, motor_right: 3264 }, SensorData { sonar_front: 1513, sonar_left: 2550, sonar_right: 2550, motor_left: 3450, motor_right: 3450 }, SensorData { sonar_front: 1404, sonar_left: 2550, sonar_right: 2550, motor_left: 3636, motor_right: 3635 }, SensorData { sonar_front: 947, sonar_left: 2550, sonar_right: 430, motor_left: 3822, motor_right: 3822 }, SensorData { sonar_front: 1458, sonar_left: 2550, sonar_right: 430, motor_left: 4006, motor_right: 4006 }, SensorData { sonar_front: 1301, sonar_left: 2550, sonar_right: 2550, motor_left: 4194, motor_right: 4193 }, SensorData { sonar_front: 1189, sonar_left: 2550, sonar_right: 2550, motor_left: 4378, motor_right: 4377 }, SensorData { sonar_front: 1111, sonar_left: 2550, sonar_right: 2550, motor_left: 4563, motor_right: 4563 }, SensorData { sonar_front: 1031, sonar_left: 880, sonar_right: 2550, motor_left: 4750, motor_right: 4750 }, SensorData { sonar_front: 968, sonar_left: 820, sonar_right: 690, motor_left: 4937, motor_right: 4936 }, SensorData { sonar_front: 968, sonar_left: 1030, sonar_right: 2550, motor_left: 5122, motor_right: 5122 }, SensorData { sonar_front: 754, sonar_left: 970, sonar_right: 2550, motor_left: 5308, motor_right: 5307 }, SensorData { sonar_front: 679, sonar_left: 640, sonar_right: 2550, motor_left: 5491, motor_right: 5490 }, SensorData { sonar_front: 573, sonar_left: 550, sonar_right: 2550, motor_left: 5678, motor_right: 5677 }, SensorData { sonar_front: 506, sonar_left: 450, sonar_right: 560, motor_left: 5862, motor_right: 5862 }, SensorData { sonar_front: 399, sonar_left: 370, sonar_right: 680, motor_left: 6048, motor_right: 6047 }, SensorData { sonar_front: 326, sonar_left: 290, sonar_right: 580, motor_left: 6234, motor_right: 6232 }, SensorData { sonar_front: 326, sonar_left: 210, sonar_right: 450, motor_left: 6419, motor_right: 6265 }, SensorData { sonar_front: 445, sonar_left: 210, sonar_right: 420, motor_left: 6605, motor_right: 6372 }, SensorData { sonar_front: 364, sonar_left: 200, sonar_right: 320, motor_left: 6792, motor_right: 6558 }, SensorData { sonar_front: 265, sonar_left: 200, sonar_right: 250, motor_left: 6975, motor_right: 6669 }, SensorData { sonar_front: 340, sonar_left: 220, sonar_right: 2550, motor_left: 7160, motor_right: 6533 }, SensorData { sonar_front: 740, sonar_left: 230, sonar_right: 2550, motor_left: 7346, motor_right: 6664 }, SensorData { sonar_front: 326, sonar_left: 220, sonar_right: 2550, motor_left: 7535, motor_right: 6853 }, SensorData { sonar_front: 542, sonar_left: 210, sonar_right: 2550, motor_left: 7721, motor_right: 7038 }, SensorData { sonar_front: 446, sonar_left: 200, sonar_right: 2550, motor_left: 7904, motor_right: 7221 }, SensorData { sonar_front: 353, sonar_left: 200, sonar_right: 700, motor_left: 8090, motor_right: 7408 }, SensorData { sonar_front: 265, sonar_left: 200, sonar_right: 2550, motor_left: 8276, motor_right: 7556 }, SensorData { sonar_front: 2550, sonar_left: 220, sonar_right: 2550, motor_left: 8462, motor_right: 7445 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 8645, motor_right: 7557 }, SensorData { sonar_front: 1044, sonar_left: 2550, sonar_right: 1110, motor_left: 8830, motor_right: 7742 }, SensorData { sonar_front: 2335, sonar_left: 2550, sonar_right: 1070, motor_left: 9014, motor_right: 7926 }, SensorData { sonar_front: 1406, sonar_left: 2550, sonar_right: 1070, motor_left: 9204, motor_right: 8116 }, SensorData { sonar_front: 1450, sonar_left: 2550, sonar_right: 1310, motor_left: 9393, motor_right: 8305 }, SensorData { sonar_front: 1589, sonar_left: 2550, sonar_right: 2550, motor_left: 9577, motor_right: 8489 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 9762, motor_right: 8674 }, SensorData { sonar_front: 1217, sonar_left: 2550, sonar_right: 2550, motor_left: 9949, motor_right: 8861 }, SensorData { sonar_front: 1680, sonar_left: 2550, sonar_right: 2550, motor_left: 10133, motor_right: 9045 }, SensorData { sonar_front: 1597, sonar_left: 2550, sonar_right: 2550, motor_left: 10321, motor_right: 9232 }, SensorData { sonar_front: 993, sonar_left: 2550, sonar_right: 2550, motor_left: 10506, motor_right: 9418 }, SensorData { sonar_front: 1337, sonar_left: 2550, sonar_right: 2550, motor_left: 10693, motor_right: 9605 }, SensorData { sonar_front: 1263, sonar_left: 2550, sonar_right: 2550, motor_left: 10877, motor_right: 9789 }, SensorData { sonar_front: 994, sonar_left: 2550, sonar_right: 2550, motor_left: 11062, motor_right: 9974 }, SensorData { sonar_front: 1062, sonar_left: 2550, sonar_right: 2550, motor_left: 11250, motor_right: 10162 }, SensorData { sonar_front: 973, sonar_left: 2550, sonar_right: 2550, motor_left: 11437, motor_right: 10348 }, SensorData { sonar_front: 916, sonar_left: 2550, sonar_right: 1230, motor_left: 11620, motor_right: 10532 }, SensorData { sonar_front: 774, sonar_left: 2550, sonar_right: 1170, motor_left: 11807, motor_right: 10718 }, SensorData { sonar_front: 696, sonar_left: 2550, sonar_right: 2550, motor_left: 11991, motor_right: 10903 }, SensorData { sonar_front: 345, sonar_left: 2550, sonar_right: 2550, motor_left: 12175, motor_right: 11087 }, SensorData { sonar_front: 525, sonar_left: 2550, sonar_right: 2550, motor_left: 12361, motor_right: 11272 }, SensorData { sonar_front: 435, sonar_left: 2550, sonar_right: 2550, motor_left: 12546, motor_right: 11457 }, SensorData { sonar_front: 347, sonar_left: 2550, sonar_right: 2550, motor_left: 12732, motor_right: 11644 }, SensorData { sonar_front: 263, sonar_left: 2550, sonar_right: 290, motor_left: 12886, motor_right: 11827 }, SensorData { sonar_front: 1189, sonar_left: 2550, sonar_right: 220, motor_left: 12834, motor_right: 12016 }, SensorData { sonar_front: 757, sonar_left: 2550, sonar_right: 210, motor_left: 13007, motor_right: 12202 }, SensorData { sonar_front: 496, sonar_left: 2550, sonar_right: 210, motor_left: 13195, motor_right: 12390 }, SensorData { sonar_front: 433, sonar_left: 2550, sonar_right: 110, motor_left: 13380, motor_right: 12576 }, SensorData { sonar_front: 326, sonar_left: 2550, sonar_right: 220, motor_left: 13503, motor_right: 12762 }, SensorData { sonar_front: 326, sonar_left: 2550, sonar_right: 50, motor_left: 13627, motor_right: 12945 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 13535, motor_right: 13130 }, SensorData { sonar_front: 849, sonar_left: 2550, sonar_right: 2550, motor_left: 13700, motor_right: 13321 }, SensorData { sonar_front: 929, sonar_left: 2550, sonar_right: 2550, motor_left: 13884, motor_right: 13506 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 14070, motor_right: 13691 }, SensorData { sonar_front: 721, sonar_left: 2550, sonar_right: 2550, motor_left: 14259, motor_right: 13880 }, SensorData { sonar_front: 849, sonar_left: 2550, sonar_right: 2550, motor_left: 14444, motor_right: 14065 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 14630, motor_right: 14250 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 14816, motor_right: 14436 }, SensorData { sonar_front: 1577, sonar_left: 2550, sonar_right: 2550, motor_left: 15001, motor_right: 14620 }, SensorData { sonar_front: 2550, sonar_left: 2550, sonar_right: 2550, motor_left: 15185, motor_right: 14806 }, SensorData { sonar_front: 2211, sonar_left: 2550, sonar_right: 2550, motor_left: 15373, motor_right: 14993 }, SensorData { sonar_front: 2205, sonar_left: 2550, sonar_right: 2550, motor_left: 15559, motor_right: 15180 }, SensorData { sonar_front: 2033, sonar_left: 2550, sonar_right: 2550, motor_left: 15746, motor_right: 15367 }, SensorData { sonar_front: 2122, sonar_left: 2550, sonar_right: 2550, motor_left: 15931, motor_right: 15552 }, SensorData { sonar_front: 853, sonar_left: 2550, sonar_right: 2550, motor_left: 16119, motor_right: 15740 }, SensorData { sonar_front: 1201, sonar_left: 1030, sonar_right: 2550, motor_left: 16305, motor_right: 15926 }, SensorData { sonar_front: 1092, sonar_left: 980, sonar_right: 2550, motor_left: 16493, motor_right: 16112 }, SensorData { sonar_front: 1839, sonar_left: 980, sonar_right: 2550, motor_left: 16677, motor_right: 16297 }, SensorData { sonar_front: 1509, sonar_left: 880, sonar_right: 2550, motor_left: 16863, motor_right: 16483 }, SensorData { sonar_front: 960, sonar_left: 850, sonar_right: 2550, motor_left: 17048, motor_right: 16668 }, SensorData { sonar_front: 1198, sonar_left: 770, sonar_right: 2550, motor_left: 17236, motor_right: 16856 }, SensorData { sonar_front: 1231, sonar_left: 690, sonar_right: 2550, motor_left: 17423, motor_right: 17044 }, SensorData { sonar_front: 1000, sonar_left: 640, sonar_right: 2550, motor_left: 17612, motor_right: 17233 }, SensorData { sonar_front: 1022, sonar_left: 840, sonar_right: 2550, motor_left: 17935, motor_right: 17333 }, SensorData { sonar_front: 536, sonar_left: 2550, sonar_right: 2550, motor_left: 18126, motor_right: 17320 }, SensorData { sonar_front: 469, sonar_left: 2550, sonar_right: 250, motor_left: 18313, motor_right: 17508 }, SensorData { sonar_front: 420, sonar_left: 2550, sonar_right: 240, motor_left: 18360, motor_right: 17692 }, SensorData { sonar_front: 833, sonar_left: 2550, sonar_right: 310, motor_left: 18529, motor_right: 17880 }, SensorData { sonar_front: 483, sonar_left: 2550, sonar_right: 230, motor_left: 18759, motor_right: 18131 }, SensorData { sonar_front: 687, sonar_left: 2550, sonar_right: 2550, motor_left: 18907, motor_right: 18318 }, SensorData { sonar_front: 546, sonar_left: 2550, sonar_right: 2550, motor_left: 19091, motor_right: 18503 }] }");
+        assert_eq!(format!("{rows_500:?}"), "RobotPath { base: TwoWheelBase { wheel_separation: 10.08, wheel_radius: 2.75 }, points: [MotorData { left_count: 122, right_count: 122, left_speed: 0, right_speed: 0 }, MotorData { left_count: 306, right_count: 305, left_speed: 0, right_speed: 0 }, MotorData { left_count: 490, right_count: 489, left_speed: 0, right_speed: 0 }, MotorData { left_count: 675, right_count: 673, left_speed: 0, right_speed: 0 }, MotorData { left_count: 858, right_count: 857, left_speed: 0, right_speed: 0 }, MotorData { left_count: 1043, right_count: 1042, left_speed: 0, right_speed: 0 }, MotorData { left_count: 1227, right_count: 1226, left_speed: 0, right_speed: 0 }, MotorData { left_count: 1413, right_count: 1412, left_speed: 0, right_speed: 0 }, MotorData { left_count: 1598, right_count: 1597, left_speed: 0, right_speed: 0 }, MotorData { left_count: 1781, right_count: 1780, left_speed: 0, right_speed: 0 }, MotorData { left_count: 1970, right_count: 1969, left_speed: 0, right_speed: 0 }, MotorData { left_count: 2156, right_count: 2155, left_speed: 0, right_speed: 0 }, MotorData { left_count: 2342, right_count: 2342, left_speed: 0, right_speed: 0 }, MotorData { left_count: 2527, right_count: 2526, left_speed: 0, right_speed: 0 }, MotorData { left_count: 2711, right_count: 2710, left_speed: 0, right_speed: 0 }, MotorData { left_count: 2894, right_count: 2893, left_speed: 0, right_speed: 0 }, MotorData { left_count: 3081, right_count: 3081, left_speed: 0, right_speed: 0 }, MotorData { left_count: 3265, right_count: 3264, left_speed: 0, right_speed: 0 }, MotorData { left_count: 3450, right_count: 3450, left_speed: 0, right_speed: 0 }, MotorData { left_count: 3636, right_count: 3635, left_speed: 0, right_speed: 0 }, MotorData { left_count: 3822, right_count: 3822, left_speed: 0, right_speed: 0 }, MotorData { left_count: 4006, right_count: 4006, left_speed: 0, right_speed: 0 }, MotorData { left_count: 4194, right_count: 4193, left_speed: 0, right_speed: 0 }, MotorData { left_count: 4378, right_count: 4377, left_speed: 0, right_speed: 0 }, MotorData { left_count: 4563, right_count: 4563, left_speed: 0, right_speed: 0 }, MotorData { left_count: 4750, right_count: 4750, left_speed: 0, right_speed: 0 }, MotorData { left_count: 4937, right_count: 4936, left_speed: 0, right_speed: 0 }, MotorData { left_count: 5122, right_count: 5122, left_speed: 0, right_speed: 0 }, MotorData { left_count: 5308, right_count: 5307, left_speed: 0, right_speed: 0 }, MotorData { left_count: 5491, right_count: 5490, left_speed: 0, right_speed: 0 }, MotorData { left_count: 5678, right_count: 5677, left_speed: 0, right_speed: 0 }, MotorData { left_count: 5862, right_count: 5862, left_speed: 0, right_speed: 0 }, MotorData { left_count: 6048, right_count: 6047, left_speed: 0, right_speed: 0 }, MotorData { left_count: 6234, right_count: 6232, left_speed: 0, right_speed: 0 }, MotorData { left_count: 6419, right_count: 6265, left_speed: 0, right_speed: 0 }, MotorData { left_count: 6605, right_count: 6372, left_speed: 0, right_speed: 0 }, MotorData { left_count: 6792, right_count: 6558, left_speed: 0, right_speed: 0 }, MotorData { left_count: 6975, right_count: 6669, left_speed: 0, right_speed: 0 }, MotorData { left_count: 7160, right_count: 6533, left_speed: 0, right_speed: 0 }, MotorData { left_count: 7346, right_count: 6664, left_speed: 0, right_speed: 0 }, MotorData { left_count: 7535, right_count: 6853, left_speed: 0, right_speed: 0 }, MotorData { left_count: 7721, right_count: 7038, left_speed: 0, right_speed: 0 }, MotorData { left_count: 7904, right_count: 7221, left_speed: 0, right_speed: 0 }, MotorData { left_count: 8090, right_count: 7408, left_speed: 0, right_speed: 0 }, MotorData { left_count: 8276, right_count: 7556, left_speed: 0, right_speed: 0 }, MotorData { left_count: 8462, right_count: 7445, left_speed: 0, right_speed: 0 }, MotorData { left_count: 8645, right_count: 7557, left_speed: 0, right_speed: 0 }, MotorData { left_count: 8830, right_count: 7742, left_speed: 0, right_speed: 0 }, MotorData { left_count: 9014, right_count: 7926, left_speed: 0, right_speed: 0 }, MotorData { left_count: 9204, right_count: 8116, left_speed: 0, right_speed: 0 }, MotorData { left_count: 9393, right_count: 8305, left_speed: 0, right_speed: 0 }, MotorData { left_count: 9577, right_count: 8489, left_speed: 0, right_speed: 0 }, MotorData { left_count: 9762, right_count: 8674, left_speed: 0, right_speed: 0 }, MotorData { left_count: 9949, right_count: 8861, left_speed: 0, right_speed: 0 }, MotorData { left_count: 10133, right_count: 9045, left_speed: 0, right_speed: 0 }, MotorData { left_count: 10321, right_count: 9232, left_speed: 0, right_speed: 0 }, MotorData { left_count: 10506, right_count: 9418, left_speed: 0, right_speed: 0 }, MotorData { left_count: 10693, right_count: 9605, left_speed: 0, right_speed: 0 }, MotorData { left_count: 10877, right_count: 9789, left_speed: 0, right_speed: 0 }, MotorData { left_count: 11062, right_count: 9974, left_speed: 0, right_speed: 0 }, MotorData { left_count: 11250, right_count: 10162, left_speed: 0, right_speed: 0 }, MotorData { left_count: 11437, right_count: 10348, left_speed: 0, right_speed: 0 }, MotorData { left_count: 11620, right_count: 10532, left_speed: 0, right_speed: 0 }, MotorData { left_count: 11807, right_count: 10718, left_speed: 0, right_speed: 0 }, MotorData { left_count: 11991, right_count: 10903, left_speed: 0, right_speed: 0 }, MotorData { left_count: 12175, right_count: 11087, left_speed: 0, right_speed: 0 }, MotorData { left_count: 12361, right_count: 11272, left_speed: 0, right_speed: 0 }, MotorData { left_count: 12546, right_count: 11457, left_speed: 0, right_speed: 0 }, MotorData { left_count: 12732, right_count: 11644, left_speed: 0, right_speed: 0 }, MotorData { left_count: 12886, right_count: 11827, left_speed: 0, right_speed: 0 }, MotorData { left_count: 12834, right_count: 12016, left_speed: 0, right_speed: 0 }, MotorData { left_count: 13007, right_count: 12202, left_speed: 0, right_speed: 0 }, MotorData { left_count: 13195, right_count: 12390, left_speed: 0, right_speed: 0 }, MotorData { left_count: 13380, right_count: 12576, left_speed: 0, right_speed: 0 }, MotorData { left_count: 13503, right_count: 12762, left_speed: 0, right_speed: 0 }, MotorData { left_count: 13627, right_count: 12945, left_speed: 0, right_speed: 0 }, MotorData { left_count: 13535, right_count: 13130, left_speed: 0, right_speed: 0 }, MotorData { left_count: 13700, right_count: 13321, left_speed: 0, right_speed: 0 }, MotorData { left_count: 13884, right_count: 13506, left_speed: 0, right_speed: 0 }, MotorData { left_count: 14070, right_count: 13691, left_speed: 0, right_speed: 0 }, MotorData { left_count: 14259, right_count: 13880, left_speed: 0, right_speed: 0 }, MotorData { left_count: 14444, right_count: 14065, left_speed: 0, right_speed: 0 }, MotorData { left_count: 14630, right_count: 14250, left_speed: 0, right_speed: 0 }, MotorData { left_count: 14816, right_count: 14436, left_speed: 0, right_speed: 0 }, MotorData { left_count: 15001, right_count: 14620, left_speed: 0, right_speed: 0 }, MotorData { left_count: 15185, right_count: 14806, left_speed: 0, right_speed: 0 }, MotorData { left_count: 15373, right_count: 14993, left_speed: 0, right_speed: 0 }, MotorData { left_count: 15559, right_count: 15180, left_speed: 0, right_speed: 0 }, MotorData { left_count: 15746, right_count: 15367, left_speed: 0, right_speed: 0 }, MotorData { left_count: 15931, right_count: 15552, left_speed: 0, right_speed: 0 }, MotorData { left_count: 16119, right_count: 15740, left_speed: 0, right_speed: 0 }, MotorData { left_count: 16305, right_count: 15926, left_speed: 0, right_speed: 0 }, MotorData { left_count: 16493, right_count: 16112, left_speed: 0, right_speed: 0 }, MotorData { left_count: 16677, right_count: 16297, left_speed: 0, right_speed: 0 }, MotorData { left_count: 16863, right_count: 16483, left_speed: 0, right_speed: 0 }, MotorData { left_count: 17048, right_count: 16668, left_speed: 0, right_speed: 0 }, MotorData { left_count: 17236, right_count: 16856, left_speed: 0, right_speed: 0 }, MotorData { left_count: 17423, right_count: 17044, left_speed: 0, right_speed: 0 }, MotorData { left_count: 17612, right_count: 17233, left_speed: 0, right_speed: 0 }, MotorData { left_count: 17935, right_count: 17333, left_speed: 0, right_speed: 0 }, MotorData { left_count: 18126, right_count: 17320, left_speed: 0, right_speed: 0 }, MotorData { left_count: 18313, right_count: 17508, left_speed: 0, right_speed: 0 }, MotorData { left_count: 18360, right_count: 17692, left_speed: 0, right_speed: 0 }, MotorData { left_count: 18529, right_count: 17880, left_speed: 0, right_speed: 0 }, MotorData { left_count: 18759, right_count: 18131, left_speed: 0, right_speed: 0 }, MotorData { left_count: 18907, right_count: 18318, left_speed: 0, right_speed: 0 }, MotorData { left_count: 19091, right_count: 18503, left_speed: 0, right_speed: 0 }] }");
     }
 
     #[test]
@@ -288,25 +287,21 @@ mod tests {
     #[test]
     fn test_robot_sensor_position() {
         let mut r = RobotSensorPosition::new(BOT);
-        let s = SensorData {
-            sonar_front: 0,
-            sonar_left: 0,
-            sonar_right: 0,
-            motor_left: 3084,
-            motor_right: 3085,
-            action_tag: 0
+        let s = MotorData {
+            left_count: 3084,
+            right_count: 3085,
+            left_speed: 0,
+            right_speed: 0
         };
-        r.update(s);
+        r.motor_update(s);
         println!("r: {r:?}");
-        let s = SensorData {
-            sonar_front: 0,
-            sonar_left: 0,
-            sonar_right: 0,
-            motor_left: 3084 + 271,
-            motor_right: 3085 - 261,
-            action_tag: 0
+        let s = MotorData {
+            left_count: 3084 + 271,
+            right_count: 3085 - 261,
+            left_speed: 0,
+            right_speed: 0
         };
-        r.update(s);
+        r.motor_update(s);
         println!("r: {r:?}");
         // TODO: Write a test here.
         assert!(false)
