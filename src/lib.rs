@@ -8,8 +8,8 @@ pub mod sonar3bot;
 mod grid_map;
 mod sonar;
 
-pub trait SensorMap {
-    type SensorReading;
+pub trait SensorCorrection : Clone {
+    type SensorReading: Clone;
 
     fn fit(&self, position: &RobotPosition, reading: &Self::SensorReading) -> f64;
 
@@ -17,20 +17,20 @@ pub trait SensorMap {
 }
 
 #[derive(Clone)]
-pub struct Particle<M: Clone+SensorMap<SensorReading=S>, S:Clone> {
+pub struct Particle<C: SensorCorrection<SensorReading=S>, S: Clone> {
     pos: RobotPosition,
-    map: M
+    map: C
 }
 
 #[derive(Clone)]
-pub struct ParticleFilter<M: Clone+SensorMap<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> PolarCoord> {
-    particles: Vec<Particle<M, S>>,
+pub struct ParticleFilter<C: SensorCorrection<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> PolarCoord> {
+    particles: Vec<Particle<C, S>>,
     noise_function: N,
-    best: Particle<M,S>
+    best: Particle<C,S>
 }
 
-impl <M: Clone + SensorMap<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> PolarCoord> ParticleFilter<M, S, N> {
-    pub fn new<P: Fn() -> Particle<M, S>>(num_particles: usize, noise_function: N, particle_maker: P) -> Self {
+impl <C: SensorCorrection<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> PolarCoord> ParticleFilter<C, S, N> {
+    pub fn new<P: Fn() -> Particle<C, S>>(num_particles: usize, noise_function: N, particle_maker: P) -> Self {
         ParticleFilter {
             particles: (0..num_particles).map(|_| particle_maker()).collect(),
             noise_function,
@@ -51,7 +51,7 @@ impl <M: Clone + SensorMap<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> Pola
     }
 
     fn resample(&mut self, measurement: &S, motion: PolarCoord) {
-        let particle_fits: Vec<(&Particle<M,S>, f64)> = self.particles.iter()
+        let particle_fits: Vec<(&Particle<C,S>, f64)> = self.particles.iter()
             .map(|p| (p, p.map.fit(&p.pos.updated_by(motion), measurement))).collect();
         let distro = Self::make_distro_from(&particle_fits);
         self.best = self.get_best_from(&particle_fits);
@@ -59,8 +59,8 @@ impl <M: Clone + SensorMap<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> Pola
         self.particles = (0..num_particles).map(|_| distro.random_pick()).collect();
     }
 
-    fn make_distro_from(particle_fits: &Vec<(&Particle<M,S>, f64)>) -> Distribution<Particle<M,S>> {
-        let mut distro: Distribution<Particle<M,S>> = Distribution::new();
+    fn make_distro_from(particle_fits: &Vec<(&Particle<C,S>, f64)>) -> Distribution<Particle<C,S>> {
+        let mut distro: Distribution<Particle<C,S>> = Distribution::new();
         for (particle, fit) in particle_fits.iter() {
             let fit = 1.0 + max(OrderedFloat(0.0), OrderedFloat(*fit)).into_inner();
             distro.add(particle, fit);
@@ -68,7 +68,7 @@ impl <M: Clone + SensorMap<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> Pola
         distro
     }
 
-    fn get_best_from(&self, particle_fits: &Vec<(&Particle<M,S>, f64)>) -> Particle<M, S> {
+    fn get_best_from(&self, particle_fits: &Vec<(&Particle<C,S>, f64)>) -> Particle<C, S> {
         let mut best = 0;
         for i in 1..particle_fits.len() {
             if particle_fits[i].1 > particle_fits[best].1 {

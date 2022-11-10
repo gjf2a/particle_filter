@@ -1,5 +1,5 @@
 use crate::grid_map::BooleanGridMap;
-use crate::{RobotPosition, SensorMap};
+use crate::{RobotPosition, SensorCorrection};
 use array_init::array_init;
 use counting_ratio::CountingRatio;
 use crate::position_types::Heading;
@@ -48,7 +48,7 @@ impl <const N: usize> SonarMap<N> {
     }
 }
 
-impl <const N: usize> SensorMap for SonarMap<N> {
+impl <const N: usize> SensorCorrection for SonarMap<N> {
     type SensorReading = [f64; N];
 
     fn fit(&self, position: &RobotPosition, reading: &Self::SensorReading) -> f64 {
