@@ -1,8 +1,5 @@
-use minifb::{MouseMode, Window, WindowOptions, ScaleMode, Scale};
-use raqote::{DrawTarget, SolidSource, Source, DrawOptions, PathBuilder, Point, Transform, StrokeStyle};
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
+use minifb::{Window, WindowOptions};
+use raqote::{DrawTarget, SolidSource, Source, DrawOptions, PathBuilder};
 use particle_filter::position_types::PositionBounds;
 use particle_filter::RobotPosition;
 

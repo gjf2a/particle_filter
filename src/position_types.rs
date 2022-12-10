@@ -3,19 +3,20 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Add, Neg, Sub};
 use bare_metal_modulo::{MNum, ModNumC};
 use float_cmp::{ApproxEq, F64Margin};
+use ordered_float::OrderedFloat;
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd, Debug)]
 pub struct RobotPosition {
-    x: f64, y: f64, heading: Heading
+    x: OrderedFloat<f64>, y: OrderedFloat<f64>, heading: Heading
 }
 
 impl RobotPosition {
     pub fn new() -> Self {
-        RobotPosition {x: 0.0, y: 0.0, heading: Heading::new(0)}
+        RobotPosition {x: OrderedFloat(0.0), y: OrderedFloat(0.0), heading: Heading::new(0)}
     }
 
     pub fn from(x: f64, y: f64, heading: Heading) -> Self {
-        RobotPosition {x, y, heading}
+        RobotPosition {x: OrderedFloat(x), y: OrderedFloat(y), heading}
     }
 
     pub fn update(&mut self, motion: PolarCoord) {
@@ -31,7 +32,7 @@ impl RobotPosition {
     }
 
     pub fn position(&self) -> (f64, f64) {
-        (self.x, self.y)
+        (self.x.into_inner(), self.y.into_inner())
     }
 
     pub fn heading(&self) -> Heading {
@@ -41,7 +42,7 @@ impl RobotPosition {
     pub fn offset_point(&self, distance: f64, offset: f64) -> (f64, f64) {
         let absolute_heading = offset + self.heading.radians();
         let displacement = PolarCoord::new(distance, absolute_heading);
-        (self.x + displacement.x(), self.y + displacement.y())
+        (self.x.into_inner() + displacement.x(), self.y.into_inner() + displacement.y())
     }
 }
 
@@ -58,7 +59,7 @@ impl ApproxEq for RobotPosition {
 
     fn approx_eq<M: Into<Self::Margin>>(self, other: Self, margin: M) -> bool {
         let margin = margin.into();
-        self.x.approx_eq(other.x, margin) && self.y.approx_eq(other.y, margin) && self.heading == other.heading
+        self.x.into_inner().approx_eq(other.x.into_inner(), margin) && self.y.into_inner().approx_eq(other.y.into_inner(), margin) && self.heading == other.heading
     }
 }
 
@@ -95,7 +96,7 @@ impl PositionBounds {
 
     pub fn from(positions: &Vec<RobotPosition>) -> Self {
         assert!(positions.len() >= 1);
-        let mut result = Self::from_pts(positions[0].x, positions[0].y, positions[0].x, positions[0].y);
+        let mut result = Self::from_pts(positions[0].x.into_inner(), positions[0].y.into_inner(), positions[0].x.into_inner(), positions[0].y.into_inner());
         for pos in positions.iter().skip(1) {
             result.add(pos);
         }
@@ -108,10 +109,10 @@ impl PositionBounds {
     pub fn max_y(&self) -> f64 {self.bounds[MAX_Y]}
 
     pub fn add(&mut self, pos: &RobotPosition) {
-        replace_min(&mut self.bounds[MIN_X], pos.x);
-        replace_min(&mut self.bounds[MIN_Y], pos.y);
-        replace_max(&mut self.bounds[MAX_X], pos.x);
-        replace_max(&mut self.bounds[MAX_Y], pos.y);
+        replace_min(&mut self.bounds[MIN_X], pos.x.into_inner());
+        replace_min(&mut self.bounds[MIN_Y], pos.y.into_inner());
+        replace_max(&mut self.bounds[MAX_X], pos.x.into_inner());
+        replace_max(&mut self.bounds[MAX_Y], pos.y.into_inner());
     }
 
     pub fn width(&self) -> f64 {
@@ -136,7 +137,7 @@ impl ApproxEq for PositionBounds {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Ord, PartialOrd)]
 pub struct Heading {
     degrees: ModNumC<i16, 360>
 }
@@ -258,13 +259,13 @@ mod tests {
         let mut pos = RobotPosition::new();
         let mut path = vec![pos];
         pos = pos.updated_by(PolarCoord::new(10.0, 0.0));
-        assert_eq!(pos, RobotPosition {x: 10.0, y: 0.0, heading: Heading::new(0)});
+        assert_eq!(pos, RobotPosition {x: OrderedFloat(10.0), y: OrderedFloat(0.0), heading: Heading::new(0)});
         path.push(pos);
         pos = pos.updated_by(PolarCoord::new(10.0, 90.0_f64.to_radians()));
-        assert_eq!(pos, RobotPosition {x: 10.0, y: 10.0, heading: Heading::new(90)});
+        assert_eq!(pos, RobotPosition {x: OrderedFloat(10.0), y: OrderedFloat(10.0), heading: Heading::new(90)});
         path.push(pos);
         pos = pos.updated_by(PolarCoord::new(10.0, 180.0_f64.to_radians()));
-        assert_approx_eq!(RobotPosition, pos, RobotPosition {x: 0.0, y: 10.0, heading: Heading::new(270)});
+        assert_approx_eq!(RobotPosition, pos, RobotPosition {x: OrderedFloat(0.0), y: OrderedFloat(10.0), heading: Heading::new(270)});
         path.push(pos);
 
         let bounds = PositionBounds::from(&path);

@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::fmt::Debug;
 use ordered_float::OrderedFloat;
 use distribution_select::Distribution;
 pub use crate::position_types::{PolarCoord, RobotPosition};
@@ -8,7 +9,7 @@ pub mod sonar3bot;
 mod grid_map;
 mod sonar;
 
-pub trait SensorCorrection : Clone {
+pub trait SensorCorrection : Clone + Debug + Eq + Ord + PartialEq + PartialOrd {
     type SensorReading: Clone;
 
     fn fit(&self, position: &RobotPosition, reading: &Self::SensorReading) -> f64;
@@ -16,20 +17,20 @@ pub trait SensorCorrection : Clone {
     fn update_from(&mut self, position: &RobotPosition, reading: &Self::SensorReading);
 }
 
-#[derive(Clone)]
-pub struct Particle<C: SensorCorrection<SensorReading=S>, S: Clone> {
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Particle<C: SensorCorrection<SensorReading=S>, S: Clone + Debug + Eq + PartialEq + Ord + PartialOrd> {
     pos: RobotPosition,
     map: C
 }
 
 #[derive(Clone)]
-pub struct ParticleFilter<C: SensorCorrection<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> PolarCoord> {
+pub struct ParticleFilter<C: SensorCorrection<SensorReading=S>, S: Clone + Debug + Eq + PartialEq + Ord + PartialOrd, N: Fn(PolarCoord) -> PolarCoord> {
     particles: Vec<Particle<C, S>>,
     noise_function: N,
     best: Particle<C,S>
 }
 
-impl <C: SensorCorrection<SensorReading=S>, S: Clone, N: Fn(PolarCoord) -> PolarCoord> ParticleFilter<C, S, N> {
+impl <C: SensorCorrection<SensorReading=S>, S: Clone + Debug + Eq + PartialEq + Ord + PartialOrd, N: Fn(PolarCoord) -> PolarCoord> ParticleFilter<C, S, N> {
     pub fn new<P: Fn() -> Particle<C, S>>(num_particles: usize, noise_function: N, particle_maker: P) -> Self {
         ParticleFilter {
             particles: (0..num_particles).map(|_| particle_maker()).collect(),

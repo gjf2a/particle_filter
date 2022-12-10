@@ -197,7 +197,8 @@ mod tests {
     use float_cmp::assert_approx_eq;
     use crate::position_types::Heading;
     use crate::RobotPosition;
-    use crate::sonar3bot::{BOT, COUNTS_PER_ROTATION, EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS, MotorData, RobotPath, RobotSensorPosition, TwoWheelBase};
+    use crate::sonar3bot::*;
+    //use crate::sonar3bot::{BOT, COUNTS_PER_ROTATION, EV3_SEPARATION_MODEL_1, EV3_WHEEL_RADIUS, MotorData, RobotPath, RobotSensorPosition, TwoWheelBase};
 
     #[test]
     fn test_basic_read() {

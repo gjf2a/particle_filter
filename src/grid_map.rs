@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::fmt::{Display, Formatter};
 use bits::BitArray;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct BooleanGridMap {
     cells_per_meter: u64,
     meters_per_side: u64,
