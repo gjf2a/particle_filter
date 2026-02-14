@@ -11,24 +11,24 @@ pub struct RobotPose {
 
 pub trait Particle : Clone {
     fn weight(&self) -> f64;
+    fn pose(&self) -> RobotPose;
+    fn update<S>(&mut self, new_pose: RobotPose, sensor_info: &S);
 }
 
 #[derive(Clone, Debug)]
-pub struct ParticleFilter<MapType: Particle, InfoFunc: Clone, NoiseFunc: Clone + Fn(RobotPose) -> RobotPose> {
-    particles: Vec<MapType>,
-    best_particle: MapType,
-    info_func: InfoFunc,
+pub struct ParticleFilter<P: Particle, NoiseFunc: Clone + Fn(RobotPose) -> RobotPose> {
+    particles: Vec<P>,
+    best_particle: P,
     noise_func: NoiseFunc,
 }
 
-impl<MapType: Particle, InfoFunc: Clone, NoiseFunc: Clone + Fn(RobotPose) -> RobotPose> ParticleFilter<MapType, InfoFunc, NoiseFunc> {
-    pub fn new(initial_map: &MapType, num_particles: usize, info_func: InfoFunc, noise_func: NoiseFunc) -> Self {
+impl<MapType: Particle, NoiseFunc: Clone + Fn(RobotPose) -> RobotPose> ParticleFilter<MapType, NoiseFunc> {
+    pub fn new(initial_map: &MapType, num_particles: usize, noise_func: NoiseFunc) -> Self {
         Self {
             particles: std::iter::repeat(initial_map.clone())
                 .take(num_particles)
                 .collect(),
             best_particle: initial_map.clone(),
-            info_func,
             noise_func,
         }
     }
@@ -37,10 +37,10 @@ impl<MapType: Particle, InfoFunc: Clone, NoiseFunc: Clone + Fn(RobotPose) -> Rob
         self.best_particle.clone()
     }
 
-    pub fn iterate<I>(&mut self, info: &I) where InfoFunc: FnMut(&MapType, &I) {
+    pub fn iterate<S>(&mut self, sensor_info: &S) {
         self.resample();
         for particle in self.particles.iter_mut() {
-            (self.info_func)(particle, info);
+            particle.update((self.noise_func)(particle.pose()), sensor_info);
         }
     }
 
