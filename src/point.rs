@@ -58,10 +58,6 @@ impl<N: NumType, const S: usize> Point<N, S> {
         Self { coords }
     }
 
-    pub fn of(value: N) -> Self {
-        Self { coords: [value; S] }
-    }
-
     pub fn euclidean_distance(&self, other: Point<N, S>) -> f64 {
         (0..S)
             .map(|i| ((self[i] - other[i]).to_f64().expect("Shouldn't happen")).powf(2.0))
@@ -71,6 +67,16 @@ impl<N: NumType, const S: usize> Point<N, S> {
 
     pub fn manhattan_distance(&self, other: Point<N, S>) -> N {
         (0..S).map(|i| abs_difference(self[i], other[i])).sum()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=N> {
+        self.coords.iter().copied()
+    }
+}
+
+impl<N: NumType, const S: usize> From<N> for Point<N, S> {
+    fn from(value: N) -> Self {
+        Self {coords: [value; S]}
     }
 }
 
@@ -204,6 +210,8 @@ impl<N: NumType, const S: usize> Div<N> for Point<N, S> {
 mod tests {
     use std::collections::HashSet;
 
+    use crate::point::Point;
+
     use super::GridPoint;
 
     #[test]
@@ -228,6 +236,14 @@ mod tests {
             let gp = text.parse::<GridPoint>().unwrap();
             assert_eq!(gp[0], x);
             assert_eq!(gp[1], y);
+        }
+    }
+
+    #[test]
+    fn test_from() {
+        for n in [0, 1, 2, 3] {
+            let point: Point<i64, 2> = n.into();
+            point.iter().for_each(|v| {assert_eq!(v, n)});
         }
     }
 }
