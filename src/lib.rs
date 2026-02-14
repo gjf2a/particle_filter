@@ -14,7 +14,11 @@ pub trait Particle: Clone {
 
     fn error(&self) -> f64;
     fn pose(&self) -> RobotPose;
-    fn update<N: Fn(RobotPose, &Self::SensorType) -> RobotPose>(&mut self, sensor_info: &Self::SensorType, noise_func: N);
+    fn update<N: Fn(RobotPose, &Self::SensorType) -> RobotPose>(
+        &mut self,
+        sensor_info: &Self::SensorType,
+        noise_func: N,
+    );
 }
 
 #[derive(Clone, Debug)]
@@ -50,7 +54,12 @@ impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
     }
 
     fn resample(&mut self) {
-        let errors: HashHistogram<usize, f64> = self.particles.iter().enumerate().map(|(i, p)| (i, p.error())).collect();
+        let errors: HashHistogram<usize, f64> = self
+            .particles
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (i, p.error()))
+            .collect();
         let weights = invert_errors(&errors);
         self.best_particle = self.particles[weights.mode().unwrap()].clone();
         let mut new_particles = vec![];
@@ -65,5 +74,8 @@ impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
 
 pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize, f64> {
     let total = errors.total_count() + errors.len() as f64;
-    errors.iter().map(|(key, weight)| (*key, total - *weight)).collect()    
+    errors
+        .iter()
+        .map(|(key, weight)| (*key, total - *weight))
+        .collect()
 }

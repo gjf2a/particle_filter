@@ -35,14 +35,13 @@ impl<N: NumType, const S: usize> FromStr for Point<N, S> {
         let s = s.trim();
         let parts = s[1..s.len() - 1].split(',').collect::<Vec<_>>();
         if parts.len() == S {
-            let mut coords = [N::zero(); S];
-            for i in 0..S {
-                coords[i] = parts[i]
-                    .trim()
-                    .parse::<N>()
-                    .map_err(|_| anyhow::anyhow!("Parse error when parsing '{}'", parts[i]))?;
-            }
-            Ok(Self::new(coords))
+            parts
+                .iter()
+                .map(|s| {
+                    Ok(s.trim().parse::<N>()
+                        .map_err(|_| anyhow::anyhow!("Parse error when parsing '{s}'"))?)
+                })
+                .collect()
         } else {
             Err(anyhow::anyhow!(
                 "Expecting {S} values, but received {} values instead from {}",
@@ -50,6 +49,16 @@ impl<N: NumType, const S: usize> FromStr for Point<N, S> {
                 s
             ))
         }
+    }
+}
+
+impl<N: NumType, const S: usize> FromIterator<N> for Point<N, S> {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
+        let mut result = Self::default();
+        for (i, n) in (0..S).zip(iter) {
+            result[i] = n;
+        }
+        result
     }
 }
 
@@ -69,14 +78,14 @@ impl<N: NumType, const S: usize> Point<N, S> {
         (0..S).map(|i| abs_difference(self[i], other[i])).sum()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=N> {
+    pub fn iter(&self) -> impl Iterator<Item = N> {
         self.coords.iter().copied()
     }
 }
 
 impl<N: NumType, const S: usize> From<N> for Point<N, S> {
     fn from(value: N) -> Self {
-        Self {coords: [value; S]}
+        Self { coords: [value; S] }
     }
 }
 
@@ -243,7 +252,7 @@ mod tests {
     fn test_from() {
         for n in [0, 1, 2, 3] {
             let point: Point<i64, 2> = n.into();
-            point.iter().for_each(|v| {assert_eq!(v, n)});
+            point.iter().for_each(|v| assert_eq!(v, n));
         }
     }
 }
