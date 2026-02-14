@@ -1,81 +1,70 @@
-use std::cmp::max;
-use std::fmt::Debug;
-use ordered_float::OrderedFloat;
-use distribution_select::Distribution;
-pub use crate::position_types::{PolarCoord, RobotPosition};
+pub mod point;
 
-pub mod position_types;
-pub mod sonar3bot;
-mod grid_map;
-mod sonar;
+use hash_histogram::HashHistogram;
+use point::FloatPoint;
 
-pub trait SensorCorrection : Clone + Debug + Eq + Ord + PartialEq + PartialOrd {
-    type SensorReading: Clone;
-
-    fn fit(&self, position: &RobotPosition, reading: &Self::SensorReading) -> f64;
-
-    fn update_from(&mut self, position: &RobotPosition, reading: &Self::SensorReading);
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
+pub struct RobotPose {
+    pub pos: FloatPoint,
+    pub theta: f64,
 }
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Particle<C: SensorCorrection<SensorReading=S>, S: Clone + Debug + Eq + PartialEq + Ord + PartialOrd> {
-    pos: RobotPosition,
-    map: C
+pub trait Particle : Clone {
+    fn weight(&self) -> f64;
 }
 
-#[derive(Clone)]
-pub struct ParticleFilter<C: SensorCorrection<SensorReading=S>, S: Clone + Debug + Eq + PartialEq + Ord + PartialOrd, N: Fn(PolarCoord) -> PolarCoord> {
-    particles: Vec<Particle<C, S>>,
-    noise_function: N,
-    best: Particle<C,S>
+#[derive(Clone, Debug)]
+pub struct ParticleFilter<MapType: Particle, InfoFunc: Clone, NoiseFunc: Clone + Fn(RobotPose) -> RobotPose> {
+    particles: Vec<MapType>,
+    best_particle: MapType,
+    info_func: InfoFunc,
+    noise_func: NoiseFunc,
 }
 
-impl <C: SensorCorrection<SensorReading=S>, S: Clone + Debug + Eq + PartialEq + Ord + PartialOrd, N: Fn(PolarCoord) -> PolarCoord> ParticleFilter<C, S, N> {
-    pub fn new<P: Fn() -> Particle<C, S>>(num_particles: usize, noise_function: N, particle_maker: P) -> Self {
-        ParticleFilter {
-            particles: (0..num_particles).map(|_| particle_maker()).collect(),
-            noise_function,
-            best: particle_maker()
+impl<MapType: Particle, InfoFunc: Clone, NoiseFunc: Clone + Fn(RobotPose) -> RobotPose> ParticleFilter<MapType, InfoFunc, NoiseFunc> {
+    pub fn new(initial_map: &MapType, num_particles: usize, info_func: InfoFunc, noise_func: NoiseFunc) -> Self {
+        Self {
+            particles: std::iter::repeat(initial_map.clone())
+                .take(num_particles)
+                .collect(),
+            best_particle: initial_map.clone(),
+            info_func,
+            noise_func,
         }
     }
 
-    pub fn iterate(&mut self, measurement: &S, motion: PolarCoord) {
-        self.resample(measurement, motion);
-        self.add_measurement(measurement, motion);
+    pub fn current_best(&self) -> MapType {
+        self.best_particle.clone()
     }
 
-    fn add_measurement(&mut self, measurement: &S, motion: PolarCoord) {
+    pub fn iterate<I>(&mut self, info: &I) where InfoFunc: FnMut(&MapType, &I) {
+        self.resample();
         for particle in self.particles.iter_mut() {
-            particle.pos.updated_by((self.noise_function)(motion));
-            particle.map.update_from(&particle.pos, measurement);
+            (self.info_func)(particle, info);
         }
     }
 
-    fn resample(&mut self, measurement: &S, motion: PolarCoord) {
-        let particle_fits: Vec<(&Particle<C,S>, f64)> = self.particles.iter()
-            .map(|p| (p, p.map.fit(&p.pos.updated_by(motion), measurement))).collect();
-        let distro = Self::make_distro_from(&particle_fits);
-        self.best = self.get_best_from(&particle_fits);
-        let num_particles = self.particles.len();
-        self.particles = (0..num_particles).map(|_| distro.random_pick()).collect();
-    }
-
-    fn make_distro_from(particle_fits: &Vec<(&Particle<C,S>, f64)>) -> Distribution<Particle<C,S>> {
-        let mut distro: Distribution<Particle<C,S>> = Distribution::new();
-        for (particle, fit) in particle_fits.iter() {
-            let fit = 1.0 + max(OrderedFloat(0.0), OrderedFloat(*fit)).into_inner();
-            distro.add(particle, fit);
-        }
-        distro
-    }
-
-    fn get_best_from(&self, particle_fits: &Vec<(&Particle<C,S>, f64)>) -> Particle<C, S> {
-        let mut best = 0;
-        for i in 1..particle_fits.len() {
-            if particle_fits[i].1 > particle_fits[best].1 {
-                best = i;
+    fn resample(&mut self) {
+        let mut distro = HashHistogram::new();
+        let mut best_weight = 0.0;
+        let mut best_i = 0;
+        for (i, particle) in self.particles.iter().enumerate() {
+            let weight = particle.weight();
+            if weight > best_weight {
+                best_weight = weight;
+                best_i = i;
             }
+            distro.bump_by(&i, weight + 1.0);
         }
-        particle_fits[best].0.clone()
+
+        self.best_particle = self.particles[best_i].clone();
+
+        let mut new_particles = vec![];
+        for _ in 0..self.particles.len() {
+            let choice = distro.pick_random_key();
+            new_particles.push(self.particles[choice].clone());
+        }
+
+        std::mem::swap(&mut new_particles, &mut self.particles);
     }
 }
