@@ -10,9 +10,11 @@ pub struct RobotPose {
 }
 
 pub trait Particle: Clone {
+    type SensorType;
+
     fn error(&self) -> f64;
     fn pose(&self) -> RobotPose;
-    fn update<S, N: Fn(RobotPose, &S) -> RobotPose>(&mut self, sensor_info: &S, noise_func: N);
+    fn update<N: Fn(RobotPose, &Self::SensorType) -> RobotPose>(&mut self, sensor_info: &Self::SensorType, noise_func: N);
 }
 
 #[derive(Clone, Debug)]
@@ -37,9 +39,9 @@ impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
         self.best_particle.clone()
     }
 
-    pub fn iterate<S>(&mut self, sensor_info: &S)
+    pub fn iterate(&mut self, sensor_info: &MapType::SensorType)
     where
-        NoiseFunc: Fn(RobotPose, &S) -> RobotPose,
+        NoiseFunc: Fn(RobotPose, &MapType::SensorType) -> RobotPose,
     {
         self.resample();
         for particle in self.particles.iter_mut() {
