@@ -10,9 +10,9 @@ pub struct RobotPose {
 }
 
 pub trait Particle: Clone {
-    fn weight(&self) -> f64;
+    fn error(&self) -> f64;
     fn pose(&self) -> RobotPose;
-    fn update<S>(&mut self, new_pose: RobotPose, sensor_info: &S);
+    fn update<S, N: Fn(RobotPose, &S) -> RobotPose>(&mut self, sensor_info: &S, noise_func: N);
 }
 
 #[derive(Clone, Debug)]
@@ -43,31 +43,25 @@ impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
     {
         self.resample();
         for particle in self.particles.iter_mut() {
-            particle.update((self.noise_func)(particle.pose(), sensor_info), sensor_info);
+            particle.update(sensor_info, self.noise_func.clone());
         }
     }
 
     fn resample(&mut self) {
-        let mut distro = HashHistogram::new();
-        let mut best_weight = 0.0;
-        let mut best_i = 0;
-        for (i, particle) in self.particles.iter().enumerate() {
-            let weight = particle.weight();
-            if weight > best_weight {
-                best_weight = weight;
-                best_i = i;
-            }
-            distro.bump_by(&i, weight + 1.0);
-        }
-
-        self.best_particle = self.particles[best_i].clone();
-
+        let errors: HashHistogram<usize, f64> = self.particles.iter().enumerate().map(|(i, p)| (i, p.error())).collect();
+        let weights = invert_errors(&errors);
+        self.best_particle = self.particles[weights.mode().unwrap()].clone();
         let mut new_particles = vec![];
         for _ in 0..self.particles.len() {
-            let choice = distro.pick_random_key();
+            let choice = weights.pick_random_key();
             new_particles.push(self.particles[choice].clone());
         }
 
         std::mem::swap(&mut new_particles, &mut self.particles);
     }
+}
+
+pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize, f64> {
+    let total = errors.total_count() + errors.len() as f64;
+    errors.iter().map(|(key, weight)| (*key, total - *weight)).collect()    
 }
