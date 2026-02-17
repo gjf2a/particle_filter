@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
+use std::{fmt::Display, ops::{Add, AddAssign, Neg, Sub, SubAssign}};
 
 use crate::point::FloatPoint;
 
@@ -16,6 +16,10 @@ impl Degrees {
             angle -= 360.0;
         }
         Self(angle)
+    }
+
+    pub fn x_y_from(&self, r: f64) -> (f64, f64) {
+        (r * self.0.cos(), r * self.0.sin())
     }
 }
 
@@ -54,6 +58,12 @@ impl Sub for Degrees {
         let mut result = rhs;
         result -= rhs;
         result
+    }
+}
+
+impl Display for Degrees {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\u{00B0}", self.0)
     }
 }
 
