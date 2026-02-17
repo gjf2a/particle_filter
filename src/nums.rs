@@ -1,4 +1,8 @@
-use std::{f64::consts::PI, fmt::Display, ops::{Add, AddAssign, Neg, Sub, SubAssign}};
+use std::{
+    f64::consts::PI,
+    fmt::Display,
+    ops::{Add, AddAssign, Neg, Sub, SubAssign},
+};
 
 use crate::point::FloatPoint;
 
@@ -161,5 +165,40 @@ impl AddAssign for RobotPose {
     fn add_assign(&mut self, rhs: Self) {
         self.pos += rhs.pos;
         self.theta += rhs.theta;
+    }
+}
+
+impl Add for RobotPose {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut result = self;
+        result += rhs;
+        result
+    }
+}
+
+impl Neg for RobotPose {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        RobotPose {
+            pos: -self.pos,
+            theta: -self.theta,
+        }
+    }
+}
+
+impl Sub for RobotPose {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self + -rhs
+    }
+}
+
+impl SubAssign for RobotPose {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }

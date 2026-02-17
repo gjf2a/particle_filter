@@ -38,7 +38,8 @@ impl<N: NumType, const S: usize> FromStr for Point<N, S> {
             parts
                 .iter()
                 .map(|s| {
-                    Ok(s.trim().parse::<N>()
+                    Ok(s.trim()
+                        .parse::<N>()
                         .map_err(|_| anyhow::anyhow!("Parse error when parsing '{s}'"))?)
                 })
                 .collect()
