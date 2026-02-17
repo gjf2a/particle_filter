@@ -48,14 +48,26 @@ impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
         NoiseFunc: Fn(RobotPose, &MapType::SensorType) -> RobotPose,
     {
         self.resample();
+        self.update_all(sensor_info);
+    }
+
+    fn update_all(&mut self, sensor_info: &MapType::SensorType)
+    where
+        NoiseFunc: Fn(RobotPose, &MapType::SensorType) -> RobotPose,
+    {
         for particle in self.particles.iter_mut() {
             particle.sensor_update(sensor_info);
-            let current_estimate = Self::current_estimated_pose_for(&mut self.last_raw_pose, particle, sensor_info);
+            let current_estimate =
+                Self::current_estimated_pose_for(&mut self.last_raw_pose, particle, sensor_info);
             particle.set_pose((self.noise_func)(current_estimate, sensor_info));
         }
     }
 
-    fn current_estimated_pose_for(last_raw_pose: &mut Option<RobotPose>, particle: &MapType, sensor_info: &MapType::SensorType) -> RobotPose {
+    fn current_estimated_pose_for(
+        last_raw_pose: &mut Option<RobotPose>,
+        particle: &MapType,
+        sensor_info: &MapType::SensorType,
+    ) -> RobotPose {
         let mut current_estimated_pose = particle.pose();
         if let Some(raw_pose) = sensor_info.current_pose() {
             if let Some(prev_pose) = last_raw_pose {
