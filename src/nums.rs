@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::{Add, AddAssign, Neg, Sub, SubAssign}};
+use std::{f64::consts::PI, fmt::Display, ops::{Add, AddAssign, Neg, Sub, SubAssign}};
 
 use crate::point::FloatPoint;
 
@@ -20,6 +20,10 @@ impl Degrees {
 
     pub fn point_from(&self, r: f64) -> FloatPoint {
         FloatPoint::new([r * self.0.cos(), r * self.0.sin()])
+    }
+
+    pub fn radians(&self) -> f64 {
+        self.0 * PI / 180.0
     }
 }
 
