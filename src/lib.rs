@@ -1,9 +1,10 @@
 pub mod point;
 pub mod nums;
 
-use hash_histogram::HashHistogram;
+pub use point::*;
+pub use nums::*;
 
-use crate::nums::RobotPose;
+use hash_histogram::HashHistogram;
 
 pub trait Particle: Clone {
     type SensorType;
