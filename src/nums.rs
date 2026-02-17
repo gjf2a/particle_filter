@@ -6,15 +6,22 @@ use crate::point::FloatPoint;
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Degrees(f64);
 
+impl Degrees {
+    pub fn new(angle: f64) -> Self {
+        let mut angle = angle;
+        while angle <= -180.0 {
+            angle += 360.0;
+        }
+        while angle > 180.0 {
+            angle -= 360.0;
+        }
+        Self(angle)
+    }
+}
+
 impl AddAssign for Degrees {
     fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-        while self.0 <= -180.0 {
-            self.0 += 360.0;
-        }
-        while self.0 > 180.0 {
-            self.0 -= 360.0;
-        }
+        *self = *self + rhs;
     }
 }
 
@@ -22,9 +29,7 @@ impl Add for Degrees {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let mut result = self;
-        result += rhs;
-        result
+        Self(self.0 + rhs.0)
     }
 }
 
