@@ -1,24 +1,17 @@
 pub mod point;
+pub mod nums;
 
 use hash_histogram::HashHistogram;
-use point::FloatPoint;
 
-#[derive(Copy, Clone, PartialEq, Debug, Default)]
-pub struct RobotPose {
-    pub pos: FloatPoint,
-    pub theta: f64,
-}
+use crate::nums::RobotPose;
 
 pub trait Particle: Clone {
     type SensorType;
 
     fn error(&self) -> f64;
     fn pose(&self) -> RobotPose;
-    fn update<N: Fn(RobotPose, &Self::SensorType) -> RobotPose>(
-        &mut self,
-        sensor_info: &Self::SensorType,
-        noise_func: N,
-    );
+    fn update(&mut self, sensor_info: &Self::SensorType);
+    fn add_noise<N: Fn(RobotPose, &Self::SensorType) -> RobotPose>(&mut self, noise_func: N);
 }
 
 #[derive(Clone, Debug)]
@@ -49,7 +42,8 @@ impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
     {
         self.resample();
         for particle in self.particles.iter_mut() {
-            particle.update(sensor_info, self.noise_func.clone());
+            particle.update(sensor_info);
+            particle.add_noise(self.noise_func.clone());
         }
     }
 
