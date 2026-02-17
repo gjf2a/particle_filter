@@ -10,8 +10,8 @@ pub trait Particle: Clone {
 
     fn error(&self) -> f64;
     fn pose(&self) -> RobotPose;
-    fn update(&mut self, sensor_info: &Self::SensorType);
-    fn add_noise<N: Fn(RobotPose, &Self::SensorType) -> RobotPose>(&mut self, noise_func: N);
+    fn set_pose(&mut self, new_pose: RobotPose);
+    fn sensor_update(&mut self, sensor_info: &Self::SensorType);
 }
 
 #[derive(Clone, Debug)]
@@ -42,8 +42,8 @@ impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
     {
         self.resample();
         for particle in self.particles.iter_mut() {
-            particle.update(sensor_info);
-            particle.add_noise(self.noise_func.clone());
+            particle.sensor_update(sensor_info);
+            particle.set_pose((self.noise_func)(particle.pose(), sensor_info));
         }
     }
 
