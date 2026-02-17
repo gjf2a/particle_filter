@@ -15,6 +15,12 @@ impl Radians {
     }
 }
 
+impl Display for Radians {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl AddAssign for Radians {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
