@@ -10,7 +10,7 @@ pub trait Sensor {
     fn current_pose(&self) -> Option<RobotPose>;
 }
 
-pub trait Particle: Clone {
+pub trait Particle: Clone + Default {
     type SensorType: Sensor;
 
     fn error(&self) -> f64;
@@ -28,12 +28,12 @@ pub struct ParticleFilter<P: Particle, NoiseFunc: Clone> {
 }
 
 impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
-    pub fn new(initial_map: &MapType, num_particles: usize, noise_func: NoiseFunc) -> Self {
+    pub fn new(num_particles: usize, noise_func: NoiseFunc) -> Self {
         Self {
-            particles: std::iter::repeat(initial_map.clone())
+            particles: std::iter::repeat(MapType::default())
                 .take(num_particles)
                 .collect(),
-            best_particle: initial_map.clone(),
+            best_particle: MapType::default(),
             noise_func,
             last_raw_pose: None,
         }
