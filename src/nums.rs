@@ -136,6 +136,18 @@ impl From<Degrees> for Radians {
     }
 }
 
+impl From<Radians> for f64 {
+    fn from(value: Radians) -> Self {
+        value.0
+    }
+}
+
+impl From<Degrees> for f64 {
+    fn from(value: Degrees) -> Self {
+        value.0
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct RobotPose {
     pub pos: FloatPoint,
