@@ -7,8 +7,8 @@ use crate::point::FloatPoint;
 pub struct Degrees(f64);
 
 impl Degrees {
-    pub fn new(angle: f64) -> Self {
-        let mut angle = angle;
+    pub fn new(angle_degrees: f64) -> Self {
+        let mut angle = angle_degrees;
         while angle <= -180.0 {
             angle += 360.0;
         }
@@ -16,6 +16,10 @@ impl Degrees {
             angle -= 360.0;
         }
         Self(angle)
+    }
+
+    pub fn from_radians(angle_radians: f64) -> Self {
+        Self::new(angle_radians * 180.0 / PI)
     }
 
     pub fn point_from(&self, r: f64) -> FloatPoint {
