@@ -9,9 +9,12 @@ impl Radians {
     pub fn new(angle_radians: f64) -> Self {
         Self(normalize_angle(angle_radians, PI * 2.0))
     }
+}
 
-    pub fn point_from(&self, r: f64) -> FloatPoint {
-        FloatPoint::new([r * self.0.cos(), r * self.0.sin()])
+impl From<(f64, Radians)> for FloatPoint {
+    fn from(value: (f64, Radians)) -> Self {
+        let (r, theta) = value;
+        FloatPoint::new([r * theta.0.cos(), r * theta.0.sin()])
     }
 }
 
