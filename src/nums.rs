@@ -18,8 +18,8 @@ impl Degrees {
         Self(angle)
     }
 
-    pub fn x_y_from(&self, r: f64) -> (f64, f64) {
-        (r * self.0.cos(), r * self.0.sin())
+    pub fn point_from(&self, r: f64) -> FloatPoint {
+        FloatPoint::new([r * self.0.cos(), r * self.0.sin()])
     }
 }
 
