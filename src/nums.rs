@@ -2,32 +2,75 @@ use std::{f64::consts::PI, fmt::Display, ops::{Add, AddAssign, Neg, Sub, SubAssi
 
 use crate::point::FloatPoint;
 
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
+pub struct Radians(f64);
+
+impl Radians {
+    pub fn new(angle_radians: f64) -> Self {
+        Self(normalize_angle(angle_radians, PI * 2.0))
+    }
+
+    pub fn point_from(&self, r: f64) -> FloatPoint {
+        FloatPoint::new([r * self.0.cos(), r * self.0.sin()])
+    }
+}
+
+impl AddAssign for Radians {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+impl Add for Radians {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Neg for Radians {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        self + Radians(PI)
+    }
+}
+
+impl SubAssign for Radians {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self += -rhs;
+    }
+}
+
+impl Sub for Radians {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let mut result = rhs;
+        result -= rhs;
+        result
+    }
+}
+
+fn normalize_angle(value: f64, bound: f64) -> f64 {
+    let mut angle = value;
+    let half_bound = bound / 2.0;
+    while angle <= -half_bound {
+        angle += bound;
+    }
+    while angle > half_bound {
+        angle -= bound;
+    }
+    angle
+}
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Degrees(f64);
 
 impl Degrees {
     pub fn new(angle_degrees: f64) -> Self {
-        let mut angle = angle_degrees;
-        while angle <= -180.0 {
-            angle += 360.0;
-        }
-        while angle > 180.0 {
-            angle -= 360.0;
-        }
-        Self(angle)
-    }
-
-    pub fn from_radians(angle_radians: f64) -> Self {
-        Self::new(angle_radians * 180.0 / PI)
-    }
-
-    pub fn point_from(&self, r: f64) -> FloatPoint {
-        FloatPoint::new([r * self.0.cos(), r * self.0.sin()])
-    }
-
-    pub fn radians(&self) -> f64 {
-        self.0 * PI / 180.0
+        Self(normalize_angle(angle_degrees, 360.0))
     }
 }
 
@@ -75,10 +118,22 @@ impl Display for Degrees {
     }
 }
 
+impl From<Radians> for Degrees {
+    fn from(value: Radians) -> Self {
+        Degrees::new(value.0 * 180.0 / PI)
+    }
+}
+
+impl From<Degrees> for Radians {
+    fn from(value: Degrees) -> Self {
+        Radians::new(value.0 * PI / 180.0)
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct RobotPose {
     pub pos: FloatPoint,
-    pub theta: Degrees,
+    pub theta: Radians,
 }
 
 impl AddAssign for RobotPose {
