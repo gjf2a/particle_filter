@@ -63,7 +63,7 @@ impl<P: Particle> ParticleFilter<P> {
 
     fn update_all(&mut self, sensor_info: &P::SensorType) {
         for (pose, particle) in self.particles.iter_mut() {
-            particle.sensor_update(sensor_info);
+            particle.sensor_update(pose, sensor_info);
             let current_estimate =
                 Self::current_estimated_pose_for(&mut self.last_raw_pose, pose, sensor_info);
             *pose = particle.noise(current_estimate, sensor_info);
