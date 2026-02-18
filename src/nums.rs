@@ -161,6 +161,13 @@ pub struct RobotPose {
     pub theta: Radians,
 }
 
+impl Display for RobotPose {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let heading: Degrees = self.theta.into();
+        write!(f, "{};{heading}", self.pos)
+    }
+}
+
 impl AddAssign for RobotPose {
     fn add_assign(&mut self, rhs: Self) {
         self.pos += rhs.pos;
