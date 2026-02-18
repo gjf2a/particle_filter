@@ -5,68 +5,61 @@ pub use nums::*;
 pub use point::*;
 
 use hash_histogram::HashHistogram;
+use rand_distr::{Distribution, Normal};
 
 pub trait Sensor {
     fn current_pose(&self) -> Option<RobotPose>;
 }
 
 pub trait Particle: Clone + Default {
-    type SensorType: Sensor;
-
     fn error(&self) -> f64;
     fn pose(&self) -> RobotPose;
     fn set_pose(&mut self, new_pose: RobotPose);
-    fn sensor_update(&mut self, sensor_info: &Self::SensorType);
+    fn sensor_update<S: Sensor>(&mut self, sensor_info: &S);
 }
 
 #[derive(Clone, Debug)]
-pub struct ParticleFilter<P: Particle, NoiseFunc: Clone> {
+pub struct ParticleFilter<P: Particle, N: NoiseModel> {
     particles: Vec<P>,
     best_particle: P,
-    noise_func: NoiseFunc,
+    noise_func: N,
     last_raw_pose: Option<RobotPose>,
 }
 
-impl<MapType: Particle, NoiseFunc: Clone> ParticleFilter<MapType, NoiseFunc> {
-    pub fn new(num_particles: usize, noise_func: NoiseFunc) -> Self {
+impl<P: Particle, N: NoiseModel> ParticleFilter<P, N> {
+    pub fn new(num_particles: usize, noise_func: N) -> Self {
         Self {
-            particles: std::iter::repeat(MapType::default())
+            particles: std::iter::repeat(P::default())
                 .take(num_particles)
                 .collect(),
-            best_particle: MapType::default(),
+            best_particle: P::default(),
             noise_func,
             last_raw_pose: None,
         }
     }
 
-    pub fn current_best(&self) -> MapType {
+    pub fn current_best(&self) -> P {
         self.best_particle.clone()
     }
 
-    pub fn iterate(&mut self, sensor_info: &MapType::SensorType)
-    where
-        NoiseFunc: Fn(RobotPose, &MapType::SensorType) -> RobotPose,
-    {
+    pub fn iterate(&mut self, sensor_info: &N::SensorType) {
         self.resample();
         self.update_all(sensor_info);
     }
 
-    fn update_all(&mut self, sensor_info: &MapType::SensorType)
-    where
-        NoiseFunc: Fn(RobotPose, &MapType::SensorType) -> RobotPose,
-    {
+    fn update_all(&mut self, sensor_info: &N::SensorType) {
         for particle in self.particles.iter_mut() {
             particle.sensor_update(sensor_info);
             let current_estimate =
                 Self::current_estimated_pose_for(&mut self.last_raw_pose, particle, sensor_info);
-            particle.set_pose((self.noise_func)(current_estimate, sensor_info));
+            particle.set_pose(self.noise_func.noise(current_estimate, sensor_info));
         }
     }
 
     fn current_estimated_pose_for(
         last_raw_pose: &mut Option<RobotPose>,
-        particle: &MapType,
-        sensor_info: &MapType::SensorType,
+        particle: &P,
+        sensor_info: &N::SensorType,
     ) -> RobotPose {
         let mut current_estimated_pose = particle.pose();
         if let Some(raw_pose) = sensor_info.current_pose() {
@@ -103,4 +96,24 @@ pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize,
         .iter()
         .map(|(key, weight)| (*key, total - *weight))
         .collect()
+}
+
+pub trait NoiseModel : Clone {
+    type SensorType : Sensor;
+
+    fn mean_stdev(&self, sensor_info: &Self::SensorType) -> (f64, f64);
+
+    fn noise(&self, pose: RobotPose, sensors: &Self::SensorType) -> RobotPose {
+        let mut rng = rand::rng();
+        let (stdev_x_y, stdev_theta) = self.mean_stdev(sensors);
+        let x_y_gaussian = Normal::new(0.0, stdev_x_y).unwrap();
+        let theta_gaussian = Normal::new(0.0, stdev_theta.into()).unwrap();
+        let x_y_noise =
+            FloatPoint::new([x_y_gaussian.sample(&mut rng), x_y_gaussian.sample(&mut rng)]);
+        let theta_noise = Degrees::new(theta_gaussian.sample(&mut rng));
+        RobotPose {
+            pos: (pose.pos + x_y_noise),
+            theta: pose.theta + theta_noise.into(),
+        }
+    }
 }
