@@ -101,7 +101,7 @@ pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize,
 pub trait NoiseModel: Clone {
     type SensorType: Sensor;
 
-    fn mean_stdev(&self, sensor_info: &Self::SensorType) -> (f64, f64);
+    fn mean_stdev(&self, sensor_info: &Self::SensorType) -> (f64, Degrees);
 
     fn noise(&self, pose: RobotPose, sensors: &Self::SensorType) -> RobotPose {
         let mut rng = rand::rng();
