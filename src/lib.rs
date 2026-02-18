@@ -98,8 +98,8 @@ pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize,
         .collect()
 }
 
-pub trait NoiseModel : Clone {
-    type SensorType : Sensor;
+pub trait NoiseModel: Clone {
+    type SensorType: Sensor;
 
     fn mean_stdev(&self, sensor_info: &Self::SensorType) -> (f64, f64);
 
