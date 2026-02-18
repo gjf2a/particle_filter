@@ -15,7 +15,7 @@ pub trait Particle: Clone + Default {
     type SensorType: Sensor;
 
     fn error(&mut self, estimated_pose: &RobotPose) -> f64;
-    fn sensor_update(&mut self, sensor_info: &Self::SensorType);
+    fn sensor_update(&mut self, estimated_pose: &RobotPose, sensor_info: &Self::SensorType);
 
     fn mean_stdev(&self, sensor_info: &Self::SensorType) -> (f64, Degrees);
 
