@@ -164,7 +164,7 @@ pub struct RobotPose {
 impl Display for RobotPose {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let heading: Degrees = self.theta.into();
-        write!(f, "{:.3};{heading}", self.pos)
+        write!(f, "({:.3}, {:.3});{heading}", self.pos[0], self.pos[1])
     }
 }
 
