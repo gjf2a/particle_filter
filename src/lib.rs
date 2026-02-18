@@ -7,21 +7,17 @@ pub use point::*;
 use hash_histogram::HashHistogram;
 use rand_distr::{Distribution, Normal};
 
-pub trait Sensor {
-    fn current_pose(&self) -> Option<RobotPose>;
-}
-
-pub trait Particle: Clone + Default {
-    type SensorType: Sensor;
+pub trait ObstacleMap: Clone + Default {
+    type SensorType;
 
     fn error(&mut self, estimated_pose: &RobotPose) -> f64;
-    fn sensor_update(&mut self, estimated_pose: &RobotPose, sensor_info: &Self::SensorType);
+    fn sensor_update(&mut self, estimated_pose: &RobotPose, sensor_info: Option<&Self::SensorType>);
 
-    fn mean_stdev(&self, sensor_info: &Self::SensorType) -> (f64, Degrees);
+    fn mean_stdev(&self, sensor_info: Option<&Self::SensorType>) -> (f64, Degrees);
 
-    fn noise(&self, pose: RobotPose, sensors: &Self::SensorType) -> RobotPose {
+    fn noise(&self, pose: RobotPose, sensor_info: Option<&Self::SensorType>) -> RobotPose {
         let mut rng = rand::rng();
-        let (stdev_x_y, stdev_theta) = self.mean_stdev(sensors);
+        let (stdev_x_y, stdev_theta) = self.mean_stdev(sensor_info);
         let x_y_gaussian = Normal::new(0.0, stdev_x_y).unwrap();
         let theta_gaussian = Normal::new(0.0, stdev_theta.into()).unwrap();
         let x_y_noise =
@@ -35,48 +31,48 @@ pub trait Particle: Clone + Default {
 }
 
 #[derive(Clone, Debug)]
-pub struct ParticleFilter<P: Particle> {
-    particles: Vec<(RobotPose, P)>,
-    best_particle: (RobotPose, P),
+pub struct ParticleFilter<M: ObstacleMap> {
+    particles: Vec<(RobotPose, M)>,
+    best_particle: (RobotPose, M),
     last_raw_pose: Option<RobotPose>,
 }
 
-impl<P: Particle> ParticleFilter<P> {
+impl<M: ObstacleMap> ParticleFilter<M> {
     pub fn new(num_particles: usize) -> Self {
         Self {
-            particles: std::iter::repeat((RobotPose::default(), P::default()))
+            particles: std::iter::repeat((RobotPose::default(), M::default()))
                 .take(num_particles)
                 .collect(),
-            best_particle: (RobotPose::default(), P::default()),
+            best_particle: (RobotPose::default(), M::default()),
             last_raw_pose: None,
         }
     }
 
-    pub fn current_best(&self) -> (RobotPose, P) {
+    pub fn current_best(&self) -> (RobotPose, M) {
         self.best_particle.clone()
     }
 
-    pub fn iterate(&mut self, sensor_info: &P::SensorType) {
+    pub fn iterate(&mut self, new_raw_pose: Option<RobotPose>, sensor_info: Option<&M::SensorType>) {
         self.resample();
-        self.update_all(sensor_info);
+        self.update_all(new_raw_pose, sensor_info);
     }
 
-    fn update_all(&mut self, sensor_info: &P::SensorType) {
+    fn update_all(&mut self, new_raw_pose: Option<RobotPose>, sensor_info: Option<&M::SensorType>) {
         for (pose, particle) in self.particles.iter_mut() {
             particle.sensor_update(pose, sensor_info);
             let current_estimate =
-                Self::current_estimated_pose_for(&mut self.last_raw_pose, pose, sensor_info);
+                Self::current_estimated_pose_for(&mut self.last_raw_pose, new_raw_pose, pose);
             *pose = particle.noise(current_estimate, sensor_info);
         }
     }
 
     fn current_estimated_pose_for(
         last_raw_pose: &mut Option<RobotPose>,
+        new_raw_pose: Option<RobotPose>,
         last_estimated_pose: &RobotPose,
-        sensor_info: &P::SensorType,
     ) -> RobotPose {
         let mut current_estimated_pose = *last_estimated_pose;
-        if let Some(raw_pose) = sensor_info.current_pose() {
+        if let Some(raw_pose) = new_raw_pose {
             if let Some(prev_pose) = last_raw_pose {
                 current_estimated_pose += raw_pose - *prev_pose;
             }
