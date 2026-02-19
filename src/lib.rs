@@ -33,7 +33,7 @@ pub trait ObstacleMap: Clone + Default {
 #[derive(Clone, Debug)]
 pub struct ParticleFilter<M: ObstacleMap> {
     particles: Vec<(PoseEstimate, M)>,
-    best_particle: (PoseEstimate, M),
+    best_particle: (RobotPose, M),
 }
 
 impl<M: ObstacleMap> ParticleFilter<M> {
@@ -42,11 +42,11 @@ impl<M: ObstacleMap> ParticleFilter<M> {
             particles: std::iter::repeat((PoseEstimate::default(), M::default()))
                 .take(num_particles)
                 .collect(),
-            best_particle: (PoseEstimate::default(), M::default()),
+            best_particle: (RobotPose::default(), M::default()),
         }
     }
 
-    pub fn current_best(&self) -> (PoseEstimate, M) {
+    pub fn current_best(&self) -> (RobotPose, M) {
         self.best_particle.clone()
     }
 
@@ -77,7 +77,8 @@ impl<M: ObstacleMap> ParticleFilter<M> {
             .map(|(i, (pose, p))| (i, p.error(pose)))
             .collect();
         let weights = invert_errors(&errors);
-        self.best_particle = self.particles[weights.mode().unwrap()].clone();
+        let (best_pose, best_map) = &self.particles[weights.mode().unwrap()];
+        self.best_particle = ((*best_pose).into(), best_map.clone());
         let mut new_particles = vec![];
         for _ in 0..self.particles.len() {
             let choice = weights.pick_random_key();
