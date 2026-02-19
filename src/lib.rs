@@ -28,7 +28,7 @@ impl Noise {
     }
 }
 
-pub trait ObstacleMap: Clone + Default {
+pub trait ObstacleMap: Clone {
     type SensorType;
 
     fn error(&mut self, estimated_pose: &PoseEstimate) -> f64;
@@ -43,12 +43,12 @@ pub struct ParticleFilter<M: ObstacleMap> {
 }
 
 impl<M: ObstacleMap> ParticleFilter<M> {
-    pub fn new(num_particles: usize) -> Self {
+    pub fn new(num_particles: usize, starting_map: &M) -> Self {
         Self {
-            particles: std::iter::repeat((PoseEstimate::default(), M::default()))
+            particles: std::iter::repeat((PoseEstimate::default(), starting_map.clone()))
                 .take(num_particles)
                 .collect(),
-            best_particle: (RobotPose::<Radians>::default(), M::default()),
+            best_particle: (RobotPose::<Radians>::default(), starting_map.clone()),
         }
     }
 
