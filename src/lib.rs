@@ -65,8 +65,8 @@ impl<M: ObstacleMap> ParticleFilter<M> {
         new_raw_pose: Option<RobotPose<Radians>>,
         sensor_info: Option<&M::SensorType>,
     ) {
-        self.resample();
         self.update_all(new_raw_pose, sensor_info);
+        self.resample();
     }
 
     fn update_all(
