@@ -52,7 +52,11 @@ impl<M: ObstacleMap> ParticleFilter<M> {
         self.best_particle.clone()
     }
 
-    pub fn iterate(&mut self, new_raw_pose: Option<RobotPose>, sensor_info: Option<&M::SensorType>) {
+    pub fn iterate(
+        &mut self,
+        new_raw_pose: Option<RobotPose>,
+        sensor_info: Option<&M::SensorType>,
+    ) {
         self.resample();
         self.update_all(new_raw_pose, sensor_info);
     }
@@ -106,4 +110,58 @@ pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize,
         .iter()
         .map(|(key, weight)| (*key, total - *weight))
         .collect()
+}
+
+#[derive(Copy, Clone, Default, Debug)]
+pub struct PoseEstimate {
+    last_raw: Option<RobotPose>,
+    current_estimate: RobotPose,
+}
+
+impl From<PoseEstimate> for RobotPose {
+    fn from(value: PoseEstimate) -> Self {
+        value.current_estimate
+    }
+}
+
+impl PoseEstimate {
+    pub fn updated_raw_pose(&mut self, raw_pose: RobotPose) {
+        match self.last_raw {
+            None => {
+                self.current_estimate = raw_pose;
+            }
+            Some(last_raw) => {
+                self.current_estimate += raw_pose - last_raw;
+            }
+        }
+        self.last_raw = Some(raw_pose);
+    }
+
+    pub fn add_noise<M: ObstacleMap>(&mut self, map: &M, sensor_info: Option<&M::SensorType>) {
+        self.current_estimate = map.noise(self.current_estimate, sensor_info)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Degrees, FloatPoint, PoseEstimate, RobotPose};
+
+    #[test]
+    fn test_current_estimated_pose() {
+        let mut estimate = PoseEstimate::default();
+        for (x, y, theta) in [
+            (0.0, 0.0, 0.0),
+            (1.0, 1.0, 0.0),
+            (1.0, 1.0, 90.0),
+            (1.0, 2.0, 90.0),
+        ] {
+            let pose = RobotPose {
+                pos: FloatPoint::new([x, y]),
+                theta: Degrees::new(theta).into(),
+            };
+            estimate.updated_raw_pose(pose);
+            let estimated: RobotPose = estimate.into();
+            assert_eq!(pose, estimated);
+        }
+    }
 }

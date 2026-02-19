@@ -1,19 +1,93 @@
 use std::{
     f64::consts::PI,
     fmt::Display,
-    ops::{Add, AddAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Sub, SubAssign},
 };
 
 use crate::point::FloatPoint;
 
+pub trait Angle {
+    fn bound() -> f64;
+
+    fn normalize_angle(angle: f64) -> f64 {
+        let mut angle = angle;
+        let half_bound = Self::bound() / 2.0;
+        while angle <= -half_bound {
+            angle += Self::bound();
+        }
+        while angle > half_bound {
+            angle -= Self::bound();
+        }
+        angle
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Radians(f64);
 
-impl Radians {
-    pub fn new(angle_radians: f64) -> Self {
-        Self(normalize_angle(angle_radians, PI * 2.0))
+impl Angle for Radians {
+    fn bound() -> f64 {
+        PI * 2.0
     }
 }
+
+macro_rules! assign_code {
+    ($type:tt) => {
+        impl AddAssign for $type {
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
+        }
+
+        impl SubAssign for $type {
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = *self - rhs;
+            }
+        }
+    };
+}
+
+macro_rules! angle_code {
+    ($type:tt) => {
+        impl $type {
+            pub fn new(angle: f64) -> Self {
+                Self(Self::normalize_angle(angle))
+            }
+        }
+
+        impl Display for $type {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl From<$type> for f64 {
+            fn from(value: $type) -> Self {
+                value.0
+            }
+        }
+
+        impl Add for $type {
+            type Output = Self;
+
+            fn add(self, rhs: Self) -> Self::Output {
+                Self::new(self.0 + rhs.0)
+            }
+        }
+
+        impl Sub for $type {
+            type Output = Self;
+
+            fn sub(self, rhs: Self) -> Self::Output {
+                Self::new(self.0 - rhs.0)
+            }            
+        }
+
+        assign_code!($type);
+    };
+}
+
+angle_code!(Radians);
 
 impl From<(f64, Radians)> for FloatPoint {
     fn from(value: (f64, Radians)) -> Self {
@@ -22,114 +96,16 @@ impl From<(f64, Radians)> for FloatPoint {
     }
 }
 
-impl Display for Radians {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl AddAssign for Radians {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-impl Add for Radians {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-}
-
-impl Neg for Radians {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        self + Radians(PI)
-    }
-}
-
-impl SubAssign for Radians {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self += -rhs;
-    }
-}
-
-impl Sub for Radians {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        let mut result = rhs;
-        result -= rhs;
-        result
-    }
-}
-
-fn normalize_angle(value: f64, bound: f64) -> f64 {
-    let mut angle = value;
-    let half_bound = bound / 2.0;
-    while angle <= -half_bound {
-        angle += bound;
-    }
-    while angle > half_bound {
-        angle -= bound;
-    }
-    angle
-}
-
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Degrees(f64);
 
-impl Degrees {
-    pub fn new(angle_degrees: f64) -> Self {
-        Self(normalize_angle(angle_degrees, 360.0))
+impl Angle for Degrees {
+    fn bound() -> f64 {
+        360.0
     }
 }
 
-impl AddAssign for Degrees {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-impl Add for Degrees {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-}
-
-impl Neg for Degrees {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        self + Degrees(180.0)
-    }
-}
-
-impl SubAssign for Degrees {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self += -rhs;
-    }
-}
-
-impl Sub for Degrees {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        let mut result = rhs;
-        result -= rhs;
-        result
-    }
-}
-
-impl Display for Degrees {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:.2}\u{00B0}", self.0)
-    }
-}
+angle_code!(Degrees);
 
 impl From<Radians> for Degrees {
     fn from(value: Radians) -> Self {
@@ -140,18 +116,6 @@ impl From<Radians> for Degrees {
 impl From<Degrees> for Radians {
     fn from(value: Degrees) -> Self {
         Radians::new(value.0 * PI / 180.0)
-    }
-}
-
-impl From<Radians> for f64 {
-    fn from(value: Radians) -> Self {
-        value.0
-    }
-}
-
-impl From<Degrees> for f64 {
-    fn from(value: Degrees) -> Self {
-        value.0
     }
 }
 
@@ -168,30 +132,13 @@ impl Display for RobotPose {
     }
 }
 
-impl AddAssign for RobotPose {
-    fn add_assign(&mut self, rhs: Self) {
-        self.pos += rhs.pos;
-        self.theta += rhs.theta;
-    }
-}
-
 impl Add for RobotPose {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let mut result = self;
-        result += rhs;
-        result
-    }
-}
-
-impl Neg for RobotPose {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        RobotPose {
-            pos: -self.pos,
-            theta: -self.theta,
+        Self {
+            pos: self.pos + rhs.pos,
+            theta: self.theta + rhs.theta,
         }
     }
 }
@@ -200,12 +147,11 @@ impl Sub for RobotPose {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        self + -rhs
+        Self {
+            pos: self.pos - rhs.pos,
+            theta: self.theta - rhs.theta,
+        }
     }
 }
 
-impl SubAssign for RobotPose {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
+assign_code!(RobotPose);
