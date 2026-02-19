@@ -31,6 +31,12 @@ impl Angle for Radians {
     }
 }
 
+impl Display for Radians {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 macro_rules! assign_code {
     ($type:tt) => {
         impl AddAssign for $type {
@@ -52,12 +58,6 @@ macro_rules! angle_code {
         impl $type {
             pub fn new(angle: f64) -> Self {
                 Self(Self::normalize_angle(angle))
-            }
-        }
-
-        impl Display for $type {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}", self.0)
             }
         }
 
@@ -102,6 +102,12 @@ pub struct Degrees(f64);
 impl Angle for Degrees {
     fn bound() -> f64 {
         360.0
+    }
+}
+
+impl Display for Degrees {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:.2}\u{00B0}", self.0)
     }
 }
 
