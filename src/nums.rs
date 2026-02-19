@@ -9,9 +9,9 @@ use crate::point::FloatPoint;
 pub trait Angle {
     fn bound() -> f64;
 
-    fn degrees(&self) -> f64;
+    fn degrees(&self) -> Degrees;
 
-    fn radians(&self) -> f64;
+    fn radians(&self) -> Radians;
 
     fn normalize_angle(angle: f64) -> f64 {
         let mut angle = angle;
@@ -34,13 +34,12 @@ impl Angle for Radians {
         PI * 2.0
     }
 
-    fn degrees(&self) -> f64 {
-        let deg: Degrees = (*self).into();
-        deg.into()
+    fn degrees(&self) -> Degrees {
+        (*self).into()
     }
 
-    fn radians(&self) -> f64 {
-        (*self).into()
+    fn radians(&self) -> Radians {
+        *self
     }
 }
 
@@ -117,13 +116,12 @@ impl Angle for Degrees {
         360.0
     }
 
-    fn degrees(&self) -> f64 {
-        (*self).into()
+    fn degrees(&self) -> Degrees {
+        *self
     }
 
-    fn radians(&self) -> f64 {
-        let deg: Radians = (*self).into();
-        deg.into()
+    fn radians(&self) -> Radians {
+        (*self).into()
     }
 }
 
@@ -155,7 +153,8 @@ pub struct RobotPose<A: Angle> {
 
 impl<A: Angle + Display> Display for RobotPose<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({:.3}, {:.3});{}", self.pos[0], self.pos[1], self.theta)
+        let degrees = self.theta.degrees();
+        write!(f, "({:.3}, {:.3});{degrees}", self.pos[0], self.pos[1])
     }
 }
 
