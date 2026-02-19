@@ -9,6 +9,10 @@ use crate::point::FloatPoint;
 pub trait Angle {
     fn bound() -> f64;
 
+    fn degrees(&self) -> f64;
+
+    fn radians(&self) -> f64;
+
     fn normalize_angle(angle: f64) -> f64 {
         let mut angle = angle;
         let half_bound = Self::bound() / 2.0;
@@ -28,6 +32,15 @@ pub struct Radians(f64);
 impl Angle for Radians {
     fn bound() -> f64 {
         PI * 2.0
+    }
+
+    fn degrees(&self) -> f64 {
+        let deg: Degrees = (*self).into();
+        deg.into()
+    }
+
+    fn radians(&self) -> f64 {
+        (*self).into()
     }
 }
 
@@ -103,6 +116,15 @@ impl Angle for Degrees {
     fn bound() -> f64 {
         360.0
     }
+
+    fn degrees(&self) -> f64 {
+        (*self).into()
+    }
+
+    fn radians(&self) -> f64 {
+        let deg: Radians = (*self).into();
+        deg.into()
+    }
 }
 
 impl Display for Degrees {
@@ -126,19 +148,18 @@ impl From<Degrees> for Radians {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
-pub struct RobotPose {
+pub struct RobotPose<A: Angle> {
     pub pos: FloatPoint,
-    pub theta: Radians,
+    pub theta: A,
 }
 
-impl Display for RobotPose {
+impl<A: Angle + Display> Display for RobotPose<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let heading: Degrees = self.theta.into();
-        write!(f, "({:.3}, {:.3});{heading}", self.pos[0], self.pos[1])
+        write!(f, "({:.3}, {:.3});{}", self.pos[0], self.pos[1], self.theta)
     }
 }
 
-impl Add for RobotPose {
+impl<A: Angle + Add<Output=A>> Add for RobotPose<A> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -149,7 +170,7 @@ impl Add for RobotPose {
     }
 }
 
-impl Sub for RobotPose {
+impl<A: Angle + Sub<Output=A>> Sub for RobotPose<A> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -160,4 +181,14 @@ impl Sub for RobotPose {
     }
 }
 
-assign_code!(RobotPose);
+impl<A: Angle + Add<Output=A> + Copy> AddAssign for RobotPose<A> {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+impl<A: Angle + Sub<Output=A> + Copy> SubAssign for RobotPose<A> {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}

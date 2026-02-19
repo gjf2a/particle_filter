@@ -15,7 +15,7 @@ pub trait ObstacleMap: Clone + Default {
 
     fn mean_stdev(&self, sensor_info: Option<&Self::SensorType>) -> (f64, Degrees);
 
-    fn noise(&self, pose: RobotPose, sensor_info: Option<&Self::SensorType>) -> RobotPose {
+    fn noise(&self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>) -> RobotPose<Radians> {
         let mut rng = rand::rng();
         let (stdev_x_y, stdev_theta) = self.mean_stdev(sensor_info);
         let x_y_gaussian = Normal::new(0.0, stdev_x_y).unwrap();
@@ -33,7 +33,7 @@ pub trait ObstacleMap: Clone + Default {
 #[derive(Clone, Debug)]
 pub struct ParticleFilter<M: ObstacleMap> {
     particles: Vec<(PoseEstimate, M)>,
-    best_particle: (RobotPose, M),
+    best_particle: (RobotPose<Radians>, M),
 }
 
 impl<M: ObstacleMap> ParticleFilter<M> {
@@ -42,24 +42,24 @@ impl<M: ObstacleMap> ParticleFilter<M> {
             particles: std::iter::repeat((PoseEstimate::default(), M::default()))
                 .take(num_particles)
                 .collect(),
-            best_particle: (RobotPose::default(), M::default()),
+            best_particle: (RobotPose::<Radians>::default(), M::default()),
         }
     }
 
-    pub fn current_best(&self) -> (RobotPose, M) {
+    pub fn current_best(&self) -> (RobotPose<Radians>, M) {
         self.best_particle.clone()
     }
 
     pub fn iterate(
         &mut self,
-        new_raw_pose: Option<RobotPose>,
+        new_raw_pose: Option<RobotPose<Radians>>,
         sensor_info: Option<&M::SensorType>,
     ) {
         self.resample();
         self.update_all(new_raw_pose, sensor_info);
     }
 
-    fn update_all(&mut self, new_raw_pose: Option<RobotPose>, sensor_info: Option<&M::SensorType>) {
+    fn update_all(&mut self, new_raw_pose: Option<RobotPose<Radians>>, sensor_info: Option<&M::SensorType>) {
         for (pose, particle) in self.particles.iter_mut() {
             particle.sensor_update(pose, sensor_info);
             if let Some(raw_pose) = new_raw_pose {
@@ -99,18 +99,18 @@ pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize,
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct PoseEstimate {
-    last_raw: Option<RobotPose>,
-    current_estimate: RobotPose,
+    last_raw: Option<RobotPose<Radians>>,
+    current_estimate: RobotPose<Radians>,
 }
 
-impl From<PoseEstimate> for RobotPose {
+impl From<PoseEstimate> for RobotPose<Radians> {
     fn from(value: PoseEstimate) -> Self {
         value.current_estimate
     }
 }
 
 impl PoseEstimate {
-    pub fn updated_raw_pose(&mut self, raw_pose: RobotPose) {
+    pub fn updated_raw_pose(&mut self, raw_pose: RobotPose<Radians>) {
         match self.last_raw {
             None => {
                 self.current_estimate = raw_pose;
@@ -129,7 +129,7 @@ impl PoseEstimate {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Degrees, FloatPoint, PoseEstimate, RobotPose};
+    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
 
     #[test]
     fn test_current_estimated_pose() {
@@ -145,7 +145,7 @@ mod tests {
                 theta: Degrees::new(theta).into(),
             };
             estimate.updated_raw_pose(pose);
-            let estimated: RobotPose = estimate.into();
+            let estimated: RobotPose<Radians> = estimate.into();
             assert_eq!(pose, estimated);
         }
     }
