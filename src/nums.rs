@@ -93,7 +93,7 @@ macro_rules! angle_code {
 
             fn sub(self, rhs: Self) -> Self::Output {
                 Self::new(self.0 - rhs.0)
-            }            
+            }
         }
 
         assign_code!($type);
@@ -159,7 +159,7 @@ impl<A: Angle + Display> Display for RobotPose<A> {
     }
 }
 
-impl<A: Angle + Add<Output=A>> Add for RobotPose<A> {
+impl<A: Angle + Add<Output = A>> Add for RobotPose<A> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -170,7 +170,7 @@ impl<A: Angle + Add<Output=A>> Add for RobotPose<A> {
     }
 }
 
-impl<A: Angle + Sub<Output=A>> Sub for RobotPose<A> {
+impl<A: Angle + Sub<Output = A>> Sub for RobotPose<A> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -181,13 +181,13 @@ impl<A: Angle + Sub<Output=A>> Sub for RobotPose<A> {
     }
 }
 
-impl<A: Angle + Add<Output=A> + Copy> AddAssign for RobotPose<A> {
+impl<A: Angle + Add<Output = A> + Copy> AddAssign for RobotPose<A> {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl<A: Angle + Sub<Output=A> + Copy> SubAssign for RobotPose<A> {
+impl<A: Angle + Sub<Output = A> + Copy> SubAssign for RobotPose<A> {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }

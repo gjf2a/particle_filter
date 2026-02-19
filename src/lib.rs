@@ -17,7 +17,7 @@ impl Noise {
     fn noise(&self, pose: RobotPose<Radians>) -> RobotPose<Radians> {
         let mut rng = rand::rng();
         let x_y_gaussian = Normal::new(0.0, self.stdev_x_y).unwrap();
-        let theta_gaussian = Normal::new(0.0,self.stdev_angle.into()).unwrap();
+        let theta_gaussian = Normal::new(0.0, self.stdev_angle.into()).unwrap();
         let x_y_noise =
             FloatPoint::new([x_y_gaussian.sample(&mut rng), x_y_gaussian.sample(&mut rng)]);
         let theta_noise = Degrees::new(theta_gaussian.sample(&mut rng));
@@ -32,7 +32,11 @@ pub trait ObstacleMap: Clone {
     type SensorType;
 
     fn error(&mut self, estimated_pose: &PoseEstimate) -> f64;
-    fn sensor_update(&mut self, estimated_pose: &PoseEstimate, sensor_info: Option<&Self::SensorType>);
+    fn sensor_update(
+        &mut self,
+        estimated_pose: &PoseEstimate,
+        sensor_info: Option<&Self::SensorType>,
+    );
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
 }
 
@@ -65,7 +69,11 @@ impl<M: ObstacleMap> ParticleFilter<M> {
         self.update_all(new_raw_pose, sensor_info);
     }
 
-    fn update_all(&mut self, new_raw_pose: Option<RobotPose<Radians>>, sensor_info: Option<&M::SensorType>) {
+    fn update_all(
+        &mut self,
+        new_raw_pose: Option<RobotPose<Radians>>,
+        sensor_info: Option<&M::SensorType>,
+    ) {
         for (pose, particle) in self.particles.iter_mut() {
             particle.sensor_update(pose, sensor_info);
             if let Some(raw_pose) = new_raw_pose {
