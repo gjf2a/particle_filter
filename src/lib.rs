@@ -7,19 +7,17 @@ pub use point::*;
 use hash_histogram::HashHistogram;
 use rand_distr::{Distribution, Normal};
 
-pub trait ObstacleMap: Clone + Default {
-    type SensorType;
+#[derive(Copy, Clone, Default, Debug)]
+pub struct Noise {
+    pub stdev_x_y: f64,
+    pub stdev_angle: Degrees,
+}
 
-    fn error(&mut self, estimated_pose: &PoseEstimate) -> f64;
-    fn sensor_update(&mut self, estimated_pose: &PoseEstimate, sensor_info: Option<&Self::SensorType>);
-
-    fn mean_stdev(&self, sensor_info: Option<&Self::SensorType>) -> (f64, Degrees);
-
-    fn noise(&self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>) -> RobotPose<Radians> {
+impl Noise {
+    fn noise(&self, pose: RobotPose<Radians>) -> RobotPose<Radians> {
         let mut rng = rand::rng();
-        let (stdev_x_y, stdev_theta) = self.mean_stdev(sensor_info);
-        let x_y_gaussian = Normal::new(0.0, stdev_x_y).unwrap();
-        let theta_gaussian = Normal::new(0.0, stdev_theta.into()).unwrap();
+        let x_y_gaussian = Normal::new(0.0, self.stdev_x_y).unwrap();
+        let theta_gaussian = Normal::new(0.0,self.stdev_angle.into()).unwrap();
         let x_y_noise =
             FloatPoint::new([x_y_gaussian.sample(&mut rng), x_y_gaussian.sample(&mut rng)]);
         let theta_noise = Degrees::new(theta_gaussian.sample(&mut rng));
@@ -28,6 +26,14 @@ pub trait ObstacleMap: Clone + Default {
             theta: pose.theta + theta_noise.into(),
         }
     }
+}
+
+pub trait ObstacleMap: Clone + Default {
+    type SensorType;
+
+    fn error(&mut self, estimated_pose: &PoseEstimate) -> f64;
+    fn sensor_update(&mut self, estimated_pose: &PoseEstimate, sensor_info: Option<&Self::SensorType>);
+    fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
 }
 
 #[derive(Clone, Debug)]
@@ -123,7 +129,7 @@ impl PoseEstimate {
     }
 
     pub fn add_noise<M: ObstacleMap>(&mut self, map: &M, sensor_info: Option<&M::SensorType>) {
-        self.current_estimate = map.noise(self.current_estimate, sensor_info)
+        self.current_estimate = map.noise(sensor_info).noise(self.current_estimate)
     }
 }
 
