@@ -90,6 +90,12 @@ impl<N: NumType, const S: usize> From<N> for Point<N, S> {
     }
 }
 
+impl Point<i64, 2> {
+    pub fn point_iter(&self, end: &Self) -> impl Iterator<Item=Point<i64, 2>> {
+        (self[1]..=end[1]).flat_map(|y| (self[0]..=end[0]).map(move |x| Point::new([x, y])))
+    }
+}
+
 const OFFSETS: [i64; 3] = [-1, 0, 1];
 
 impl<const S: usize> Point<u64, S> {
@@ -255,5 +261,13 @@ mod tests {
             let point: Point<i64, 2> = n.into();
             point.iter().for_each(|v| assert_eq!(v, n));
         }
+    }
+
+    #[test]
+    fn test_point_range() {
+        let start = Point::new([-1, -2]);
+        let end = Point::new([1, 2]);
+        let expected = [(-1, -2), (0, -2), (1, -2), (-1, -1), (0, -1), (1, -1), (-1, 0), (0, 0), (1, 0), (-1, 1), (0, 1), (1, 1), (-1, 2), (0, 2), (1, 2), ];
+        assert!(expected.iter().zip(start.point_iter(&end)).all(|((ex, ey), p) | *ex == p[0] && *ey == p[1]));
     }
 }
