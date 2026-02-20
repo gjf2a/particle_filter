@@ -34,6 +34,7 @@ pub trait ObstacleMap: Clone {
     fn error(&mut self, pose: RobotPose<Radians>) -> f64;
     fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
+    fn bounding_box(&self) -> BoundingBox;
 }
 
 #[derive(Clone, Debug)]
@@ -105,6 +106,35 @@ pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize,
         .iter()
         .map(|(key, weight)| (*key, total - *weight))
         .collect()
+}
+
+#[derive(Default, Clone, Copy, Debug)]
+pub struct BoundingBox {
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+}
+
+impl FromIterator<FloatPoint> for BoundingBox {
+    fn from_iter<T: IntoIterator<Item = FloatPoint>>(iter: T) -> Self {
+        let mut result = Self::default();
+        for point in iter {
+            if result.min_x > point[0] {
+                result.min_x = point[0];
+            }
+            if result.max_x < point[0] {
+                result.max_x = point[0];
+            }
+            if result.min_y > point[1] {
+                result.min_y = point[1];
+            }
+            if result.max_y < point[1] {
+                result.max_y = point[1];
+            }
+        }
+        result
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug)]
