@@ -31,12 +31,8 @@ impl Noise {
 pub trait ObstacleMap: Clone {
     type SensorType;
 
-    fn error(&mut self, estimated_pose: &PoseEstimate) -> f64;
-    fn sensor_update(
-        &mut self,
-        estimated_pose: &PoseEstimate,
-        sensor_info: Option<&Self::SensorType>,
-    );
+    fn error(&mut self, pose: RobotPose<Radians>) -> f64;
+    fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
 }
 
@@ -75,7 +71,7 @@ impl<M: ObstacleMap> ParticleFilter<M> {
         sensor_info: Option<&M::SensorType>,
     ) {
         for (pose, particle) in self.particles.iter_mut() {
-            particle.sensor_update(pose, sensor_info);
+            particle.sensor_update((*pose).into(), sensor_info);
             if let Some(raw_pose) = new_raw_pose {
                 pose.updated_raw_pose(raw_pose);
             }
@@ -88,7 +84,7 @@ impl<M: ObstacleMap> ParticleFilter<M> {
             .particles
             .iter_mut()
             .enumerate()
-            .map(|(i, (pose, p))| (i, p.error(pose)))
+            .map(|(i, (pose, p))| (i, p.error((*pose).into())))
             .collect();
         let weights = invert_errors(&errors);
         let (best_pose, best_map) = &self.particles[weights.mode().unwrap()];
