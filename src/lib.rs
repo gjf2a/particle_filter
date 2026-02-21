@@ -56,6 +56,10 @@ impl<M: ObstacleMap> ParticleFilter<M> {
         }
     }
 
+    pub fn particles(&self) -> impl Iterator<Item = &(PoseEstimate, M)> {
+        self.particles.iter()
+    }
+
     pub fn current_best(&self) -> (RobotPose<Radians>, M) {
         self.best_particle.clone()
     }
