@@ -38,27 +38,29 @@ pub trait ObstacleMap: Clone {
     fn bounding_box(&self) -> BoundingBox;
 }
 
+pub type ParentIndex = Option<usize>;
+
 #[derive(Clone, Debug)]
 pub struct ParticleFilter<M: ObstacleMap> {
-    particles: Vec<(PoseEstimate, M)>,
-    best_particle: (RobotPose<Radians>, M),
+    particles: Vec<(PoseEstimate, M, ParentIndex)>,
+    best_particle: (RobotPose<Radians>, M, ParentIndex),
 }
 
 impl<M: ObstacleMap> ParticleFilter<M> {
     pub fn new(num_particles: usize, starting_map: &M) -> Self {
         Self {
-            particles: std::iter::repeat((PoseEstimate::default(), starting_map.clone()))
+            particles: std::iter::repeat((PoseEstimate::default(), starting_map.clone(), None))
                 .take(num_particles)
                 .collect(),
-            best_particle: (RobotPose::<Radians>::default(), starting_map.clone()),
+            best_particle: (RobotPose::<Radians>::default(), starting_map.clone(), None),
         }
     }
 
-    pub fn particles(&self) -> impl Iterator<Item = &(PoseEstimate, M)> {
+    pub fn particles(&self) -> impl Iterator<Item = &(PoseEstimate, M, ParentIndex)> {
         self.particles.iter()
     }
 
-    pub fn current_best(&self) -> (RobotPose<Radians>, M) {
+    pub fn current_best(&self) -> (RobotPose<Radians>, M, ParentIndex) {
         self.best_particle.clone()
     }
 
@@ -76,7 +78,7 @@ impl<M: ObstacleMap> ParticleFilter<M> {
         new_raw_pose: Option<RobotPose<Radians>>,
         sensor_info: Option<&M::SensorType>,
     ) {
-        for (pose, particle) in self.particles.iter_mut() {
+        for (pose, particle, _) in self.particles.iter_mut() {
             particle.sensor_update((*pose).into(), sensor_info);
             if let Some(raw_pose) = new_raw_pose {
                 pose.updated_raw_pose(raw_pose);
@@ -90,15 +92,16 @@ impl<M: ObstacleMap> ParticleFilter<M> {
             .particles
             .iter_mut()
             .enumerate()
-            .map(|(i, (pose, p))| (i, p.error((*pose).into())))
+            .map(|(i, (pose, p, _))| (i, p.error((*pose).into())))
             .collect();
         let weights = invert_errors(&errors);
-        let (best_pose, best_map) = &self.particles[weights.mode().unwrap()];
-        self.best_particle = ((*best_pose).into(), best_map.clone());
+        let (best_pose, best_map, parent) = &self.particles[weights.mode().unwrap()];
+        self.best_particle = ((*best_pose).into(), best_map.clone(), *parent);
         let mut new_particles = vec![];
         for _ in 0..self.particles.len() {
             let choice = weights.pick_random_key();
-            new_particles.push(self.particles[choice].clone());
+            let (pose_estimate, map, _) = &self.particles[choice];
+            new_particles.push((*pose_estimate, map.clone(), Some(choice)));
         }
 
         std::mem::swap(&mut new_particles, &mut self.particles);
