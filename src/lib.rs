@@ -1,5 +1,6 @@
 pub mod nums;
 pub mod point;
+pub mod stats;
 
 pub use nums::*;
 pub use point::*;
