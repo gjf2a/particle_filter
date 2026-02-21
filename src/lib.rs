@@ -2,6 +2,8 @@ pub mod nums;
 pub mod point;
 pub mod stats;
 
+use std::ops::Index;
+
 pub use nums::*;
 pub use point::*;
 
@@ -135,6 +137,14 @@ impl FromIterator<FloatPoint> for BoundingBox {
             }
         }
         result
+    }
+}
+
+impl<M: ObstacleMap> Index<usize> for ParticleFilter<M> {
+    type Output = (PoseEstimate, M);
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.particles[index]
     }
 }
 
