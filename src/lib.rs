@@ -124,22 +124,28 @@ pub struct BoundingBox {
     max_y: f64,
 }
 
+impl BoundingBox {
+    pub fn observe(&mut self, x: f64, y: f64) {
+        if self.min_x > x {
+            self.min_x = x;
+        }
+        if self.max_x < x {
+            self.max_x = x;
+        }
+        if self.min_y > y {
+            self.min_y = y;
+        }
+        if self.max_y < y {
+            self.max_y = y;
+        }
+    }
+}
+
 impl FromIterator<FloatPoint> for BoundingBox {
     fn from_iter<T: IntoIterator<Item = FloatPoint>>(iter: T) -> Self {
         let mut result = Self::default();
         for point in iter {
-            if result.min_x > point[0] {
-                result.min_x = point[0];
-            }
-            if result.max_x < point[0] {
-                result.max_x = point[0];
-            }
-            if result.min_y > point[1] {
-                result.min_y = point[1];
-            }
-            if result.max_y < point[1] {
-                result.max_y = point[1];
-            }
+            result.observe(point[0], point[1]);
         }
         result
     }
