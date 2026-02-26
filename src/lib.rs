@@ -10,11 +10,6 @@ pub use point::*;
 use hash_histogram::HashHistogram;
 use rand::{RngExt, rng};
 use rand_distr::{Distribution, Normal};
-use trait_set::trait_set;
-
-trait_set! {
-    pub trait ErrorType = Copy + Clone + PartialOrd + PartialEq + Debug + Default;
-}
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct Noise {
@@ -39,28 +34,29 @@ impl Noise {
 
 pub trait ObstacleMap: Clone + PartialEq {
     type SensorType;
+    type ErrorType : Copy + Clone + PartialOrd + PartialEq + Debug + Default;
 
-    fn error<E: ErrorType>(&self) -> E;
+    fn error(&self) -> Self::ErrorType;
     fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
     fn bounding_box(&self) -> BoundingBox;
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]
-pub struct Particle<M: ObstacleMap, E: ErrorType> {
+pub struct Particle<M: ObstacleMap> {
     estimate: PoseEstimate,
     map: M,
     parent: Option<usize>,
-    error: E,
+    error: M::ErrorType,
 }
 
-impl<M: ObstacleMap, E: ErrorType> Particle<M, E> {
+impl<M: ObstacleMap> Particle<M> {
     fn new(starting_map: &M) -> Self {
         Self {
             estimate: PoseEstimate::default(),
             map: starting_map.clone(),
             parent: None,
-            error: E::default(),
+            error: M::ErrorType::default(),
         }
     }
 
@@ -71,20 +67,20 @@ impl<M: ObstacleMap, E: ErrorType> Particle<M, E> {
     }
 }
 
-impl<M: ObstacleMap, E: ErrorType> PartialOrd for Particle<M, E> {
+impl<M: ObstacleMap> PartialOrd for Particle<M> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.error.partial_cmp(&other.error).map(|c| c.reverse())
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ParticleFilter<M: ObstacleMap, E: ErrorType> {
+pub struct ParticleFilter<M: ObstacleMap> {
     aliases: Vec<usize>,
-    particles: Vec<Particle<M, E>>,
-    best_particle: Particle<M, E>,
+    particles: Vec<Particle<M>>,
+    best_particle: Particle<M>,
 }
 
-impl<M: ObstacleMap, E: ErrorType> ParticleFilter<M, E> {
+impl<M: ObstacleMap> ParticleFilter<M> {
     pub fn new(num_particles: usize, starting_map: &M) -> Self {
         let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
         for i in 0..num_particles {
@@ -100,11 +96,11 @@ impl<M: ObstacleMap, E: ErrorType> ParticleFilter<M, E> {
         }
     }
 
-    pub fn particles(&self) -> impl Iterator<Item = &Particle<M, E>> {
+    pub fn particles(&self) -> impl Iterator<Item = &Particle<M>> {
         self.particles.iter()
     }
 
-    pub fn current_best(&self) -> Particle<M, E> {
+    pub fn current_best(&self) -> Particle<M> {
         self.best_particle.clone()
     }
 
