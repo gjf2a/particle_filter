@@ -11,7 +11,7 @@ use hash_histogram::HashHistogram;
 use rand::{RngExt, rng};
 use rand_distr::{Distribution, Normal};
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Noise {
     pub stdev_x_y: f64,
     pub stdev_angle: Degrees,
