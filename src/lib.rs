@@ -51,6 +51,18 @@ pub struct Particle<M: ObstacleMap> {
 }
 
 impl<M: ObstacleMap> Particle<M> {
+    pub fn estimated_pose(&self) -> RobotPose<Radians> {
+        self.estimate.into()
+    }
+
+    pub fn map(&self) -> &M {
+        &self.map
+    }
+
+    pub fn parent_index(&self) -> Option<usize> {
+        self.parent
+    }
+
     fn new(starting_map: &M) -> Self {
         Self {
             estimate: PoseEstimate::default(),
@@ -62,7 +74,7 @@ impl<M: ObstacleMap> Particle<M> {
 
     fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
         self.estimate.add_noise(&self.map, sensor_info);
-        self.map.sensor_update(self.estimate.into(), sensor_info);
+        self.map.sensor_update(self.estimated_pose(), sensor_info);
         self.error = self.map.error();
     }
 }
