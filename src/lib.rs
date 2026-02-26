@@ -63,6 +63,10 @@ impl<M: ObstacleMap> Particle<M> {
         self.parent
     }
 
+    pub fn error(&self) -> M::ErrorType {
+        self.error
+    }
+
     fn new(starting_map: &M) -> Self {
         Self {
             estimate: PoseEstimate::default(),
