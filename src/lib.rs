@@ -34,7 +34,7 @@ impl Noise {
 
 pub trait ObstacleMap: Clone + PartialEq {
     type SensorType;
-    type ErrorType : Copy + Clone + PartialOrd + PartialEq + Debug + Default;
+    type ErrorType: Copy + Clone + PartialOrd + PartialEq + Debug + Default;
 
     fn error(&self) -> Self::ErrorType;
     fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
