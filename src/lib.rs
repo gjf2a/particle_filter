@@ -2,11 +2,19 @@ pub mod nums;
 pub mod point;
 pub mod stats;
 
+use std::{cmp::Ordering, fmt::Debug, iter::repeat_n};
+
 pub use nums::*;
 pub use point::*;
 
 use hash_histogram::HashHistogram;
+use rand::{RngExt, rng};
 use rand_distr::{Distribution, Normal};
+use trait_set::trait_set;
+
+trait_set! {
+    pub trait ErrorType = Copy + Clone + PartialOrd + PartialEq + Debug + Default;
+}
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct Noise {
@@ -29,38 +37,74 @@ impl Noise {
     }
 }
 
-pub trait ObstacleMap: Clone {
+pub trait ObstacleMap: Clone + PartialEq {
     type SensorType;
 
-    fn error(&self) -> f64;
+    fn error<E: ErrorType>(&self) -> E;
     fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
     fn bounding_box(&self) -> BoundingBox;
 }
 
-pub type ParentIndex = Option<usize>;
-
-#[derive(Clone, Debug)]
-pub struct ParticleFilter<M: ObstacleMap> {
-    particles: Vec<(PoseEstimate, M, ParentIndex)>,
-    best_particle: (RobotPose<Radians>, M, ParentIndex),
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Particle<M: ObstacleMap, E: ErrorType> {
+    estimate: PoseEstimate,
+    map: M,
+    parent: Option<usize>,
+    error: E,
 }
 
-impl<M: ObstacleMap> ParticleFilter<M> {
-    pub fn new(num_particles: usize, starting_map: &M) -> Self {
+impl<M: ObstacleMap, E: ErrorType> Particle<M, E> {
+    fn new(starting_map: &M) -> Self {
         Self {
-            particles: std::iter::repeat((PoseEstimate::default(), starting_map.clone(), None))
-                .take(num_particles)
-                .collect(),
-            best_particle: (RobotPose::<Radians>::default(), starting_map.clone(), None),
+            estimate: PoseEstimate::default(),
+            map: starting_map.clone(),
+            parent: None,
+            error: E::default(),
         }
     }
 
-    pub fn particles(&self) -> impl Iterator<Item = &(PoseEstimate, M, ParentIndex)> {
+    fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
+        self.estimate.add_noise(&self.map, sensor_info);
+        self.map.sensor_update(self.estimate.into(), sensor_info);
+        self.error = self.map.error();
+    }
+}
+
+impl<M: ObstacleMap, E: ErrorType> PartialOrd for Particle<M, E> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.error.partial_cmp(&other.error).map(|c| c.reverse())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ParticleFilter<M: ObstacleMap, E: ErrorType> {
+    aliases: Vec<usize>,
+    particles: Vec<Particle<M, E>>,
+    best_particle: Particle<M, E>,
+}
+
+impl<M: ObstacleMap, E: ErrorType> ParticleFilter<M, E> {
+    pub fn new(num_particles: usize, starting_map: &M) -> Self {
+        let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
+        for i in 0..num_particles {
+            for _ in 0..=i {
+                aliases.push(i);
+            }
+        }
+        let particles = repeat_n(Particle::new(starting_map), num_particles).collect();
+        Self {
+            aliases,
+            particles,
+            best_particle: Particle::new(starting_map),
+        }
+    }
+
+    pub fn particles(&self) -> impl Iterator<Item = &Particle<M, E>> {
         self.particles.iter()
     }
 
-    pub fn current_best(&self) -> (RobotPose<Radians>, M, ParentIndex) {
+    pub fn current_best(&self) -> Particle<M, E> {
         self.best_particle.clone()
     }
 
@@ -78,32 +122,24 @@ impl<M: ObstacleMap> ParticleFilter<M> {
         new_raw_pose: Option<RobotPose<Radians>>,
         sensor_info: Option<&M::SensorType>,
     ) {
-        for (pose, particle, _) in self.particles.iter_mut() {
-            particle.sensor_update((*pose).into(), sensor_info);
+        for particle in self.particles.iter_mut() {
             if let Some(raw_pose) = new_raw_pose {
-                pose.updated_raw_pose(raw_pose);
+                particle.estimate.updated_raw_pose(raw_pose);
             }
-            pose.add_noise(particle, sensor_info);
+            particle.sensor_update(sensor_info);
         }
     }
 
     fn resample(&mut self) {
-        let errors: HashHistogram<usize, f64> = self
-            .particles
-            .iter()
-            .enumerate()
-            .map(|(i, (_, p, _))| (i, p.error()))
-            .collect();
-        let weights = invert_errors(&errors);
-        let (best_pose, best_map, parent) = &self.particles[weights.mode().unwrap()];
-        self.best_particle = ((*best_pose).into(), best_map.clone(), *parent);
+        self.particles
+            .sort_unstable_by(|p1, p2| p1.partial_cmp(p2).unwrap_or(Ordering::Equal));
+        self.best_particle = self.particles.last().cloned().unwrap();
         let mut new_particles = vec![];
+        let mut rng = rng();
         for _ in 0..self.particles.len() {
-            let choice = weights.pick_random_key();
-            let (pose_estimate, map, _) = &self.particles[choice];
-            new_particles.push((*pose_estimate, map.clone(), Some(choice)));
+            let choice = self.aliases[rng.random_range(0..self.aliases.len())];
+            new_particles.push(self.particles[choice].clone());
         }
-
         std::mem::swap(&mut new_particles, &mut self.particles);
     }
 }
@@ -151,7 +187,7 @@ impl FromIterator<FloatPoint> for BoundingBox {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct PoseEstimate {
     last_raw: Option<RobotPose<Radians>>,
     current_estimate: RobotPose<Radians>,
