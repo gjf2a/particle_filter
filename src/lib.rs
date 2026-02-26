@@ -32,7 +32,7 @@ impl Noise {
 pub trait ObstacleMap: Clone {
     type SensorType;
 
-    fn error(&mut self, pose: RobotPose<Radians>) -> f64;
+    fn error(&self) -> f64;
     fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
     fn bounding_box(&self) -> BoundingBox;
@@ -90,9 +90,9 @@ impl<M: ObstacleMap> ParticleFilter<M> {
     fn resample(&mut self) {
         let errors: HashHistogram<usize, f64> = self
             .particles
-            .iter_mut()
+            .iter()
             .enumerate()
-            .map(|(i, (pose, p, _))| (i, p.error((*pose).into())))
+            .map(|(i, (_, p, _))| (i, p.error()))
             .collect();
         let weights = invert_errors(&errors);
         let (best_pose, best_map, parent) = &self.particles[weights.mode().unwrap()];
