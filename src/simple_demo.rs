@@ -149,7 +149,8 @@ impl ObstacleMap for DummyMap {
     fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>) {
         if let Some(distance) = sensor_info {
             if let Some(map_distance) = self.map.distance_to_edge(pose) {
-                self.error += (*distance - map_distance).abs();
+                //self.error += (*distance - map_distance).abs();
+                self.error = (*distance - map_distance).abs();
             } else {
                 self.error *= 100.0;
             }
