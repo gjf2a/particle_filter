@@ -1,5 +1,6 @@
 pub mod nums;
 pub mod point;
+pub mod simple_demo;
 pub mod stats;
 
 use std::{cmp::Ordering, fmt::Debug, iter::repeat_n};
@@ -7,7 +8,6 @@ use std::{cmp::Ordering, fmt::Debug, iter::repeat_n};
 pub use nums::*;
 pub use point::*;
 
-use hash_histogram::HashHistogram;
 use rand::{RngExt, rng};
 use rand_distr::{Distribution, Normal};
 
@@ -156,14 +156,6 @@ impl<M: ObstacleMap> ParticleFilter<M> {
     }
 }
 
-pub fn invert_errors(errors: &HashHistogram<usize, f64>) -> HashHistogram<usize, f64> {
-    let total = errors.total_count() + errors.len() as f64;
-    errors
-        .iter()
-        .map(|(key, weight)| (*key, total - *weight))
-        .collect()
-}
-
 #[derive(Default, Clone, Copy, Debug)]
 pub struct BoundingBox {
     min_x: f64,
@@ -251,4 +243,7 @@ mod tests {
             assert_eq!(pose, estimated);
         }
     }
+
+    #[test]
+    fn test_particle_filter() {}
 }

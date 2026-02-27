@@ -82,6 +82,14 @@ impl<N: NumType, const S: usize> Point<N, S> {
     pub fn iter(&self) -> impl Iterator<Item = N> {
         self.coords.iter().copied()
     }
+
+    pub fn dot(&self, other: &Point<N, S>) -> N {
+        self.coords
+            .iter()
+            .zip(other.iter())
+            .map(|(x, y)| *x * y)
+            .sum()
+    }
 }
 
 impl<N: NumType, const S: usize> From<N> for Point<N, S> {
