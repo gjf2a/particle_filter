@@ -1,3 +1,4 @@
+pub mod coherent;
 pub mod nums;
 pub mod point;
 pub mod simple_demo;
@@ -32,13 +33,17 @@ impl Noise {
     }
 }
 
-pub trait ObstacleMap: Clone + PartialEq {
+pub trait SensorNoiseMap: Clone {
     type SensorType;
+
+    fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
+    fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
+}
+
+pub trait ObstacleMap: SensorNoiseMap + PartialEq {
     type ErrorType: Copy + Clone + PartialOrd + PartialEq + Debug + Default;
 
     fn error(&self) -> Self::ErrorType;
-    fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
-    fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
     fn bounding_box(&self) -> BoundingBox;
 }
 
@@ -216,7 +221,7 @@ impl PoseEstimate {
         self.last_raw = Some(raw_pose);
     }
 
-    pub fn add_noise<M: ObstacleMap>(&mut self, map: &M, sensor_info: Option<&M::SensorType>) {
+    pub fn add_noise<M: SensorNoiseMap>(&mut self, map: &M, sensor_info: Option<&M::SensorType>) {
         self.current_estimate = map.noise(sensor_info).noise(self.current_estimate)
     }
 }

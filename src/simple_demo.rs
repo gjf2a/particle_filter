@@ -1,7 +1,7 @@
 use std::f64::consts::PI;
 
 use crate::nums::{Radians, RobotPose};
-use crate::{Angle, BoundingBox, FloatPoint, Noise, ObstacleMap};
+use crate::{Angle, BoundingBox, FloatPoint, Noise, ObstacleMap, SensorNoiseMap};
 
 // This simple demonstration involves a simulated robot in a circular-fenced
 // area. Its sensor determines the forward distance to the fence based on
@@ -70,10 +70,7 @@ pub struct Script {
 
 impl Script {
     pub fn new(moves: Vec<Move>) -> Self {
-        Self {
-            moves,
-            current: 0
-        }
+        Self { moves, current: 0 }
     }
 }
 
@@ -94,9 +91,7 @@ pub struct CircleFence {
 
 impl CircleFence {
     pub fn new(radius: f64) -> Self {
-        Self {
-            radius,
-        }
+        Self { radius }
     }
 
     pub fn distance_to_edge(&self, pose: RobotPose<Radians>) -> Option<f64> {
@@ -132,19 +127,13 @@ impl DummyMap {
         Self {
             error: 0.0,
             map: CircleFence::new(radius),
-            noise
+            noise,
         }
     }
 }
 
-impl ObstacleMap for DummyMap {
+impl SensorNoiseMap for DummyMap {
     type SensorType = f64;
-
-    type ErrorType = f64;
-
-    fn error(&self) -> Self::ErrorType {
-        self.error
-    }
 
     fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>) {
         if let Some(distance) = sensor_info {
@@ -159,6 +148,14 @@ impl ObstacleMap for DummyMap {
 
     fn noise(&self, _: Option<&Self::SensorType>) -> Noise {
         self.noise
+    }
+}
+
+impl ObstacleMap for DummyMap {
+    type ErrorType = f64;
+
+    fn error(&self) -> Self::ErrorType {
+        self.error
     }
 
     fn bounding_box(&self) -> BoundingBox {
