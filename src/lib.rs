@@ -1,4 +1,4 @@
-pub mod coherent;
+pub mod consistent;
 pub mod nums;
 pub mod point;
 pub mod simple_demo;

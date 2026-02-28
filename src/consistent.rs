@@ -1,5 +1,5 @@
-// New type of particle filter - the coherent filter
-// It will reject any "incoherent" maps but keep all the others.
+// New type of particle filter - the consistent particle filter
+// It will reject any inconsistent maps but keep all the others.
 
 use std::iter::repeat_n;
 
@@ -7,18 +7,20 @@ use rand::{RngExt, rng};
 
 use crate::{PoseEstimate, Radians, RobotPose, SensorNoiseMap};
 
-pub trait CoherenceMap: SensorNoiseMap {
+use hash_histogram::HashHistogram;
+
+pub trait ConsistentMap: SensorNoiseMap {
     fn is_coherent(&self) -> bool;
 }
 
 #[derive(Clone)]
-pub struct CParticle<M: CoherenceMap> {
+pub struct ConsistentParticle<M: ConsistentMap> {
     estimate: PoseEstimate,
     map: M,
     parent: Option<usize>,
 }
 
-impl<M: CoherenceMap> CParticle<M> {
+impl<M: ConsistentMap> ConsistentParticle<M> {
     pub fn estimated_pose(&self) -> RobotPose<Radians> {
         self.estimate.into()
     }
@@ -49,14 +51,13 @@ impl<M: CoherenceMap> CParticle<M> {
     }
 }
 
-pub struct CParticleFilter<M: CoherenceMap> {
-    particles: Vec<CParticle<M>>,
+pub struct ConsistentParticleFilter<M: ConsistentMap> {
+    particles: Vec<ConsistentParticle<M>>,
     total_iterations: usize,
-    updates_with_incoherence: usize,
-    total_incoherent_particles: usize,
+    iteration_inconsistencies: HashHistogram<usize, usize>,
 }
 
-impl<M: CoherenceMap> CParticleFilter<M> {
+impl<M: ConsistentMap> ConsistentParticleFilter<M> {
     pub fn new(num_particles: usize, starting_map: &M) -> Self {
         let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
         for i in 0..num_particles {
@@ -64,15 +65,19 @@ impl<M: CoherenceMap> CParticleFilter<M> {
                 aliases.push(i);
             }
         }
-        let particles = repeat_n(CParticle::new(starting_map), num_particles).collect();
-        Self { particles, total_incoherent_particles: 0, total_iterations: 0, updates_with_incoherence: 0 }
+        let particles = repeat_n(ConsistentParticle::new(starting_map), num_particles).collect();
+        Self { particles, total_iterations: 0, iteration_inconsistencies: HashHistogram::default() }
+    }
+
+    pub fn iteration_inconsistencies(&self) -> HashHistogram<usize, usize> {
+        self.iteration_inconsistencies.clone()
     }
 
     pub fn failed(&self) -> bool {
         self.particles.len() == 0
     }
 
-    pub fn particles(&self) -> impl Iterator<Item = &CParticle<M>> {
+    pub fn particles(&self) -> impl Iterator<Item = &ConsistentParticle<M>> {
         self.particles.iter()
     }
 
@@ -89,14 +94,13 @@ impl<M: CoherenceMap> CParticleFilter<M> {
             particle.sensor_update(sensor_info);
         }
 
-        let coherent = (0..self.particles.len())
+        let consistent = (0..self.particles.len())
             .filter(|i| self.particles[*i].map.is_coherent())
             .collect::<Vec<_>>();
         let num_particles = self.particles.len();
-        if coherent.len() < num_particles {
-            self.updates_with_incoherence += 1;
-            self.total_incoherent_particles += num_particles - coherent.len();
-            self.particles = coherent
+        if consistent.len() < num_particles {
+            self.iteration_inconsistencies.bump_by(&self.total_iterations, num_particles - consistent.len());
+            self.particles = consistent
                 .iter()
                 .map(|i| self.particles[*i].clone())
                 .collect();
