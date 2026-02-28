@@ -82,7 +82,7 @@ impl<M: CoherenceMap> CParticleFilter<M> {
         }
 
         let coherent = (0..self.particles.len())
-            .filter(|i| !self.particles[*i].map.is_coherent())
+            .filter(|i| self.particles[*i].map.is_coherent())
             .collect::<Vec<_>>();
         let num_particles = self.particles.len();
         if coherent.len() < num_particles {
