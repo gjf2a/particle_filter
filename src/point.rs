@@ -106,11 +106,18 @@ impl<N: NumType, const S: usize> From<N> for Point<N, S> {
     }
 }
 
-impl Point<i64, 2> {
-    pub fn point_iter(&self, end: &Self) -> impl Iterator<Item = Point<i64, 2>> {
-        (self[1]..=end[1]).flat_map(|y| (self[0]..=end[0]).map(move |x| Point::new([x, y])))
-    }
+macro_rules! impl_point_iter {
+    ($numtype:tt) => {
+        impl Point<$numtype, 2> {
+            pub fn point_iter(&self, end: &Self) -> impl Iterator<Item = Point<$numtype, 2>> {
+                (self[1]..=end[1]).flat_map(|y| (self[0]..=end[0]).map(move |x| Point::new([x, y])))
+            }
+        }
+    };
 }
+
+impl_point_iter!(i64);
+impl_point_iter!(u64);
 
 const OFFSETS: [i64; 3] = [-1, 0, 1];
 
@@ -335,7 +342,7 @@ mod tests {
 
     #[test]
     fn test_point_range() {
-        let start = Point::new([-1, -2]);
+        let start: Point<i64, 2> = Point::new([-1, -2]);
         let end = Point::new([1, 2]);
         let expected = [
             (-1, -2),
