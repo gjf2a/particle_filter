@@ -10,7 +10,7 @@ use crate::{PoseEstimate, Radians, RobotPose, SensorNoiseMap};
 use hash_histogram::HashHistogram;
 
 pub trait ConsistentMap: SensorNoiseMap {
-    fn is_coherent(&self) -> bool;
+    fn is_consistent(&self) -> bool;
 }
 
 #[derive(Clone)]
@@ -95,7 +95,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         }
 
         let consistent = (0..self.particles.len())
-            .filter(|i| self.particles[*i].map.is_coherent())
+            .filter(|i| self.particles[*i].map.is_consistent())
             .collect::<Vec<_>>();
         let num_particles = self.particles.len();
         if consistent.len() < num_particles {
