@@ -168,31 +168,77 @@ impl<N: NumType, const S: usize> AddAssign for Point<N, S> {
     }
 }
 
-impl<N: NumType + Neg<Output = N>, const S: usize> Neg for Point<N, S> {
-    type Output = Self;
+macro_rules! create_sub_signed {
+    ($numtype:tt) => {
+        impl<const S: usize> Neg for Point<$numtype, S> {
+            type Output = Self;
 
-    fn neg(self) -> Self::Output {
-        let mut result = Self::default();
-        for i in 0..S {
-            result[i] = -self[i];
+            fn neg(self) -> Self::Output {
+                let mut result = Self::default();
+                for i in 0..S {
+                    result[i] = -self[i];
+                }
+                result
+            }
         }
-        result
+
+        impl<const S: usize> Sub for Point<$numtype, S> {
+            type Output = Self;
+
+            fn sub(self, rhs: Self) -> Self::Output {
+                self + -rhs
+            }
+        }
+
+        impl<const S: usize> SubAssign for Point<$numtype, S> {
+            fn sub_assign(&mut self, rhs: Self) {
+                *self += -rhs;
+            }
+        }
+    };
+}
+
+create_sub_signed!(isize);
+create_sub_signed!(i64);
+create_sub_signed!(i32);
+create_sub_signed!(i16);
+create_sub_signed!(i8);
+
+create_sub_signed!(f64);
+create_sub_signed!(f32);
+
+// Guaranteed to avoid underflow
+macro_rules! create_sub_unsigned {
+    ($numtype:tt) => {
+        impl<const S: usize> SubAssign for Point<$numtype, S> {
+            fn sub_assign(&mut self, rhs: Self) {
+                for i in 0..S {
+                    if self[i] > rhs[i] {
+                        self[i] -= rhs[i];
+                    } else {
+                        self[i] = 0;
+                    }
+                }
+            }
+        }
+
+        impl<const S: usize> Sub for Point<$numtype, S> {
+            type Output = Self;
+
+            fn sub(self, rhs: Self) -> Self::Output {
+                let mut result = self;
+                result -= rhs;
+                result
+            }
+        }
     }
 }
 
-impl<N: NumType + Neg<Output = N>, const S: usize> Sub for Point<N, S> {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        self + -rhs
-    }
-}
-
-impl<N: NumType + Neg<Output = N>, const S: usize> SubAssign for Point<N, S> {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self += -rhs;
-    }
-}
+create_sub_unsigned!(usize);
+create_sub_unsigned!(u64);
+create_sub_unsigned!(u32);
+create_sub_unsigned!(u16);
+create_sub_unsigned!(u8);
 
 impl<N: NumType, const S: usize> Mul<N> for Point<N, S> {
     type Output = Self;
@@ -269,6 +315,14 @@ mod tests {
             let point: Point<i64, 2> = n.into();
             point.iter().for_each(|v| assert_eq!(v, n));
         }
+    }
+
+    #[test]
+    fn test_sub_u64() {
+        let a = GridPoint::new([2, 7]);
+        let b = GridPoint::new([4, 3]);
+        assert_eq!(GridPoint::new([0, 4]), a - b);
+        assert_eq!(GridPoint::new([2, 0]), b - a);
     }
 
     #[test]
