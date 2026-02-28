@@ -39,14 +39,21 @@ impl<M: CoherenceMap> CParticle<M> {
         }
     }
 
-    fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
+    fn add_noise(&mut self, sensor_info: Option<&M::SensorType>) {
         self.estimate.add_noise(&self.map, sensor_info);
+    }
+
+    fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
+        self.add_noise(sensor_info);
         self.map.sensor_update(self.estimated_pose(), sensor_info);
     }
 }
 
 pub struct CParticleFilter<M: CoherenceMap> {
     particles: Vec<CParticle<M>>,
+    total_iterations: usize,
+    updates_with_incoherence: usize,
+    total_incoherent_particles: usize,
 }
 
 impl<M: CoherenceMap> CParticleFilter<M> {
@@ -58,7 +65,7 @@ impl<M: CoherenceMap> CParticleFilter<M> {
             }
         }
         let particles = repeat_n(CParticle::new(starting_map), num_particles).collect();
-        Self { particles }
+        Self { particles, total_incoherent_particles: 0, total_iterations: 0, updates_with_incoherence: 0 }
     }
 
     pub fn failed(&self) -> bool {
@@ -74,6 +81,7 @@ impl<M: CoherenceMap> CParticleFilter<M> {
         new_raw_pose: Option<RobotPose<Radians>>,
         sensor_info: Option<&M::SensorType>,
     ) {
+        self.total_iterations += 1;
         for particle in self.particles.iter_mut() {
             if let Some(raw_pose) = new_raw_pose {
                 particle.estimate.updated_raw_pose(raw_pose);
@@ -86,6 +94,8 @@ impl<M: CoherenceMap> CParticleFilter<M> {
             .collect::<Vec<_>>();
         let num_particles = self.particles.len();
         if coherent.len() < num_particles {
+            self.updates_with_incoherence += 1;
+            self.total_incoherent_particles += num_particles - coherent.len();
             self.particles = coherent
                 .iter()
                 .map(|i| self.particles[*i].clone())
@@ -94,7 +104,9 @@ impl<M: CoherenceMap> CParticleFilter<M> {
                 let mut rng = rng();
                 while self.particles.len() < num_particles {
                     let choice = rng.random_range(0..self.particles.len());
-                    self.particles.push(self.particles[choice].clone());
+                    let mut new_particle = self.particles[choice].clone();
+                    new_particle.add_noise(sensor_info);
+                    self.particles.push(new_particle);
                 }
             }
         }
