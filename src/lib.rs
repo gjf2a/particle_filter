@@ -184,6 +184,30 @@ impl BoundingBox {
             self.max_y = y;
         }
     }
+
+    pub fn width(&self) -> f64 {
+        self.max_x - self.min_x
+    }
+
+    pub fn height(&self) -> f64 {
+        self.max_y - self.min_y
+    }
+
+    pub fn min_x(&self) -> f64 {
+        self.min_x
+    }
+
+    pub fn max_x(&self) -> f64 {
+        self.max_x
+    }
+
+    pub fn min_y(&self) -> f64 {
+        self.min_y
+    }
+
+    pub fn max_y(&self) -> f64 {
+        self.max_y
+    }
 }
 
 impl FromIterator<FloatPoint> for BoundingBox {
