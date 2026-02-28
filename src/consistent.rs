@@ -66,7 +66,11 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             }
         }
         let particles = repeat_n(ConsistentParticle::new(starting_map), num_particles).collect();
-        Self { particles, total_iterations: 0, iteration_inconsistencies: HashHistogram::default() }
+        Self {
+            particles,
+            total_iterations: 0,
+            iteration_inconsistencies: HashHistogram::default(),
+        }
     }
 
     pub fn iteration_inconsistencies(&self) -> HashHistogram<usize, usize> {
@@ -99,7 +103,8 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             .collect::<Vec<_>>();
         let num_particles = self.particles.len();
         if consistent.len() < num_particles {
-            self.iteration_inconsistencies.bump_by(&self.total_iterations, num_particles - consistent.len());
+            self.iteration_inconsistencies
+                .bump_by(&self.total_iterations, num_particles - consistent.len());
             self.particles = consistent
                 .iter()
                 .map(|i| self.particles[*i].clone())
