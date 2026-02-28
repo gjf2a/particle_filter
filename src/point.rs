@@ -90,6 +90,14 @@ impl<N: NumType, const S: usize> Point<N, S> {
             .map(|(x, y)| *x * y)
             .sum()
     }
+
+    pub fn element_max(&self, other: &Point<N, S>) -> Point<N, S> {
+        self.iter().zip(other.iter()).map(|(a, b)| if a < b {b} else {a}).collect()
+    }
+
+    pub fn element_min(&self, other: &Point<N, S>) -> Point<N, S> {
+        self.iter().zip(other.iter()).map(|(a, b)| if a < b {a} else {b}).collect()
+    }
 }
 
 impl<N: NumType, const S: usize> From<N> for Point<N, S> {
@@ -352,5 +360,13 @@ mod tests {
                 .zip(start.point_iter(&end))
                 .all(|((ex, ey), p)| *ex == p[0] && *ey == p[1])
         );
+    }
+
+    #[test]
+    fn test_element_min_max() {
+        let a = GridPoint::new([2, 7]);
+        let b = GridPoint::new([4, 3]);
+        assert_eq!(GridPoint::new([2, 3]), a.element_min(&b));
+        assert_eq!(GridPoint::new([4, 7]), a.element_max(&b));
     }
 }
