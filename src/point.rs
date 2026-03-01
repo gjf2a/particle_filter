@@ -92,11 +92,17 @@ impl<N: NumType, const S: usize> Point<N, S> {
     }
 
     pub fn element_max(&self, other: &Point<N, S>) -> Point<N, S> {
-        self.iter().zip(other.iter()).map(|(a, b)| if a < b {b} else {a}).collect()
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| if a < b { b } else { a })
+            .collect()
     }
 
     pub fn element_min(&self, other: &Point<N, S>) -> Point<N, S> {
-        self.iter().zip(other.iter()).map(|(a, b)| if a < b {a} else {b}).collect()
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| if a < b { a } else { b })
+            .collect()
     }
 }
 
@@ -246,7 +252,7 @@ macro_rules! create_sub_unsigned {
                 result
             }
         }
-    }
+    };
 }
 
 create_sub_unsigned!(usize);
