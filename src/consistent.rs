@@ -7,10 +7,14 @@ use rand::{RngExt, rng};
 
 use crate::{PoseEstimate, Radians, RobotPose, SensorNoiseMap};
 
-use hash_histogram::HashHistogram;
-
 pub trait ConsistentMap: SensorNoiseMap {
+    type StatType: StatCollector<Self>;
+
     fn is_consistent(&self) -> bool;
+}
+
+pub trait StatCollector<M>: Default + Clone {
+    fn gather_data_from(&mut self, iteration: usize, particle: &M);
 }
 
 #[derive(Clone)]
@@ -54,7 +58,7 @@ impl<M: ConsistentMap> ConsistentParticle<M> {
 pub struct ConsistentParticleFilter<M: ConsistentMap> {
     particles: Vec<ConsistentParticle<M>>,
     total_iterations: usize,
-    iteration_inconsistencies: HashHistogram<usize, usize>,
+    stats: M::StatType,
 }
 
 impl<M: ConsistentMap> ConsistentParticleFilter<M> {
@@ -69,12 +73,12 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         Self {
             particles,
             total_iterations: 0,
-            iteration_inconsistencies: HashHistogram::default(),
+            stats: M::StatType::default(),
         }
     }
 
-    pub fn iteration_inconsistencies(&self) -> HashHistogram<usize, usize> {
-        self.iteration_inconsistencies.clone()
+    pub fn stats(&self) -> M::StatType {
+        self.stats.clone()
     }
 
     pub fn failed(&self) -> bool {
@@ -91,32 +95,57 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         sensor_info: Option<&M::SensorType>,
     ) {
         self.total_iterations += 1;
+        self.update_all_particles(new_raw_pose, sensor_info);
+        let consistent = self.find_consistent_particles();
+        let num_particles = self.particles.len();
+        if consistent.len() < num_particles {
+            self.repopulate(num_particles, &consistent, sensor_info);
+        }
+    }
+
+    fn update_all_particles(
+        &mut self,
+        new_raw_pose: Option<RobotPose<Radians>>,
+        sensor_info: Option<&M::SensorType>,
+    ) {
         for particle in self.particles.iter_mut() {
             if let Some(raw_pose) = new_raw_pose {
                 particle.estimate.updated_raw_pose(raw_pose);
             }
             particle.sensor_update(sensor_info);
         }
+    }
 
-        let consistent = (0..self.particles.len())
-            .filter(|i| self.particles[*i].map.is_consistent())
-            .collect::<Vec<_>>();
-        let num_particles = self.particles.len();
-        if consistent.len() < num_particles {
-            self.iteration_inconsistencies
-                .bump_by(&self.total_iterations, num_particles - consistent.len());
-            self.particles = consistent
-                .iter()
-                .map(|i| self.particles[*i].clone())
-                .collect();
-            if !self.failed() {
-                let mut rng = rng();
-                while self.particles.len() < num_particles {
-                    let choice = rng.random_range(0..self.particles.len());
-                    let mut new_particle = self.particles[choice].clone();
-                    new_particle.add_noise(sensor_info);
-                    self.particles.push(new_particle);
-                }
+    fn find_consistent_particles(&mut self) -> Vec<usize> {
+        let mut consistent = vec![];
+        for i in 0..self.particles.len() {
+            if self.particles[i].map.is_consistent() {
+                consistent.push(i);
+            } else {
+                self.stats
+                    .gather_data_from(self.total_iterations, &self.particles[i].map);
+            }
+        }
+        consistent
+    }
+
+    fn repopulate(
+        &mut self,
+        num_particles: usize,
+        consistent: &Vec<usize>,
+        sensor_info: Option<&M::SensorType>,
+    ) {
+        self.particles = consistent
+            .iter()
+            .map(|i| self.particles[*i].clone())
+            .collect();
+        if !self.failed() {
+            let mut rng = rng();
+            while self.particles.len() < num_particles {
+                let choice = rng.random_range(0..self.particles.len());
+                let mut new_particle = self.particles[choice].clone();
+                new_particle.add_noise(sensor_info);
+                self.particles.push(new_particle);
             }
         }
     }
