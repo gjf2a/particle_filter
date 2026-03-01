@@ -77,6 +77,10 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         }
     }
 
+    pub fn total_iterations(&self) -> usize {
+        self.total_iterations
+    }
+
     pub fn stats(&self) -> M::StatType {
         self.stats.clone()
     }
