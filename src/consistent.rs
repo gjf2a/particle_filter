@@ -169,15 +169,16 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             };
             weights.bump_by(c, weight);
         }
-        self.particles = consistent
+        let mut new_particles = consistent
             .iter()
             .map(|i| self.particles[*i].clone())
-            .collect();
-        while self.particles.len() < num_particles {
+            .collect::<Vec<_>>();
+        while new_particles.len() < num_particles {
             let choice = weights.pick_random_key();
             let mut new_particle = self.particles[choice].clone();
             new_particle.add_noise(sensor_info);
-            self.particles.push(new_particle);
+            new_particles.push(new_particle);
         }
+        std::mem::swap(&mut new_particles, &mut self.particles);
     }
 }
