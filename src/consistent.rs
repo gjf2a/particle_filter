@@ -56,7 +56,7 @@ impl<M: ConsistentMap> ConsistentParticle<M> {
     }
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, PartialEq, Eq)]
 pub enum SelectionStrategy {
     #[default]
     Uniform, 
