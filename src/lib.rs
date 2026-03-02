@@ -1,4 +1,5 @@
 pub mod consistent;
+pub mod inconsistent;
 pub mod nums;
 pub mod point;
 pub mod simple_demo;
