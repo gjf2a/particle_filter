@@ -120,11 +120,11 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, sensor_info);
         let consistent = self.find_consistent_particles();
-        if 0 < consistent.len() && consistent.len() < self.particles.len() {
-            self.repopulate(&consistent, sensor_info);
-        } else {
+        if consistent.len() == 0 {
             self.example_failure = Some(self.particles[0].clone());
-        }
+        } else if consistent.len() < self.particles.len() {
+            self.repopulate(&consistent, sensor_info);
+        } 
     }
 
     fn update_all_particles(
