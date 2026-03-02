@@ -59,6 +59,7 @@ pub struct ConsistentParticleFilter<M: ConsistentMap> {
     particles: Vec<ConsistentParticle<M>>,
     total_iterations: usize,
     stats: M::StatType,
+    example_failure: Option<ConsistentParticle<M>>,
 }
 
 impl<M: ConsistentMap> ConsistentParticleFilter<M> {
@@ -74,6 +75,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             particles,
             total_iterations: 0,
             stats: M::StatType::default(),
+            example_failure: None,
         }
     }
 
@@ -83,6 +85,10 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
 
     pub fn stats(&self) -> M::StatType {
         self.stats.clone()
+    }
+
+    pub fn example_failure(&self) -> Option<ConsistentParticle<M>> {
+        self.example_failure.clone()
     }
 
     pub fn failed(&self) -> bool {
@@ -98,6 +104,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         new_raw_pose: Option<RobotPose<Radians>>,
         sensor_info: Option<&M::SensorType>,
     ) {
+        self.example_failure = None;
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, sensor_info);
         let consistent = self.find_consistent_particles();
@@ -128,6 +135,9 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             } else {
                 self.stats
                     .gather_data_from(self.total_iterations, &self.particles[i].map);
+                if self.example_failure.is_none() {
+                    self.example_failure = Some(self.particles[i].clone());
+                }
             }
         }
         consistent
