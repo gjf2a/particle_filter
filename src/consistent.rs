@@ -105,7 +105,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
     }
 
     pub fn failed(&self) -> bool {
-        self.particles.len() == 0
+        self.example_failure.is_some()
     }
 
     pub fn particles(&self) -> impl Iterator<Item = &ConsistentParticle<M>> {
@@ -117,12 +117,13 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         new_raw_pose: Option<RobotPose<Radians>>,
         sensor_info: Option<&M::SensorType>,
     ) {
-        self.example_failure = None;
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, sensor_info);
         let consistent = self.find_consistent_particles();
         if 0 < consistent.len() && consistent.len() < self.particles.len() {
             self.repopulate(&consistent, sensor_info);
+        } else {
+            self.example_failure = Some(self.particles[0].clone());
         }
     }
 
