@@ -1,7 +1,7 @@
 // New type of particle filter - the consistent particle filter
 // It will reject any inconsistent maps but keep all the others.
 
-use std::{collections::BTreeSet, iter::repeat_n};
+use std::{cmp::Ordering, collections::BTreeSet, iter::repeat_n};
 
 use hash_histogram::HashHistogram;
 
@@ -121,9 +121,8 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, sensor_info);
         let consistent = self.find_consistent_particles();
-        let num_particles = self.particles.len();
-        if 0 < consistent.len() && consistent.len() < num_particles {
-            self.repopulate(num_particles, &consistent, sensor_info);
+        if 0 < consistent.len() && consistent.len() < self.particles.len() {
+            self.repopulate(&consistent, sensor_info);
         }
     }
 
@@ -158,11 +157,25 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
 
     fn repopulate(
         &mut self,
-        num_particles: usize,
         consistent: &BTreeSet<usize>,
         sensor_info: Option<&M::SensorType>,
     ) {
-        let inconsistent = (0..num_particles)
+        let weights = self.get_consistent_weights(consistent);
+        let mut new_particles = consistent
+            .iter()
+            .map(|i| self.particles[*i].clone())
+            .collect::<Vec<_>>();
+        while new_particles.len() < self.particles.len() {
+            let choice = weights.pick_random_key();
+            let mut new_particle = self.particles[choice].clone();
+            new_particle.add_noise(sensor_info);
+            new_particles.push(new_particle);
+        }
+        std::mem::swap(&mut new_particles, &mut self.particles);
+    }
+
+    fn get_consistent_weights(&self, consistent: &BTreeSet<usize>) -> HashHistogram<usize, f64> {
+        let inconsistent = (0..self.particles.len())
             .filter(|i| !consistent.contains(&i))
             .collect::<Vec<_>>();
         let mut weights = HashHistogram::new();
@@ -177,21 +190,11 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
                             .pos
                             .euclidean_distance(self.particles[*c].estimated_pose().pos)
                     })
-                    .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(std::cmp::Ordering::Equal))
+                    .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
                     .unwrap(),
             };
             weights.bump_by(c, weight);
         }
-        let mut new_particles = consistent
-            .iter()
-            .map(|i| self.particles[*i].clone())
-            .collect::<Vec<_>>();
-        while new_particles.len() < num_particles {
-            let choice = weights.pick_random_key();
-            let mut new_particle = self.particles[choice].clone();
-            new_particle.add_noise(sensor_info);
-            new_particles.push(new_particle);
-        }
-        std::mem::swap(&mut new_particles, &mut self.particles);
+        weights
     }
 }
