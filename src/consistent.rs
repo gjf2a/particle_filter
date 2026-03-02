@@ -1,10 +1,9 @@
 // New type of particle filter - the consistent particle filter
 // It will reject any inconsistent maps but keep all the others.
 
-use std::{collections::{BTreeMap, BTreeSet}, iter::repeat_n};
+use std::{collections::BTreeSet, iter::repeat_n};
 
 use hash_histogram::HashHistogram;
-use rand::{RngExt, rng};
 
 use crate::{PoseEstimate, Radians, RobotPose, SensorNoiseMap};
 
@@ -59,9 +58,8 @@ impl<M: ConsistentMap> ConsistentParticle<M> {
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
 pub enum SelectionStrategy {
     #[default]
-    Uniform, 
-    DistanceWeight, 
-    DistanceRank
+    Uniform,
+    DistanceWeight,
 }
 
 pub struct ConsistentParticleFilter<M: ConsistentMap> {
@@ -73,7 +71,11 @@ pub struct ConsistentParticleFilter<M: ConsistentMap> {
 }
 
 impl<M: ConsistentMap> ConsistentParticleFilter<M> {
-    pub fn new(num_particles: usize, starting_map: &M, selection_strategy: SelectionStrategy) -> Self {
+    pub fn new(
+        num_particles: usize,
+        starting_map: &M,
+        selection_strategy: SelectionStrategy,
+    ) -> Self {
         let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
         for i in 0..num_particles {
             for _ in 0..=i {
@@ -86,7 +88,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             total_iterations: 0,
             stats: M::StatType::default(),
             example_failure: None,
-            selection_strategy
+            selection_strategy,
         }
     }
 
@@ -160,12 +162,23 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         consistent: &BTreeSet<usize>,
         sensor_info: Option<&M::SensorType>,
     ) {
-        let inconsistent = (0..num_particles).filter(|i| !consistent.contains(&i)).collect::<Vec<_>>();        
+        let inconsistent = (0..num_particles)
+            .filter(|i| !consistent.contains(&i))
+            .collect::<Vec<_>>();
         let mut weights = HashHistogram::new();
         for c in consistent.iter() {
             let weight = match self.selection_strategy {
                 SelectionStrategy::Uniform => 1.0,
-                _ => inconsistent.iter().map(|i| self.particles[*i].estimated_pose().pos.euclidean_distance(self.particles[*c].estimated_pose().pos)).min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(std::cmp::Ordering::Equal)).unwrap()                
+                _ => inconsistent
+                    .iter()
+                    .map(|i| {
+                        self.particles[*i]
+                            .estimated_pose()
+                            .pos
+                            .euclidean_distance(self.particles[*c].estimated_pose().pos)
+                    })
+                    .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap(),
             };
             weights.bump_by(c, weight);
         }
