@@ -148,9 +148,6 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             } else {
                 self.stats
                     .gather_data_from(self.total_iterations, &self.particles[i].map);
-                if self.example_failure.is_none() {
-                    self.example_failure = Some(self.particles[i].clone());
-                }
             }
         }
         consistent
