@@ -1,7 +1,7 @@
 // New type of particle filter - the consistent particle filter
 // It will reject any inconsistent maps but keep all the others.
 
-use std::{cmp::Ordering, collections::BTreeSet, iter::repeat_n};
+use std::{cmp::Ordering, iter::repeat_n};
 
 use hash_histogram::HashHistogram;
 
@@ -123,7 +123,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         if consistent.len() == 0 {
             self.example_failure = Some(self.particles[0].clone());
         } else if consistent.len() < self.particles.len() {
-            self.repopulate(&consistent, sensor_info);
+            self.repopulate(consistent, sensor_info);
         } 
     }
 
@@ -140,11 +140,11 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         }
     }
 
-    fn find_consistent_particles(&mut self) -> BTreeSet<usize> {
-        let mut consistent = BTreeSet::new();
+    fn find_consistent_particles(&mut self) -> Vec<usize> {
+        let mut consistent = Vec::new();
         for i in 0..self.particles.len() {
             if self.particles[i].map.is_consistent() {
-                consistent.insert(i);
+                consistent.push(i);
             } else {
                 self.stats
                     .gather_data_from(self.total_iterations, &self.particles[i].map);
@@ -155,10 +155,12 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
 
     fn repopulate(
         &mut self,
-        consistent: &BTreeSet<usize>,
+        consistent: Vec<usize>,
         sensor_info: Option<&M::SensorType>,
     ) {
-        let weights = self.get_consistent_weights(consistent);
+        let weights = self.get_consistent_weights(&consistent);
+        let mut consistent = consistent;
+        consistent.sort_by(|i, j| weights.count(j).partial_cmp(&weights.count(i)).unwrap_or(Ordering::Equal));
         let mut new_particles = consistent
             .iter()
             .map(|i| self.particles[*i].clone())
@@ -172,7 +174,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         std::mem::swap(&mut new_particles, &mut self.particles);
     }
 
-    fn get_consistent_weights(&self, consistent: &BTreeSet<usize>) -> HashHistogram<usize, f64> {
+    fn get_consistent_weights(&self, consistent: &Vec<usize>) -> HashHistogram<usize, f64> {
         let inconsistent = (0..self.particles.len())
             .filter(|i| !consistent.contains(&i))
             .collect::<Vec<_>>();
