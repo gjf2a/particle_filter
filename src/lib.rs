@@ -1,8 +1,6 @@
 pub mod consistent;
-pub mod inconsistent;
 pub mod nums;
 pub mod point;
-pub mod simple_demo;
 pub mod stats;
 
 use std::{cmp::Ordering, fmt::Debug, iter::repeat_n};
