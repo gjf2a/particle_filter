@@ -62,6 +62,7 @@ pub enum SelectionStrategy {
     DistanceWeight,
 }
 
+#[derive(Clone)]
 pub struct ConsistentParticleFilter<M: ConsistentMap> {
     particles: Vec<ConsistentParticle<M>>,
     total_iterations: usize,
