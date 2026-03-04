@@ -93,6 +93,10 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.particles.len()
+    }
+
     pub fn total_iterations(&self) -> usize {
         self.total_iterations
     }
