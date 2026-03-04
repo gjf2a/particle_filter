@@ -1,7 +1,7 @@
 // New type of particle filter - the consistent particle filter
 // It will reject any inconsistent maps but keep all the others.
 
-use std::{cmp::Ordering, iter::repeat_n};
+use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
 use hash_histogram::HashHistogram;
 
@@ -196,5 +196,13 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             weights.bump_by(c, weight);
         }
         weights
+    }
+}
+
+impl<M: ConsistentMap> Index<usize> for ConsistentParticleFilter<M> {
+    type Output = ConsistentParticle<M>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.particles[index]
     }
 }
