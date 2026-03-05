@@ -1,10 +1,14 @@
 pub mod stats;
 
-use std::fmt::Debug;
-use bit_grid::{angle::{Degrees, Radians}, point::FloatPoint, pose::RobotPose};
-use rand_distr::{Distribution, Normal};
-use std::{cmp::Ordering, iter::repeat_n, ops::Index};
+use bit_grid::{
+    angle::{Degrees, Radians},
+    point::FloatPoint,
+    pose::RobotPose,
+};
 use hash_histogram::HashHistogram;
+use rand_distr::{Distribution, Normal};
+use std::fmt::Debug;
+use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
 #[derive(Clone)]
 pub struct ConsistentParticle<M: ConsistentMap> {
@@ -118,7 +122,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
             self.example_failure = Some(self.particles[0].clone());
         } else if consistent.len() < self.particles.len() {
             self.repopulate(consistent, sensor_info);
-        } 
+        }
     }
 
     fn update_all_particles(
@@ -147,14 +151,15 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         consistent
     }
 
-    fn repopulate(
-        &mut self,
-        consistent: Vec<usize>,
-        sensor_info: Option<&M::SensorType>,
-    ) {
+    fn repopulate(&mut self, consistent: Vec<usize>, sensor_info: Option<&M::SensorType>) {
         let weights = self.get_consistent_weights(&consistent);
         let mut consistent = consistent;
-        consistent.sort_by(|i, j| weights.count(j).partial_cmp(&weights.count(i)).unwrap_or(Ordering::Equal));
+        consistent.sort_by(|i, j| {
+            weights
+                .count(j)
+                .partial_cmp(&weights.count(i))
+                .unwrap_or(Ordering::Equal)
+        });
         let mut new_particles = consistent
             .iter()
             .map(|i| self.particles[*i].clone())
@@ -230,7 +235,6 @@ pub trait ConsistentMap: Clone {
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
     fn is_consistent(&self) -> bool;
 }
-
 
 pub trait StatCollector<M>: Default + Clone {
     fn gather_data_from(&mut self, iteration: usize, particle: &M);
