@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, ops::Index};
 
-use crate::NumType;
+use bit_grid::point::NumType;
 
 pub struct Stats<N: NumType + Into<f64>> {
     sorted_values: Vec<N>,

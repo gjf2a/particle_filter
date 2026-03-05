@@ -1,15 +1,205 @@
-pub mod consistent;
-pub mod nums;
-pub mod point;
 pub mod stats;
 
-use std::{cmp::Ordering, fmt::Debug, iter::repeat_n};
-
-pub use nums::*;
-pub use point::*;
-
-use rand::{RngExt, rng};
+use std::fmt::Debug;
+use bit_grid::{angle::{Degrees, Radians}, point::FloatPoint, pose::RobotPose};
 use rand_distr::{Distribution, Normal};
+use std::{cmp::Ordering, iter::repeat_n, ops::Index};
+use hash_histogram::HashHistogram;
+
+#[derive(Clone)]
+pub struct ConsistentParticle<M: ConsistentMap> {
+    estimate: PoseEstimate,
+    map: M,
+    parent: Option<usize>,
+}
+
+impl<M: ConsistentMap> ConsistentParticle<M> {
+    pub fn estimated_pose(&self) -> RobotPose<Radians> {
+        self.estimate.into()
+    }
+
+    pub fn map(&self) -> &M {
+        &self.map
+    }
+
+    pub fn parent_index(&self) -> Option<usize> {
+        self.parent
+    }
+
+    fn new(starting_map: &M) -> Self {
+        Self {
+            estimate: PoseEstimate::default(),
+            map: starting_map.clone(),
+            parent: None,
+        }
+    }
+
+    fn add_noise(&mut self, sensor_info: Option<&M::SensorType>) {
+        self.estimate.add_noise(&self.map, sensor_info);
+    }
+
+    fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
+        self.add_noise(sensor_info);
+        self.map.sensor_update(self.estimated_pose(), sensor_info);
+    }
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Eq)]
+pub enum SelectionStrategy {
+    #[default]
+    Uniform,
+    DistanceWeight,
+}
+
+#[derive(Clone)]
+pub struct ConsistentParticleFilter<M: ConsistentMap> {
+    particles: Vec<ConsistentParticle<M>>,
+    total_iterations: usize,
+    stats: M::StatType,
+    example_failure: Option<ConsistentParticle<M>>,
+    selection_strategy: SelectionStrategy,
+}
+
+impl<M: ConsistentMap> ConsistentParticleFilter<M> {
+    pub fn new(
+        num_particles: usize,
+        starting_map: &M,
+        selection_strategy: SelectionStrategy,
+    ) -> Self {
+        let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
+        for i in 0..num_particles {
+            for _ in 0..=i {
+                aliases.push(i);
+            }
+        }
+        let particles = repeat_n(ConsistentParticle::new(starting_map), num_particles).collect();
+        Self {
+            particles,
+            total_iterations: 0,
+            stats: M::StatType::default(),
+            example_failure: None,
+            selection_strategy,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.particles.len()
+    }
+
+    pub fn total_iterations(&self) -> usize {
+        self.total_iterations
+    }
+
+    pub fn stats(&self) -> M::StatType {
+        self.stats.clone()
+    }
+
+    pub fn example_failure(&self) -> Option<ConsistentParticle<M>> {
+        self.example_failure.clone()
+    }
+
+    pub fn failed(&self) -> bool {
+        self.example_failure.is_some()
+    }
+
+    pub fn particles(&self) -> impl Iterator<Item = &ConsistentParticle<M>> {
+        self.particles.iter()
+    }
+
+    pub fn iterate(
+        &mut self,
+        new_raw_pose: Option<RobotPose<Radians>>,
+        sensor_info: Option<&M::SensorType>,
+    ) {
+        self.total_iterations += 1;
+        self.update_all_particles(new_raw_pose, sensor_info);
+        let consistent = self.find_consistent_particles();
+        if consistent.len() == 0 {
+            self.example_failure = Some(self.particles[0].clone());
+        } else if consistent.len() < self.particles.len() {
+            self.repopulate(consistent, sensor_info);
+        } 
+    }
+
+    fn update_all_particles(
+        &mut self,
+        new_raw_pose: Option<RobotPose<Radians>>,
+        sensor_info: Option<&M::SensorType>,
+    ) {
+        for particle in self.particles.iter_mut() {
+            if let Some(raw_pose) = new_raw_pose {
+                particle.estimate.updated_raw_pose(raw_pose);
+            }
+            particle.sensor_update(sensor_info);
+        }
+    }
+
+    fn find_consistent_particles(&mut self) -> Vec<usize> {
+        let mut consistent = Vec::new();
+        for i in 0..self.particles.len() {
+            if self.particles[i].map.is_consistent() {
+                consistent.push(i);
+            } else {
+                self.stats
+                    .gather_data_from(self.total_iterations, &self.particles[i].map);
+            }
+        }
+        consistent
+    }
+
+    fn repopulate(
+        &mut self,
+        consistent: Vec<usize>,
+        sensor_info: Option<&M::SensorType>,
+    ) {
+        let weights = self.get_consistent_weights(&consistent);
+        let mut consistent = consistent;
+        consistent.sort_by(|i, j| weights.count(j).partial_cmp(&weights.count(i)).unwrap_or(Ordering::Equal));
+        let mut new_particles = consistent
+            .iter()
+            .map(|i| self.particles[*i].clone())
+            .collect::<Vec<_>>();
+        while new_particles.len() < self.particles.len() {
+            let choice = weights.pick_random_key();
+            let mut new_particle = self.particles[choice].clone();
+            new_particle.add_noise(sensor_info);
+            new_particles.push(new_particle);
+        }
+        std::mem::swap(&mut new_particles, &mut self.particles);
+    }
+
+    fn get_consistent_weights(&self, consistent: &Vec<usize>) -> HashHistogram<usize, f64> {
+        let inconsistent = (0..self.particles.len())
+            .filter(|i| !consistent.contains(&i))
+            .collect::<Vec<_>>();
+        let mut weights = HashHistogram::new();
+        for c in consistent.iter() {
+            let weight = match self.selection_strategy {
+                SelectionStrategy::Uniform => 1.0,
+                _ => inconsistent
+                    .iter()
+                    .map(|i| {
+                        self.particles[*i]
+                            .estimated_pose()
+                            .pos
+                            .euclidean_distance(self.particles[*c].estimated_pose().pos)
+                    })
+                    .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
+                    .unwrap(),
+            };
+            weights.bump_by(c, weight);
+        }
+        weights
+    }
+}
+
+impl<M: ConsistentMap> Index<usize> for ConsistentParticleFilter<M> {
+    type Output = ConsistentParticle<M>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.particles[index]
+    }
+}
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Noise {
@@ -32,191 +222,18 @@ impl Noise {
     }
 }
 
-pub trait SensorNoiseMap: Clone {
+pub trait ConsistentMap: Clone {
+    type StatType: StatCollector<Self>;
     type SensorType;
 
     fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
+    fn is_consistent(&self) -> bool;
 }
 
-pub trait ObstacleMap: SensorNoiseMap + PartialEq {
-    type ErrorType: Copy + Clone + PartialOrd + PartialEq + Debug + Default;
 
-    fn error(&self) -> Self::ErrorType;
-    fn bounding_box(&self) -> BoundingBox;
-}
-
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct Particle<M: ObstacleMap> {
-    estimate: PoseEstimate,
-    map: M,
-    parent: Option<usize>,
-    error: M::ErrorType,
-}
-
-impl<M: ObstacleMap> Particle<M> {
-    pub fn estimated_pose(&self) -> RobotPose<Radians> {
-        self.estimate.into()
-    }
-
-    pub fn map(&self) -> &M {
-        &self.map
-    }
-
-    pub fn parent_index(&self) -> Option<usize> {
-        self.parent
-    }
-
-    pub fn error(&self) -> M::ErrorType {
-        self.error
-    }
-
-    fn new(starting_map: &M) -> Self {
-        Self {
-            estimate: PoseEstimate::default(),
-            map: starting_map.clone(),
-            parent: None,
-            error: M::ErrorType::default(),
-        }
-    }
-
-    fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
-        self.estimate.add_noise(&self.map, sensor_info);
-        self.map.sensor_update(self.estimated_pose(), sensor_info);
-        self.error = self.map.error();
-    }
-}
-
-impl<M: ObstacleMap> PartialOrd for Particle<M> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.error.partial_cmp(&other.error).map(|c| c.reverse())
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ParticleFilter<M: ObstacleMap> {
-    aliases: Vec<usize>,
-    particles: Vec<Particle<M>>,
-    best_particle: Particle<M>,
-}
-
-impl<M: ObstacleMap> ParticleFilter<M> {
-    pub fn new(num_particles: usize, starting_map: &M) -> Self {
-        let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
-        for i in 0..num_particles {
-            for _ in 0..=i {
-                aliases.push(i);
-            }
-        }
-        let particles = repeat_n(Particle::new(starting_map), num_particles).collect();
-        Self {
-            aliases,
-            particles,
-            best_particle: Particle::new(starting_map),
-        }
-    }
-
-    pub fn particles(&self) -> impl Iterator<Item = &Particle<M>> {
-        self.particles.iter()
-    }
-
-    pub fn current_best(&self) -> Particle<M> {
-        self.best_particle.clone()
-    }
-
-    pub fn iterate(
-        &mut self,
-        new_raw_pose: Option<RobotPose<Radians>>,
-        sensor_info: Option<&M::SensorType>,
-    ) {
-        self.update_all(new_raw_pose, sensor_info);
-        self.resample();
-    }
-
-    fn update_all(
-        &mut self,
-        new_raw_pose: Option<RobotPose<Radians>>,
-        sensor_info: Option<&M::SensorType>,
-    ) {
-        for particle in self.particles.iter_mut() {
-            if let Some(raw_pose) = new_raw_pose {
-                particle.estimate.updated_raw_pose(raw_pose);
-            }
-            particle.sensor_update(sensor_info);
-        }
-    }
-
-    fn resample(&mut self) {
-        self.particles
-            .sort_unstable_by(|p1, p2| p1.partial_cmp(p2).unwrap_or(Ordering::Equal));
-        self.best_particle = self.particles.last().cloned().unwrap();
-        let mut new_particles = vec![];
-        let mut rng = rng();
-        for _ in 0..self.particles.len() {
-            let choice = self.aliases[rng.random_range(0..self.aliases.len())];
-            new_particles.push(self.particles[choice].clone());
-        }
-        std::mem::swap(&mut new_particles, &mut self.particles);
-    }
-}
-
-#[derive(Default, Clone, Copy, Debug)]
-pub struct BoundingBox {
-    min_x: f64,
-    max_x: f64,
-    min_y: f64,
-    max_y: f64,
-}
-
-impl BoundingBox {
-    pub fn observe(&mut self, x: f64, y: f64) {
-        if self.min_x > x {
-            self.min_x = x;
-        }
-        if self.max_x < x {
-            self.max_x = x;
-        }
-        if self.min_y > y {
-            self.min_y = y;
-        }
-        if self.max_y < y {
-            self.max_y = y;
-        }
-    }
-
-    pub fn width(&self) -> f64 {
-        self.max_x - self.min_x
-    }
-
-    pub fn height(&self) -> f64 {
-        self.max_y - self.min_y
-    }
-
-    pub fn min_x(&self) -> f64 {
-        self.min_x
-    }
-
-    pub fn max_x(&self) -> f64 {
-        self.max_x
-    }
-
-    pub fn min_y(&self) -> f64 {
-        self.min_y
-    }
-
-    pub fn max_y(&self) -> f64 {
-        self.max_y
-    }
-}
-
-impl FromIterator<FloatPoint> for BoundingBox {
-    fn from_iter<T: IntoIterator<Item = FloatPoint>>(iter: T) -> Self {
-        let mut result = Self::default();
-        for point in iter {
-            result.observe(point[0], point[1]);
-        }
-        result
-    }
+pub trait StatCollector<M>: Default + Clone {
+    fn gather_data_from(&mut self, iteration: usize, particle: &M);
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
@@ -244,7 +261,7 @@ impl PoseEstimate {
         self.last_raw = Some(raw_pose);
     }
 
-    pub fn add_noise<M: SensorNoiseMap>(&mut self, map: &M, sensor_info: Option<&M::SensorType>) {
+    pub fn add_noise<M: ConsistentMap>(&mut self, map: &M, sensor_info: Option<&M::SensorType>) {
         self.current_estimate = map.noise(sensor_info).noise(self.current_estimate)
     }
 }
@@ -271,7 +288,4 @@ mod tests {
             assert_eq!(pose, estimated);
         }
     }
-
-    #[test]
-    fn test_particle_filter() {}
 }

@@ -14,3 +14,4 @@ trait-set = "0.3"
 itertools = "0.14.0"
 anyhow = "1.0.101"
 hash_histogram = "0.14.0"
+bit_grid = {git = "https://github.com/gjf2a/bit_grid"}
