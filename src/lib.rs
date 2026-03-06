@@ -43,7 +43,7 @@ impl<M: ConsistentMap> ConsistentParticle<M> {
     }
 
     fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
-        //self.add_noise(sensor_info);
+        self.add_noise(sensor_info);
         self.map.sensor_update(self.estimated_pose(), sensor_info);
     }
 }
