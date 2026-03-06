@@ -43,7 +43,7 @@ impl<M: ConsistentMap> ConsistentParticle<M> {
     }
 
     fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
-        self.add_noise(sensor_info);
+        //self.add_noise(sensor_info);
         self.map.sensor_update(self.estimated_pose(), sensor_info);
     }
 }
@@ -181,7 +181,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         for c in consistent.iter() {
             let weight = match self.selection_strategy {
                 SelectionStrategy::Uniform => 1.0,
-                _ => inconsistent
+                SelectionStrategy::DistanceWeight => inconsistent
                     .iter()
                     .map(|i| {
                         self.particles[*i]
