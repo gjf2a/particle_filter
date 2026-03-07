@@ -1,4 +1,5 @@
 pub mod stats;
+pub mod bit_grid_map;
 
 use bit_grid::{
     angle::{Degrees, Radians},
@@ -10,19 +11,31 @@ use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
-#[derive(Clone)]
-pub struct ConsistentParticle<M: ConsistentMap> {
-    estimate: PoseEstimate,
-    map: M,
-    parent: Option<usize>,
+use crate::bit_grid_map::{BitGridMap, BitGridStats};
+
+pub trait RobotInfo: Clone {
+    type SensorType;
+
+    fn obstacle_at(&self, sensor_info: &Self::SensorType) -> Option<FloatPoint>;
+
+    fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
+    fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
 }
 
-impl<M: ConsistentMap> ConsistentParticle<M> {
+#[derive(Clone)]
+pub struct ConsistentParticle<R: RobotInfo> {
+    estimate: PoseEstimate,
+    map: BitGridMap,
+    parent: Option<usize>,
+    robot_info: R,
+}
+
+impl<R: RobotInfo> ConsistentParticle<R> {
     pub fn estimated_pose(&self) -> RobotPose<Radians> {
         self.estimate.into()
     }
 
-    pub fn map(&self) -> &M {
+    pub fn map(&self) -> &BitGridMap {
         &self.map
     }
 
@@ -30,21 +43,25 @@ impl<M: ConsistentMap> ConsistentParticle<M> {
         self.parent
     }
 
-    fn new(starting_map: &M) -> Self {
+    fn new(starting_map: &BitGridMap, robot_info: &R) -> Self {
         Self {
             estimate: PoseEstimate::default(),
             map: starting_map.clone(),
             parent: None,
+            robot_info: robot_info.clone()
         }
     }
 
-    fn add_noise(&mut self, sensor_info: Option<&M::SensorType>) {
-        self.estimate.add_noise(&self.map, sensor_info);
+    fn add_noise(&mut self, sensor_info: Option<&R::SensorType>) {
+        self.estimate.add_noise(&self.robot_info, sensor_info);
     }
 
-    fn sensor_update(&mut self, sensor_info: Option<&M::SensorType>) {
-        self.add_noise(sensor_info);
-        self.map.sensor_update(self.estimated_pose(), sensor_info);
+    fn add_sensed_obstacles(&mut self, sensor_info: Option<&R::SensorType>) {
+        if let Some(sensor_reading) = sensor_info {
+            if let Some(obstacle) = self.robot_info.obstacle_at(sensor_reading) {
+                self.map.add_obstacle_at(&obstacle);
+            }
+        }
     }
 }
 
@@ -56,18 +73,19 @@ pub enum SelectionStrategy {
 }
 
 #[derive(Clone)]
-pub struct ConsistentParticleFilter<M: ConsistentMap> {
-    particles: Vec<ConsistentParticle<M>>,
+pub struct ConsistentParticleFilter<R: RobotInfo> {
+    particles: Vec<ConsistentParticle<R>>,
     total_iterations: usize,
-    stats: M::StatType,
-    example_failure: Option<ConsistentParticle<M>>,
+    stats: BitGridStats,
+    example_failure: Option<ConsistentParticle<R>>,
     selection_strategy: SelectionStrategy,
 }
 
-impl<M: ConsistentMap> ConsistentParticleFilter<M> {
+impl<R: RobotInfo> ConsistentParticleFilter<R> {
     pub fn new(
         num_particles: usize,
-        starting_map: &M,
+        starting_map: &BitGridMap,
+        robot_info: &R,
         selection_strategy: SelectionStrategy,
     ) -> Self {
         let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
@@ -76,11 +94,11 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
                 aliases.push(i);
             }
         }
-        let particles = repeat_n(ConsistentParticle::new(starting_map), num_particles).collect();
+        let particles = repeat_n(ConsistentParticle::new(starting_map, robot_info), num_particles).collect();
         Self {
             particles,
             total_iterations: 0,
-            stats: M::StatType::default(),
+            stats: BitGridStats::default(),
             example_failure: None,
             selection_strategy,
         }
@@ -94,11 +112,11 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         self.total_iterations
     }
 
-    pub fn stats(&self) -> M::StatType {
+    pub fn stats(&self) -> BitGridStats {
         self.stats.clone()
     }
 
-    pub fn example_failure(&self) -> Option<ConsistentParticle<M>> {
+    pub fn example_failure(&self) -> Option<ConsistentParticle<R>> {
         self.example_failure.clone()
     }
 
@@ -106,14 +124,14 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         self.example_failure.is_some()
     }
 
-    pub fn particles(&self) -> impl Iterator<Item = &ConsistentParticle<M>> {
+    pub fn particles(&self) -> impl Iterator<Item = &ConsistentParticle<R>> {
         self.particles.iter()
     }
 
     pub fn iterate(
         &mut self,
         new_raw_pose: Option<RobotPose<Radians>>,
-        sensor_info: Option<&M::SensorType>,
+        sensor_info: Option<&R::SensorType>,
     ) {
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, sensor_info);
@@ -128,13 +146,15 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
     fn update_all_particles(
         &mut self,
         new_raw_pose: Option<RobotPose<Radians>>,
-        sensor_info: Option<&M::SensorType>,
+        sensor_info: Option<&R::SensorType>,
     ) {
         for particle in self.particles.iter_mut() {
             if let Some(raw_pose) = new_raw_pose {
                 particle.estimate.updated_raw_pose(raw_pose);
+                particle.map.add_odometry_reading(&particle.estimated_pose().pos);
             }
-            particle.sensor_update(sensor_info);
+            particle.add_noise(sensor_info);
+            particle.add_sensed_obstacles(sensor_info);
         }
     }
 
@@ -151,7 +171,7 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
         consistent
     }
 
-    fn repopulate(&mut self, consistent: Vec<usize>, sensor_info: Option<&M::SensorType>) {
+    fn repopulate(&mut self, consistent: Vec<usize>, sensor_info: Option<&R::SensorType>) {
         let weights = self.get_consistent_weights(&consistent);
         let mut consistent = consistent;
         consistent.sort_by(|i, j| {
@@ -198,8 +218,8 @@ impl<M: ConsistentMap> ConsistentParticleFilter<M> {
     }
 }
 
-impl<M: ConsistentMap> Index<usize> for ConsistentParticleFilter<M> {
-    type Output = ConsistentParticle<M>;
+impl<R: RobotInfo> Index<usize> for ConsistentParticleFilter<R> {
+    type Output = ConsistentParticle<R>;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.particles[index]
@@ -225,15 +245,6 @@ impl Noise {
             theta: pose.theta + theta_noise.into(),
         }
     }
-}
-
-pub trait ConsistentMap: Clone {
-    type StatType: StatCollector<Self>;
-    type SensorType;
-
-    fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
-    fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
-    fn is_consistent(&self) -> bool;
 }
 
 pub trait StatCollector<M>: Default + Clone {
@@ -265,8 +276,8 @@ impl PoseEstimate {
         self.last_raw = Some(raw_pose);
     }
 
-    pub fn add_noise<M: ConsistentMap>(&mut self, map: &M, sensor_info: Option<&M::SensorType>) {
-        self.current_estimate = map.noise(sensor_info).noise(self.current_estimate)
+    pub fn add_noise<R: RobotInfo>(&mut self, robot: &R, sensor_info: Option<&R::SensorType>) {
+        self.current_estimate = robot.noise(sensor_info).noise(self.current_estimate)
     }
 }
 
