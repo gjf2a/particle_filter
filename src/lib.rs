@@ -16,9 +16,8 @@ use crate::bit_grid_map::{BitGridMap, BitGridStats};
 pub trait RobotInfo: Clone {
     type SensorType;
 
-    fn obstacle_at(&self, sensor_info: &Self::SensorType) -> Option<FloatPoint>;
-
-    fn sensor_update(&mut self, pose: RobotPose<Radians>, sensor_info: Option<&Self::SensorType>);
+    fn robot_radius_m(&self) -> f64;
+    fn obstacle_at(&self, pose: &RobotPose<Radians>, sensor_info: &Self::SensorType) -> Option<FloatPoint>;
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
 }
 
@@ -43,10 +42,10 @@ impl<R: RobotInfo> ConsistentParticle<R> {
         self.parent
     }
 
-    fn new(starting_map: &BitGridMap, robot_info: &R) -> Self {
+    fn new(square_size_m: f64, robot_info: &R) -> Self {
         Self {
             estimate: PoseEstimate::default(),
-            map: starting_map.clone(),
+            map: BitGridMap::new(square_size_m, robot_info.robot_radius_m()),
             parent: None,
             robot_info: robot_info.clone()
         }
@@ -56,9 +55,9 @@ impl<R: RobotInfo> ConsistentParticle<R> {
         self.estimate.add_noise(&self.robot_info, sensor_info);
     }
 
-    fn add_sensed_obstacles(&mut self, sensor_info: Option<&R::SensorType>) {
+    fn add_sensed_obstacles(&mut self, pose: &RobotPose<Radians>, sensor_info: Option<&R::SensorType>) {
         if let Some(sensor_reading) = sensor_info {
-            if let Some(obstacle) = self.robot_info.obstacle_at(sensor_reading) {
+            if let Some(obstacle) = self.robot_info.obstacle_at(pose, sensor_reading) {
                 self.map.add_obstacle_at(&obstacle);
             }
         }
@@ -84,7 +83,7 @@ pub struct ConsistentParticleFilter<R: RobotInfo> {
 impl<R: RobotInfo> ConsistentParticleFilter<R> {
     pub fn new(
         num_particles: usize,
-        starting_map: &BitGridMap,
+        square_size_m: f64,
         robot_info: &R,
         selection_strategy: SelectionStrategy,
     ) -> Self {
@@ -94,7 +93,7 @@ impl<R: RobotInfo> ConsistentParticleFilter<R> {
                 aliases.push(i);
             }
         }
-        let particles = repeat_n(ConsistentParticle::new(starting_map, robot_info), num_particles).collect();
+        let particles = repeat_n(ConsistentParticle::new(square_size_m, robot_info), num_particles).collect();
         Self {
             particles,
             total_iterations: 0,
@@ -154,7 +153,7 @@ impl<R: RobotInfo> ConsistentParticleFilter<R> {
                 particle.map.add_odometry_reading(&particle.estimated_pose().pos);
             }
             particle.add_noise(sensor_info);
-            particle.add_sensed_obstacles(sensor_info);
+            particle.add_sensed_obstacles(&particle.estimated_pose(), sensor_info);
         }
     }
 
