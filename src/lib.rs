@@ -1,8 +1,8 @@
-pub mod stats;
 pub mod bit_grid_map;
+pub mod stats;
 
-pub use stats::*;
 pub use bit_grid_map::*;
+pub use stats::*;
 
 use bit_grid::{
     angle::{Degrees, Radians},
@@ -14,23 +14,46 @@ use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
+// Walker's algorithm for selection
+// A. J. Walker, “An efficient method for generating discrete random variables with general distributions,” ACM Transactions on Mathematical Software, vol. 3, no. 3, pp. 253–256, 1977.
+// https://crates.io/crates/weighted_rand
+
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+pub struct Noises {
+    pub odom: Noise,
+    pub obst: Noise,
+}
+
+impl Noises {
+    fn noise(&self, obstacle: Option<FloatPoint>) -> Noise {
+        match obstacle {
+            None => self.odom,
+            Some(_) => self.obst,
+        }
+    }
+}
+
 pub trait RobotInfo: Clone {
     type SensorType;
 
     fn robot_radius_m(&self) -> f64;
-    fn obstacle_at(&self, pose: &RobotPose<Radians>, sensor_info: &Self::SensorType) -> Option<FloatPoint>;
+    fn obstacle_at(
+        &self,
+        pose: &RobotPose<Radians>,
+        sensor_info: &Self::SensorType,
+    ) -> Option<FloatPoint>;
     fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
 }
 
 #[derive(Clone)]
-pub struct ConsistentParticle<R: RobotInfo> {
+pub struct ConsistentParticle {
     estimate: PoseEstimate,
     map: BitGridMap,
     parent: Option<usize>,
-    robot_info: R,
+    noises: Noises,
 }
 
-impl<R: RobotInfo> ConsistentParticle<R> {
+impl ConsistentParticle {
     pub fn estimated_pose(&self) -> RobotPose<Radians> {
         self.estimate.into()
     }
@@ -43,24 +66,23 @@ impl<R: RobotInfo> ConsistentParticle<R> {
         self.parent
     }
 
-    fn new(square_size_m: f64, robot_info: &R) -> Self {
+    fn new(square_size_m: f64, robot_radius_m: f64, noises: Noises) -> Self {
         Self {
             estimate: PoseEstimate::default(),
-            map: BitGridMap::new(square_size_m, robot_info.robot_radius_m()),
+            map: BitGridMap::new(square_size_m, robot_radius_m),
             parent: None,
-            robot_info: robot_info.clone()
+            noises,
         }
     }
 
-    fn add_noise(&mut self, sensor_info: Option<&R::SensorType>) {
-        self.estimate.add_noise(&self.robot_info, sensor_info);
+    fn add_noise(&mut self, obstacle: Option<FloatPoint>) {
+        let noise = self.noises.noise(obstacle);
+        self.estimate.add_noise(noise);
     }
 
-    fn add_sensed_obstacles(&mut self, pose: &RobotPose<Radians>, sensor_info: Option<&R::SensorType>) {
-        if let Some(sensor_reading) = sensor_info {
-            if let Some(obstacle) = self.robot_info.obstacle_at(pose, sensor_reading) {
-                self.map.add_obstacle_at(&obstacle);
-            }
+    fn add_sensed_obstacles(&mut self, obstacle: Option<FloatPoint>) {
+        if let Some(obstacle) = obstacle {
+            self.map.add_obstacle_at(&obstacle);
         }
     }
 }
@@ -70,22 +92,24 @@ pub enum SelectionStrategy {
     #[default]
     Uniform,
     DistanceWeight,
+    Compactness,
 }
 
 #[derive(Clone)]
-pub struct ConsistentParticleFilter<R: RobotInfo> {
-    particles: Vec<ConsistentParticle<R>>,
+pub struct ConsistentParticleFilter {
+    particles: Vec<ConsistentParticle>,
     total_iterations: usize,
     stats: BitGridStats,
-    example_failure: Option<ConsistentParticle<R>>,
+    example_failure: Option<ConsistentParticle>,
     selection_strategy: SelectionStrategy,
 }
 
-impl<R: RobotInfo> ConsistentParticleFilter<R> {
+impl ConsistentParticleFilter {
     pub fn new(
         num_particles: usize,
         square_size_m: f64,
-        robot_info: &R,
+        robot_radius_m: f64,
+        noises: Noises,
         selection_strategy: SelectionStrategy,
     ) -> Self {
         let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
@@ -94,7 +118,11 @@ impl<R: RobotInfo> ConsistentParticleFilter<R> {
                 aliases.push(i);
             }
         }
-        let particles = repeat_n(ConsistentParticle::new(square_size_m, robot_info), num_particles).collect();
+        let particles = repeat_n(
+            ConsistentParticle::new(square_size_m, robot_radius_m, noises),
+            num_particles,
+        )
+        .collect();
         Self {
             particles,
             total_iterations: 0,
@@ -116,7 +144,7 @@ impl<R: RobotInfo> ConsistentParticleFilter<R> {
         self.stats.clone()
     }
 
-    pub fn example_failure(&self) -> Option<ConsistentParticle<R>> {
+    pub fn example_failure(&self) -> Option<ConsistentParticle> {
         self.example_failure.clone()
     }
 
@@ -124,37 +152,39 @@ impl<R: RobotInfo> ConsistentParticleFilter<R> {
         self.example_failure.is_some()
     }
 
-    pub fn particles(&self) -> impl Iterator<Item = &ConsistentParticle<R>> {
+    pub fn particles(&self) -> impl Iterator<Item = &ConsistentParticle> {
         self.particles.iter()
     }
 
     pub fn iterate(
         &mut self,
         new_raw_pose: Option<RobotPose<Radians>>,
-        sensor_info: Option<&R::SensorType>,
+        obstacle: Option<FloatPoint>,
     ) {
         self.total_iterations += 1;
-        self.update_all_particles(new_raw_pose, sensor_info);
+        self.update_all_particles(new_raw_pose, obstacle);
         let consistent = self.find_consistent_particles();
         if consistent.len() == 0 {
             self.example_failure = Some(self.particles[0].clone());
         } else if consistent.len() < self.particles.len() {
-            self.repopulate(consistent, sensor_info);
+            self.repopulate(consistent, obstacle);
         }
     }
 
     fn update_all_particles(
         &mut self,
         new_raw_pose: Option<RobotPose<Radians>>,
-        sensor_info: Option<&R::SensorType>,
+        obstacle: Option<FloatPoint>,
     ) {
         for particle in self.particles.iter_mut() {
             if let Some(raw_pose) = new_raw_pose {
                 particle.estimate.updated_raw_pose(raw_pose);
-                particle.map.add_odometry_reading(&particle.estimated_pose().pos);
+                particle
+                    .map
+                    .add_odometry_reading(&particle.estimated_pose().pos);
             }
-            particle.add_noise(sensor_info);
-            particle.add_sensed_obstacles(&particle.estimated_pose(), sensor_info);
+            particle.add_noise(obstacle);
+            particle.add_sensed_obstacles(obstacle);
         }
     }
 
@@ -171,7 +201,7 @@ impl<R: RobotInfo> ConsistentParticleFilter<R> {
         consistent
     }
 
-    fn repopulate(&mut self, consistent: Vec<usize>, sensor_info: Option<&R::SensorType>) {
+    fn repopulate(&mut self, consistent: Vec<usize>, obstacle: Option<FloatPoint>) {
         let weights = self.get_consistent_weights(&consistent);
         let mut consistent = consistent;
         consistent.sort_by(|i, j| {
@@ -187,7 +217,7 @@ impl<R: RobotInfo> ConsistentParticleFilter<R> {
         while new_particles.len() < self.particles.len() {
             let choice = weights.pick_random_key();
             let mut new_particle = self.particles[choice].clone();
-            new_particle.add_noise(sensor_info);
+            new_particle.add_noise(obstacle);
             new_particles.push(new_particle);
         }
         std::mem::swap(&mut new_particles, &mut self.particles);
@@ -201,25 +231,32 @@ impl<R: RobotInfo> ConsistentParticleFilter<R> {
         for c in consistent.iter() {
             let weight = match self.selection_strategy {
                 SelectionStrategy::Uniform => 1.0,
-                SelectionStrategy::DistanceWeight => inconsistent
-                    .iter()
-                    .map(|i| {
-                        self.particles[*i]
-                            .estimated_pose()
-                            .pos
-                            .euclidean_distance(self.particles[*c].estimated_pose().pos)
-                    })
-                    .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
-                    .unwrap(),
+                SelectionStrategy::DistanceWeight => {
+                    self.min_distance_to_any_of(&self.particles[*c], &inconsistent)
+                }
+                SelectionStrategy::Compactness => todo!(),
             };
             weights.bump_by(c, weight);
         }
         weights
     }
+
+    fn min_distance_to_any_of(&self, p: &ConsistentParticle, inconsistent: &Vec<usize>) -> f64 {
+        inconsistent
+            .iter()
+            .map(|i| {
+                self.particles[*i]
+                    .estimated_pose()
+                    .pos
+                    .euclidean_distance(p.estimated_pose().pos)
+            })
+            .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
+            .unwrap()
+    }
 }
 
-impl<R: RobotInfo> Index<usize> for ConsistentParticleFilter<R> {
-    type Output = ConsistentParticle<R>;
+impl Index<usize> for ConsistentParticleFilter {
+    type Output = ConsistentParticle;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.particles[index]
@@ -276,8 +313,8 @@ impl PoseEstimate {
         self.last_raw = Some(raw_pose);
     }
 
-    pub fn add_noise<R: RobotInfo>(&mut self, robot: &R, sensor_info: Option<&R::SensorType>) {
-        self.current_estimate = robot.noise(sensor_info).noise(self.current_estimate)
+    pub fn add_noise(&mut self, noise: Noise) {
+        self.current_estimate = noise.noise(self.current_estimate);
     }
 }
 

@@ -1,11 +1,15 @@
 use std::collections::HashMap;
 
+use crate::StatCollector;
 use bit_grid::{
-    BitGrid, ColumnMajorCoordIter, angle::Radians, point::{BoundingBox, FloatPoint, GridPoint, Point}, pose::RobotPose, pt, span
+    BitGrid, ColumnMajorCoordIter,
+    angle::Radians,
+    point::{BoundingBox, FloatPoint, GridPoint, Point},
+    pose::RobotPose,
+    pt, span,
 };
 use enum_iterator::{Sequence, all};
 use hash_histogram::HashHistogram;
-use crate::StatCollector;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Cell {
@@ -46,7 +50,9 @@ impl BitGridMap {
         let grid_radius = to_square(square_size_m, robot_radius_m);
         let grid_diameter = grid_radius * 2 + 1;
         let mut shadow = BitGrid::default();
-        for coord in ColumnMajorCoordIter::new(-grid_radius, -grid_radius, grid_diameter, grid_diameter) {
+        for coord in
+            ColumnMajorCoordIter::new(-grid_radius, -grid_radius, grid_diameter, grid_diameter)
+        {
             let float = to_float_point(square_size_m, coord);
             if float.euclidean_distance(pt!(0.0, 0.0)) < robot_radius_m {
                 shadow.set(coord, true);
