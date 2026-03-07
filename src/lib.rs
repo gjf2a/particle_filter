@@ -1,6 +1,9 @@
 pub mod stats;
 pub mod bit_grid_map;
 
+pub use stats::*;
+pub use bit_grid_map::*;
+
 use bit_grid::{
     angle::{Degrees, Radians},
     point::FloatPoint,
@@ -10,8 +13,6 @@ use hash_histogram::HashHistogram;
 use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
-
-use crate::bit_grid_map::{BitGridMap, BitGridStats};
 
 pub trait RobotInfo: Clone {
     type SensorType;
