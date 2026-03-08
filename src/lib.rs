@@ -3,6 +3,7 @@ pub mod stats;
 pub mod walker;
 
 pub use bit_grid_map::*;
+use enum_iterator::Sequence;
 pub use stats::*;
 
 use bit_grid::{
@@ -75,7 +76,7 @@ impl Particle {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence)]
 pub enum SelectionStrategy {
     Weighted,
     RankProportion,
@@ -90,7 +91,7 @@ impl SelectionStrategy {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence)]
 pub enum WeightStrategy {
     Uniform,
     Compactness,
