@@ -10,14 +10,14 @@
 use rand::{RngExt, rng};
 
 #[derive(Clone, Debug)]
-pub struct WalkerDistribution {
+pub struct WalkerAlias {
     n: usize,
     prob: Vec<f64>,
     alias: Vec<usize>,
 }
 
-impl WalkerDistribution {
-    pub fn new(n: usize) -> Self {
+impl WalkerAlias {
+    pub fn rank_proportionate(n: usize) -> Self {
         let sum_n = Self::gauss_sum_n(n);
         let last_index = n/2;
         let mut prob = vec![];
@@ -28,6 +28,8 @@ impl WalkerDistribution {
         }
         Self {n, prob, alias}
     }
+
+
 
     fn gauss_sum_n(n: usize) -> usize {
         n * (n + 1) / 2
@@ -44,8 +46,7 @@ impl WalkerDistribution {
     pub fn choose(&self) -> usize {
         let mut rng = rng();
         let prob = rng.random_range(0..self.n);
-        let top_lower_index = (self.n - 2) / 2;
-        if prob > top_lower_index {
+        if prob >= self.prob.len() {
             prob
         } else {
             if rng.random::<f64>() < self.prob[prob] {
@@ -61,13 +62,13 @@ impl WalkerDistribution {
 mod tests {
     use hash_histogram::HashHistogram;
 
-    use crate::walker::WalkerDistribution;
+    use crate::walker::WalkerAlias;
 
     #[test]
     fn test() {
         for n in 2..=8 {
             let mut histogram: HashHistogram<usize, usize> = HashHistogram::new();
-            let distro = WalkerDistribution::new(n);
+            let distro = WalkerAlias::rank_proportionate(n);
             let num_samples = 100000;
             for _ in 0..num_samples {
                 histogram.bump(&distro.choose());
