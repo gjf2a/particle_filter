@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_weighted() {
-        let weights = [(0, 1.0), (1, 1.5), (2, 0.5), (3, 2.0)].iter().copied().collect::<HashHistogram<_,_>>();
+        let weights = [(0, 0.2), (1, 0.25), (2, 0.1), (3, 0.45)].iter().copied().collect::<HashHistogram<_,_>>();
         let distro = WalkerAlias::weighted(&weights);
         let mut histogram: HashHistogram<usize, usize> = HashHistogram::new();
         let num_samples = 100000;
@@ -136,13 +136,12 @@ mod tests {
         let denominator = distro.sum_n();
         let tolerance = num_samples / (denominator * 5);
         for i in 0..distro.n() {
-            let numerator = i + 1;
-            let target = num_samples * numerator / denominator;
+            let target = (num_samples as f64 * weights.count(&i) / weights.total_count()) as usize;
             let lo = target - tolerance;
             let hi = target + tolerance;
-            println!("{numerator}/{denominator}\t{lo}\t{target}\t{hi}");
+            println!("{lo}\t{target}\t{hi}");
             println!("count: {}", histogram.count(&i));
-            //assert!(lo <= histogram.count(&i) && histogram.count(&i) <= hi);
+            assert!(lo <= histogram.count(&i) && histogram.count(&i) <= hi);
         }
     }
 }
