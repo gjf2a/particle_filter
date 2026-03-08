@@ -1,5 +1,6 @@
 pub mod bit_grid_map;
 pub mod stats;
+pub mod walker;
 
 pub use bit_grid_map::*;
 pub use stats::*;
@@ -13,10 +14,6 @@ use hash_histogram::HashHistogram;
 use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
-
-// Walker's algorithm for selection
-// A. J. Walker, “An efficient method for generating discrete random variables with general distributions,” ACM Transactions on Mathematical Software, vol. 3, no. 3, pp. 253–256, 1977.
-// https://crates.io/crates/weighted_rand
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Noises {
@@ -70,7 +67,8 @@ impl ConsistentParticle {
 
     fn add_sensed_obstacles(&mut self, obstacle: Option<FloatPoint>) {
         if let Some(obstacle) = obstacle {
-            self.map.add_obstacle_at(&self.estimate.update_other_point(&obstacle));
+            self.map
+                .add_obstacle_at(&self.estimate.update_other_point(&obstacle));
         }
     }
 }
@@ -101,12 +99,6 @@ impl ConsistentParticleFilter {
         noises: Noises,
         selection_strategy: SelectionStrategy,
     ) -> Self {
-        let mut aliases = Vec::with_capacity(num_particles * (num_particles + 1) / 2);
-        for i in 0..num_particles {
-            for _ in 0..=i {
-                aliases.push(i);
-            }
-        }
         let particles = repeat_n(
             ConsistentParticle::new(square_size_m, robot_radius_m, noises),
             num_particles,
@@ -322,9 +314,9 @@ impl PoseEstimate {
 
 #[cfg(test)]
 mod tests {
-    use bit_grid::pt;
-    use bit_grid::point::Point;
     use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
+    use bit_grid::point::Point;
+    use bit_grid::pt;
 
     #[test]
     fn test_current_estimated_pose() {
@@ -347,8 +339,20 @@ mod tests {
 
     #[test]
     fn test_other_point() {
-        let test_pose_estimate = PoseEstimate {last_raw: Some(RobotPose {pos: pt!(1.0, 1.0), theta: Radians::new(0.0)}), current_estimate: RobotPose {pos: pt!(3.0, 2.0), theta: Radians::new(0.0)}};
+        let test_pose_estimate = PoseEstimate {
+            last_raw: Some(RobotPose {
+                pos: pt!(1.0, 1.0),
+                theta: Radians::new(0.0),
+            }),
+            current_estimate: RobotPose {
+                pos: pt!(3.0, 2.0),
+                theta: Radians::new(0.0),
+            },
+        };
         let expected = pt!(6.0, 4.0);
-        assert_eq!(expected, test_pose_estimate.update_other_point(&pt!(4.0, 3.0)));
+        assert_eq!(
+            expected,
+            test_pose_estimate.update_other_point(&pt!(4.0, 3.0))
+        );
     }
 }
