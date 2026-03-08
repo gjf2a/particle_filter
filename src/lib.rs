@@ -76,16 +76,24 @@ impl ConsistentParticle {
     }
 }
 
-#[derive(Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum SelectionStrategy {
-    #[default]
-    Uniform,
     Weighted,
     RankProportion,
 }
 
+impl SelectionStrategy {
+    pub fn selector(&self, weights: &HashHistogram<usize, f64>) -> WalkerAlias {
+        match self {
+            Self::RankProportion => WalkerAlias::rank_proportionate(weights.len()),
+            Self::Weighted => WalkerAlias::weighted(weights)
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum WeightStrategy {
+    Uniform,
     Compactness,
     MinPose,
     MinSpaceDifference,
@@ -206,25 +214,20 @@ impl ConsistentParticleFilter {
 
     fn repopulate(&mut self, consistent: Vec<usize>, obstacle: Option<FloatPoint>) {
         let mut consistent = consistent;
-        let selector = if self.selection_strategy == SelectionStrategy::Uniform {
-            None
-        } else {
-            let weights = self.get_consistent_weights(&consistent);
-            consistent.sort_by(|i, j| {
-                weights
-                    .count(i)
-                    .partial_cmp(&weights.count(j))
-                    .unwrap_or(Ordering::Equal)
-            });
-            Some(WalkerAlias::rank_proportionate(consistent.len()))
-        };
+        let weights = self.get_consistent_weights(&consistent);
+        consistent.sort_by(|i, j| {
+            weights
+                .count(j)
+                .partial_cmp(&weights.count(i))
+                .unwrap_or(Ordering::Equal)
+        });
+        let selector = self.selection_strategy.selector(&weights);        
         let mut new_particles = consistent
             .iter()
             .map(|i| self.particles[*i].clone())
             .collect::<Vec<_>>();
-        let mut rng = rng();
         while new_particles.len() < self.particles.len() {
-            let choice = selector.as_ref().map_or(rng.random_range(0..consistent.len()), |s| s.choose());
+            let choice = selector.choose();
             let mut new_particle = self.particles[choice].clone();
             new_particle.add_noise(obstacle);
             new_particles.push(new_particle);
@@ -238,12 +241,11 @@ impl ConsistentParticleFilter {
             .collect::<Vec<_>>();
         let mut weights = HashHistogram::new();
         for c in consistent.iter() {
-            let weight = match self.selection_strategy {
-                SelectionStrategy::Uniform => 1.0,
-                SelectionStrategy::Weighted => {
+            let weight = match self.weight_strategy {
+                WeightStrategy::MinPose => {
                     self.min_distance_to_any_of(&self.particles[*c], &inconsistent)
                 }
-                SelectionStrategy::RankProportion => todo!(),
+                _ => todo!(),
             };
             weights.bump_by(c, weight);
         }
@@ -338,7 +340,7 @@ pub struct Selector {
     weights: HashHistogram<usize, f64>,
     walker_alias: WalkerAlias,
 }
-/* 
+/*
 impl Selector {
     pub fn setup(particle_filter: &ConsistentParticleFilter, consistent: &Vec<usize>) -> Self {
 
