@@ -3,6 +3,7 @@ pub mod stats;
 pub mod walker;
 
 pub use bit_grid_map::*;
+use rand::{RngExt, rng};
 pub use stats::*;
 
 use bit_grid::{
@@ -14,6 +15,8 @@ use hash_histogram::HashHistogram;
 use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
+
+use crate::walker::WalkerDistribution;
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Noises {
@@ -191,20 +194,26 @@ impl ConsistentParticleFilter {
     }
 
     fn repopulate(&mut self, consistent: Vec<usize>, obstacle: Option<FloatPoint>) {
-        let weights = self.get_consistent_weights(&consistent);
         let mut consistent = consistent;
-        consistent.sort_by(|i, j| {
-            weights
-                .count(j)
-                .partial_cmp(&weights.count(i))
-                .unwrap_or(Ordering::Equal)
-        });
+        let selector = if self.selection_strategy == SelectionStrategy::Uniform {
+            None
+        } else {
+            let weights = self.get_consistent_weights(&consistent);
+            consistent.sort_by(|i, j| {
+                weights
+                    .count(i)
+                    .partial_cmp(&weights.count(j))
+                    .unwrap_or(Ordering::Equal)
+            });
+            Some(WalkerDistribution::new(consistent.len()))
+        };
         let mut new_particles = consistent
             .iter()
             .map(|i| self.particles[*i].clone())
             .collect::<Vec<_>>();
+        let mut rng = rng();
         while new_particles.len() < self.particles.len() {
-            let choice = weights.pick_random_key();
+            let choice = selector.as_ref().map_or(rng.random_range(0..consistent.len()), |s| s.choose());
             let mut new_particle = self.particles[choice].clone();
             new_particle.add_noise(obstacle);
             new_particles.push(new_particle);
