@@ -3,6 +3,7 @@ pub mod stats;
 pub mod walker;
 
 pub use bit_grid_map::*;
+use bits::BitArray;
 use enum_iterator::Sequence;
 pub use stats::*;
 
@@ -103,36 +104,28 @@ pub enum WeightStrategy {
 impl WeightStrategy {
     pub fn weights(
         &self,
-        consistent: &Vec<usize>,
         particles: &Vec<Particle>,
+        inconsistent: &Vec<Particle>,
     ) -> HashHistogram<usize, f64> {
-        let inconsistent = (0..particles.len())
-            .filter(|i| !consistent.contains(&i))
-            .collect::<Vec<_>>();
         let mut weights = HashHistogram::new();
-        for c in consistent.iter() {
+        for (i, p) in particles.iter().enumerate() {
             let weight = match self {
                 Self::Uniform => 1.0,
-                Self::MinPose => Self::min_distance_to_any_of(*c, &inconsistent, particles),
+                Self::MinPose => Self::min_distance_to_any_of(p, &inconsistent),
                 _ => todo!(),
             };
-            weights.bump_by(c, weight);
+            weights.bump_by(&i, weight);
         }
         weights
     }
 
-    fn min_distance_to_any_of(
-        c: usize,
-        inconsistent: &Vec<usize>,
-        particles: &Vec<Particle>,
-    ) -> f64 {
+    fn min_distance_to_any_of(p: &Particle, inconsistent: &Vec<Particle>) -> f64 {
         inconsistent
             .iter()
             .map(|i| {
-                particles[*i]
-                    .estimated_pose()
+                i.estimated_pose()
                     .pos
-                    .euclidean_distance(particles[c].estimated_pose().pos)
+                    .euclidean_distance(p.estimated_pose().pos)
             })
             .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
             .unwrap()
@@ -214,9 +207,9 @@ impl ParticleFilter {
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, obstacle);
         let consistent = self.find_consistent_particles();
-        if consistent.len() == 0 {
+        if consistent.count_ones() == 0 {
             self.example_failure = Some(self.particles[0].clone());
-        } else if consistent.len() < self.particles.len() {
+        } else if consistent.count_ones() < self.particles.len() {
             self.repopulate(consistent, obstacle);
         }
     }
@@ -238,40 +231,47 @@ impl ParticleFilter {
         }
     }
 
-    fn find_consistent_particles(&mut self) -> Vec<usize> {
-        let mut consistent = Vec::new();
-        for i in 0..self.particles.len() {
-            if self.particles[i].map.is_consistent() {
-                consistent.push(i);
-            } else {
-                self.stats
-                    .gather_data_from(self.total_iterations, &self.particles[i].map);
-            }
+    fn find_consistent_particles(&mut self) -> BitArray {
+        let consistent: BitArray = (0..self.particles.len())
+            .filter(|i| self.particles[*i].map.is_consistent())
+            .collect();
+        let inconsistent = !&consistent;
+        for i in inconsistent.one_indices() {
+            self.stats
+                .gather_data_from(self.total_iterations, &self.particles[i].map);
         }
         consistent
     }
 
-    fn repopulate(&mut self, consistent: Vec<usize>, obstacle: Option<FloatPoint>) {
-        let mut consistent = consistent;
-        let weights = self.weight_strategy.weights(&consistent, &self.particles);
-        consistent.sort_by(|i, j| {
-            weights
-                .count(j)
-                .partial_cmp(&weights.count(i))
-                .unwrap_or(Ordering::Equal)
-        });
-        let selector = self.selection_strategy.selector(&weights);
-        let mut new_particles = consistent
-            .iter()
-            .map(|i| self.particles[*i].clone())
+    fn repopulate(&mut self, consistent: BitArray, obstacle: Option<FloatPoint>) {
+        let num_particles = self.particles.len();
+        let inconsistent = (!&consistent)
+            .one_indices()
+            .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
-        while new_particles.len() < self.particles.len() {
+        self.particles = consistent
+            .one_indices()
+            .map(|i| self.particles[i].clone())
+            .collect::<Vec<_>>();
+        let selector = self.make_selector(&inconsistent);
+        
+        while self.particles.len() < num_particles {
             let choice = selector.choose();
             let mut new_particle = self.particles[choice].clone();
             new_particle.add_noise(obstacle);
-            new_particles.push(new_particle);
+            self.particles.push(new_particle);
         }
-        std::mem::swap(&mut new_particles, &mut self.particles);
+    }
+
+    fn make_selector(&mut self, inconsistent: &Vec<Particle>) -> WalkerAlias {
+        let weights = self.weight_strategy.weights(&self.particles, &inconsistent).ranking_with_counts();
+        self.sort_particles_by(weights.iter().map(|(i,_)| *i));
+        let weights = weights.iter().map(|(_,w)| *w).enumerate().collect::<HashHistogram<usize, f64>>();
+        self.selection_strategy.selector(&weights)
+    }
+
+    fn sort_particles_by<I: Iterator<Item=usize>>(&mut self, permutation: I) {
+        self.particles = permutation.map(|current| self.particles[current].clone()).collect();
     }
 }
 

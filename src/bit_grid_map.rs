@@ -87,7 +87,7 @@ impl BitGridMap {
         self.brand_new = false;
     }
 
-    pub fn map_words_used(&self) -> u64 {
+    pub fn map_words_used(&self) -> usize {
         self.obstacles.words_used() + self.spaces.words_used()
     }
 
@@ -157,11 +157,11 @@ impl BitGridMap {
         overlapping
     }
 
-    pub fn num_obstacles(&self) -> u64 {
+    pub fn num_obstacles(&self) -> usize {
         self.obstacles.count_ones()
     }
 
-    pub fn num_spaces(&self) -> u64 {
+    pub fn num_spaces(&self) -> usize {
         self.spaces.count_ones()
     }
 
