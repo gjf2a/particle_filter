@@ -16,7 +16,7 @@ use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
-use crate::walker::WalkerDistribution;
+use crate::walker::WalkerAlias;
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Noises {
@@ -80,8 +80,16 @@ impl ConsistentParticle {
 pub enum SelectionStrategy {
     #[default]
     Uniform,
-    DistanceWeight,
+    Weighted,
+    RankProportion,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum WeightStrategy {
     Compactness,
+    MinPose,
+    MinSpaceDifference,
+    MinObstacleDifference,
 }
 
 #[derive(Clone)]
@@ -92,6 +100,7 @@ pub struct ConsistentParticleFilter {
     stats: BitGridStats,
     example_failure: Option<ConsistentParticle>,
     selection_strategy: SelectionStrategy,
+    weight_strategy: WeightStrategy,
 }
 
 impl ConsistentParticleFilter {
@@ -101,6 +110,7 @@ impl ConsistentParticleFilter {
         robot_radius_m: f64,
         noises: Noises,
         selection_strategy: SelectionStrategy,
+        weight_strategy: WeightStrategy,
     ) -> Self {
         let particles = repeat_n(
             ConsistentParticle::new(square_size_m, robot_radius_m, noises),
@@ -114,6 +124,7 @@ impl ConsistentParticleFilter {
             stats: BitGridStats::default(),
             example_failure: None,
             selection_strategy,
+            weight_strategy,
         }
     }
 
@@ -205,7 +216,7 @@ impl ConsistentParticleFilter {
                     .partial_cmp(&weights.count(j))
                     .unwrap_or(Ordering::Equal)
             });
-            Some(WalkerDistribution::new(consistent.len()))
+            Some(WalkerAlias::rank_proportionate(consistent.len()))
         };
         let mut new_particles = consistent
             .iter()
@@ -229,10 +240,10 @@ impl ConsistentParticleFilter {
         for c in consistent.iter() {
             let weight = match self.selection_strategy {
                 SelectionStrategy::Uniform => 1.0,
-                SelectionStrategy::DistanceWeight => {
+                SelectionStrategy::Weighted => {
                     self.min_distance_to_any_of(&self.particles[*c], &inconsistent)
                 }
-                SelectionStrategy::Compactness => todo!(),
+                SelectionStrategy::RankProportion => todo!(),
             };
             weights.bump_by(c, weight);
         }
@@ -320,6 +331,20 @@ impl PoseEstimate {
         self.current_estimate = noise.noise(self.current_estimate);
     }
 }
+
+pub struct Selector {
+    selection_strategy: SelectionStrategy,
+    weight_strategy: WeightStrategy,
+    weights: HashHistogram<usize, f64>,
+    walker_alias: WalkerAlias,
+}
+/* 
+impl Selector {
+    pub fn setup(particle_filter: &ConsistentParticleFilter, consistent: &Vec<usize>) -> Self {
+
+    }
+}
+    */
 
 #[cfg(test)]
 mod tests {
