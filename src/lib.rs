@@ -3,7 +3,6 @@ pub mod stats;
 pub mod walker;
 
 pub use bit_grid_map::*;
-use rand::{RngExt, rng};
 pub use stats::*;
 
 use bit_grid::{
@@ -34,14 +33,14 @@ impl Noises {
 }
 
 #[derive(Clone)]
-pub struct ConsistentParticle {
+pub struct Particle {
     estimate: PoseEstimate,
     map: BitGridMap,
     parent: Option<usize>,
     noises: Noises,
 }
 
-impl ConsistentParticle {
+impl Particle {
     pub fn estimated_pose(&self) -> RobotPose<Radians> {
         self.estimate.into()
     }
@@ -86,7 +85,7 @@ impl SelectionStrategy {
     pub fn selector(&self, weights: &HashHistogram<usize, f64>) -> WalkerAlias {
         match self {
             Self::RankProportion => WalkerAlias::rank_proportionate(weights.len()),
-            Self::Weighted => WalkerAlias::weighted(weights)
+            Self::Weighted => WalkerAlias::weighted(weights),
         }
     }
 }
@@ -100,18 +99,57 @@ pub enum WeightStrategy {
     MinObstacleDifference,
 }
 
+impl WeightStrategy {
+    pub fn weights(
+        &self,
+        consistent: &Vec<usize>,
+        particles: &Vec<Particle>,
+    ) -> HashHistogram<usize, f64> {
+        let inconsistent = (0..particles.len())
+            .filter(|i| !consistent.contains(&i))
+            .collect::<Vec<_>>();
+        let mut weights = HashHistogram::new();
+        for c in consistent.iter() {
+            let weight = match self {
+                Self::Uniform => 1.0,
+                Self::MinPose => Self::min_distance_to_any_of(*c, &inconsistent, particles),
+                _ => todo!(),
+            };
+            weights.bump_by(c, weight);
+        }
+        weights
+    }
+
+    fn min_distance_to_any_of(
+        c: usize,
+        inconsistent: &Vec<usize>,
+        particles: &Vec<Particle>,
+    ) -> f64 {
+        inconsistent
+            .iter()
+            .map(|i| {
+                particles[*i]
+                    .estimated_pose()
+                    .pos
+                    .euclidean_distance(particles[c].estimated_pose().pos)
+            })
+            .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
+            .unwrap()
+    }
+}
+
 #[derive(Clone)]
-pub struct ConsistentParticleFilter {
+pub struct ParticleFilter {
     last_raw: Option<RobotPose<Radians>>,
-    particles: Vec<ConsistentParticle>,
+    particles: Vec<Particle>,
     total_iterations: usize,
     stats: BitGridStats,
-    example_failure: Option<ConsistentParticle>,
+    example_failure: Option<Particle>,
     selection_strategy: SelectionStrategy,
     weight_strategy: WeightStrategy,
 }
 
-impl ConsistentParticleFilter {
+impl ParticleFilter {
     pub fn new(
         num_particles: usize,
         square_size_m: f64,
@@ -121,7 +159,7 @@ impl ConsistentParticleFilter {
         weight_strategy: WeightStrategy,
     ) -> Self {
         let particles = repeat_n(
-            ConsistentParticle::new(square_size_m, robot_radius_m, noises),
+            Particle::new(square_size_m, robot_radius_m, noises),
             num_particles,
         )
         .collect();
@@ -152,7 +190,7 @@ impl ConsistentParticleFilter {
         self.stats.clone()
     }
 
-    pub fn example_failure(&self) -> Option<ConsistentParticle> {
+    pub fn example_failure(&self) -> Option<Particle> {
         self.example_failure.clone()
     }
 
@@ -160,7 +198,7 @@ impl ConsistentParticleFilter {
         self.example_failure.is_some()
     }
 
-    pub fn particles(&self) -> impl Iterator<Item = &ConsistentParticle> {
+    pub fn particles(&self) -> impl Iterator<Item = &Particle> {
         self.particles.iter()
     }
 
@@ -214,14 +252,14 @@ impl ConsistentParticleFilter {
 
     fn repopulate(&mut self, consistent: Vec<usize>, obstacle: Option<FloatPoint>) {
         let mut consistent = consistent;
-        let weights = self.get_consistent_weights(&consistent);
+        let weights = self.weight_strategy.weights(&consistent, &self.particles);
         consistent.sort_by(|i, j| {
             weights
                 .count(j)
                 .partial_cmp(&weights.count(i))
                 .unwrap_or(Ordering::Equal)
         });
-        let selector = self.selection_strategy.selector(&weights);        
+        let selector = self.selection_strategy.selector(&weights);
         let mut new_particles = consistent
             .iter()
             .map(|i| self.particles[*i].clone())
@@ -234,40 +272,10 @@ impl ConsistentParticleFilter {
         }
         std::mem::swap(&mut new_particles, &mut self.particles);
     }
-
-    fn get_consistent_weights(&self, consistent: &Vec<usize>) -> HashHistogram<usize, f64> {
-        let inconsistent = (0..self.particles.len())
-            .filter(|i| !consistent.contains(&i))
-            .collect::<Vec<_>>();
-        let mut weights = HashHistogram::new();
-        for c in consistent.iter() {
-            let weight = match self.weight_strategy {
-                WeightStrategy::MinPose => {
-                    self.min_distance_to_any_of(&self.particles[*c], &inconsistent)
-                }
-                _ => todo!(),
-            };
-            weights.bump_by(c, weight);
-        }
-        weights
-    }
-
-    fn min_distance_to_any_of(&self, p: &ConsistentParticle, inconsistent: &Vec<usize>) -> f64 {
-        inconsistent
-            .iter()
-            .map(|i| {
-                self.particles[*i]
-                    .estimated_pose()
-                    .pos
-                    .euclidean_distance(p.estimated_pose().pos)
-            })
-            .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
-            .unwrap()
-    }
 }
 
-impl Index<usize> for ConsistentParticleFilter {
-    type Output = ConsistentParticle;
+impl Index<usize> for ParticleFilter {
+    type Output = Particle;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.particles[index]
@@ -333,20 +341,6 @@ impl PoseEstimate {
         self.current_estimate = noise.noise(self.current_estimate);
     }
 }
-
-pub struct Selector {
-    selection_strategy: SelectionStrategy,
-    weight_strategy: WeightStrategy,
-    weights: HashHistogram<usize, f64>,
-    walker_alias: WalkerAlias,
-}
-/*
-impl Selector {
-    pub fn setup(particle_filter: &ConsistentParticleFilter, consistent: &Vec<usize>) -> Self {
-
-    }
-}
-    */
 
 #[cfg(test)]
 mod tests {
