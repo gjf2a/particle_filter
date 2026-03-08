@@ -70,7 +70,7 @@ impl ConsistentParticle {
 
     fn add_sensed_obstacles(&mut self, obstacle: Option<FloatPoint>) {
         if let Some(obstacle) = obstacle {
-            self.map.add_obstacle_at(&obstacle);
+            self.map.add_obstacle_at(&self.estimate.update_other_point(&obstacle));
         }
     }
 }
@@ -301,6 +301,11 @@ impl PoseEstimate {
         self.last_raw = Some(raw_pose);
     }
 
+    pub fn update_other_point(&self, pt: &FloatPoint) -> FloatPoint {
+        let raw2estimated = self.current_estimate - self.last_raw.unwrap_or(RobotPose::default());
+        raw2estimated.pos + *pt
+    }
+
     pub fn add_noise(&mut self, noise: Noise) {
         self.current_estimate = noise.noise(self.current_estimate);
     }
@@ -308,6 +313,8 @@ impl PoseEstimate {
 
 #[cfg(test)]
 mod tests {
+    use bit_grid::pt;
+    use bit_grid::point::Point;
     use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
 
     #[test]
@@ -327,5 +334,12 @@ mod tests {
             let estimated: RobotPose<Radians> = estimate.into();
             assert_eq!(pose, estimated);
         }
+    }
+
+    #[test]
+    fn test_other_point() {
+        let test_pose_estimate = PoseEstimate {last_raw: Some(RobotPose {pos: pt!(1.0, 1.0), theta: Radians::new(0.0)}), current_estimate: RobotPose {pos: pt!(3.0, 2.0), theta: Radians::new(0.0)}};
+        let expected = pt!(6.0, 4.0);
+        assert_eq!(expected, test_pose_estimate.update_other_point(&pt!(4.0, 3.0)));
     }
 }
