@@ -33,18 +33,6 @@ impl Noises {
     }
 }
 
-pub trait RobotInfo: Clone {
-    type SensorType;
-
-    fn robot_radius_m(&self) -> f64;
-    fn obstacle_at(
-        &self,
-        pose: &RobotPose<Radians>,
-        sensor_info: &Self::SensorType,
-    ) -> Option<FloatPoint>;
-    fn noise(&self, sensor_info: Option<&Self::SensorType>) -> Noise;
-}
-
 #[derive(Clone)]
 pub struct ConsistentParticle {
     estimate: PoseEstimate,
