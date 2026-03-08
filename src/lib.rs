@@ -76,7 +76,7 @@ impl Particle {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Sequence)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug)]
 pub enum SelectionStrategy {
     Weighted,
     RankProportion,
@@ -91,7 +91,7 @@ impl SelectionStrategy {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Sequence)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug)]
 pub enum WeightStrategy {
     Uniform,
     Compactness,
