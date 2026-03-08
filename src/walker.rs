@@ -43,29 +43,40 @@ pub struct WalkerDistribution {
 
 impl WalkerDistribution {
     pub fn new(n: usize) -> Self {
-        let s = n * (n + 1) / 2;
+        let sum_n = Self::gauss_sum_n(n);
         let last_index = n/2;
         let mut prob = vec![];
         let mut alias = vec![];
-        for c in (1..=last_index).rev() {
-            prob.push((c * n) as f64 / s as f64);
-            alias.push(c - 1);
+        for c in 1..=last_index {
+            prob.push((c * n) as f64 / sum_n as f64);
+            alias.push(n - c);
         }
         Self {n, prob, alias}
+    }
+
+    fn gauss_sum_n(n: usize) -> usize {
+        n * (n + 1) / 2
+    }
+
+    pub fn n(&self) -> usize {
+        self.n
+    }
+
+    pub fn sum_n(&self) -> usize {
+        Self::gauss_sum_n(self.n)
     }
 
     pub fn choose(&self) -> usize {
         let mut rng = rng();
         let prob = rng.random_range(0..self.n);
         let top_lower_index = (self.n - 1) / 2;
-        if prob <= top_lower_index {
+        if prob > top_lower_index {
             prob
         } else {
-            let lowprob = prob - (top_lower_index + 1);
-            if rng.random::<f64>() < self.prob[lowprob] {
+            if rng.random::<f64>() < self.prob[prob] {
                 prob 
             } else {
-                self.alias[lowprob]
+                self.alias[prob]
             }
         }
     }
@@ -79,14 +90,23 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut histogram: HashHistogram<usize, usize> = HashHistogram::new();
-        let four = WalkerDistribution::new(4);
-        for _ in 0..100000 {
-            histogram.bump(&four.choose());
+        for n in (4..=10).step_by(2) {
+            println!("n: {n}");
+            let mut histogram: HashHistogram<usize, usize> = HashHistogram::new();
+            let distro = WalkerDistribution::new(n);
+            let num_samples = 100000;
+            for _ in 0..100000 {
+                histogram.bump(&distro.choose());
+            }
+            let denominator = distro.sum_n();
+            let tolerance = num_samples / (denominator * 10);
+            for i in 0..distro.n() {
+                let numerator = i + 1;
+                let target = num_samples * numerator / denominator;
+                let lo = target - tolerance;
+                let hi = target + tolerance;
+                assert!(lo <= histogram.count(&i) && histogram.count(&i) <= hi);
+            }
         }
-        assert!(39000 <= histogram.count(&0) && histogram.count(&0) <= 41000);
-        assert!(29000 <= histogram.count(&1) && histogram.count(&1) <= 31000);
-        assert!(19000 <= histogram.count(&2) && histogram.count(&2) <= 21000);
-        assert!(9000 <= histogram.count(&3) && histogram.count(&3) <= 11000);
     }
 }
