@@ -85,6 +85,7 @@ pub enum SelectionStrategy {
 
 #[derive(Clone)]
 pub struct ConsistentParticleFilter {
+    last_raw: Option<RobotPose<Radians>>,
     particles: Vec<ConsistentParticle>,
     total_iterations: usize,
     stats: BitGridStats,
@@ -112,6 +113,7 @@ impl ConsistentParticleFilter {
         )
         .collect();
         Self {
+            last_raw: None,
             particles,
             total_iterations: 0,
             stats: BitGridStats::default(),
@@ -122,6 +124,10 @@ impl ConsistentParticleFilter {
 
     pub fn len(&self) -> usize {
         self.particles.len()
+    }
+
+    pub fn last_raw_pose(&self) -> Option<RobotPose<Radians>> {
+        self.last_raw
     }
 
     pub fn total_iterations(&self) -> usize {
@@ -149,6 +155,9 @@ impl ConsistentParticleFilter {
         new_raw_pose: Option<RobotPose<Radians>>,
         obstacle: Option<FloatPoint>,
     ) {
+        if new_raw_pose.is_some() {
+            self.last_raw = new_raw_pose;
+        }
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, obstacle);
         let consistent = self.find_consistent_particles();
