@@ -132,6 +132,16 @@ impl WeightStrategy {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub struct ParticleFilterSettings {
+    pub noises: Noises,
+    pub num_particles: usize,
+    pub square_size_m: f64,
+    pub robot_radius_m: f64,
+    pub selection_strategy: SelectionStrategy,
+    pub weight_strategy: WeightStrategy,
+}
+
 #[derive(Clone)]
 pub struct ParticleFilter {
     last_raw: Option<RobotPose<Radians>>,
@@ -144,17 +154,10 @@ pub struct ParticleFilter {
 }
 
 impl ParticleFilter {
-    pub fn new(
-        num_particles: usize,
-        square_size_m: f64,
-        robot_radius_m: f64,
-        noises: Noises,
-        selection_strategy: SelectionStrategy,
-        weight_strategy: WeightStrategy,
-    ) -> Self {
+    pub fn new(settings: ParticleFilterSettings) -> Self {
         let particles = repeat_n(
-            Particle::new(square_size_m, robot_radius_m, noises),
-            num_particles,
+            Particle::new(settings.square_size_m, settings.robot_radius_m, settings.noises),
+            settings.num_particles,
         )
         .collect();
         Self {
@@ -163,8 +166,8 @@ impl ParticleFilter {
             total_iterations: 0,
             stats: BitGridStats::default(),
             example_failure: None,
-            selection_strategy,
-            weight_strategy,
+            selection_strategy: settings.selection_strategy,
+            weight_strategy: settings.weight_strategy,
         }
     }
 
