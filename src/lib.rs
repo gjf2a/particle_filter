@@ -210,6 +210,9 @@ impl ParticleFilter {
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, obstacle);
         let consistent = self.find_consistent_particles();
+        if consistent.count_ones() != consistent.one_indices().count() {
+            panic!("ones bug:\ncount_ones: {}\none_indices().count(): {}\n{consistent}", consistent.count_ones(), consistent.one_indices().count());
+        }
         if consistent.count_ones() == 0 {
             self.example_failure = Some(self.particles[0].clone());
         } else if consistent.count_ones() < self.particles.len() {
