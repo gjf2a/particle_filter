@@ -37,29 +37,36 @@ impl WalkerAlias {
     pub fn weighted(weights: &HashHistogram<usize, f64>) -> Self {
         let n = weights.len();
         let total = weights.total_count();
-        let expected = 1.0 / n as f64;
         let probs_falling = weights.ranking_with_counts()
             .iter()
             .map(|(i, w)| (*i, *w / total))
             .collect::<Vec<_>>();
-        let mut prob = repeat_n(0.0, n).collect::<Vec<_>>();
-        let mut alias = (0..n).collect::<Vec<_>>();
+        let prob = repeat_n(0.0, n).collect::<Vec<_>>();
+        let alias = (0..n).collect::<Vec<_>>();
+        let mut result = Self {n, prob, alias};
+        result.table_entries_from(&probs_falling);
+        result
+    }
+
+    fn table_entries_from(&mut self, probs_falling: &Vec<(usize, f64)>) {
+        let expected = 1.0 / self.n as f64;
         let mut overages = vec![];
         for (i, p) in probs_falling.iter() {
             if *p > expected {
-                prob[*i] = 1.0;
+                self.prob[*i] = 1.0;
                 overages.push((*i, *p - expected));
             } else if *p < expected {
                 let (over_i, over_w) = overages.last_mut().unwrap();
                 *over_w -= expected - *p;
-                prob[*i] = *p / expected;
-                alias[*i] = *over_i;
+                self.prob[*i] = *p / expected;
+                self.alias[*i] = *over_i;
                 if *over_w <= 0.0 {
                     overages.pop();
                 }
+            } else {
+                self.prob[*i] = 1.0;
             }
         }
-        Self { n, prob, alias }
     }
 
     fn gauss_sum_n(n: usize) -> usize {
