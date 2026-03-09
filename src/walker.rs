@@ -1,10 +1,9 @@
 // Walker's algorithm for selection
+//
 // A. J. Walker, “An efficient method for generating discrete random variables with general distributions,”
 //  ACM Transactions on Mathematical Software, vol. 3, no. 3, pp. 253–256, 1977.
-// https://crates.io/crates/weighted_rand
-//
 
-use std::{cmp::Ordering, iter::repeat_n};
+use std::iter::repeat_n;
 
 use hash_histogram::HashHistogram;
 use rand::{RngExt, rng};
@@ -39,11 +38,10 @@ impl WalkerAlias {
         let n = weights.len();
         let total = weights.total_count();
         let expected = 1.0 / n as f64;
-        let mut probs_falling = weights
+        let probs_falling = weights.ranking_with_counts()
             .iter()
             .map(|(i, w)| (*i, *w / total))
             .collect::<Vec<_>>();
-        probs_falling.sort_by(|(_, w1), (_, w2)| w2.partial_cmp(w1).unwrap_or(Ordering::Equal));
         let mut prob = repeat_n(0.0, n).collect::<Vec<_>>();
         let mut alias = (0..n).collect::<Vec<_>>();
         let mut overages = vec![];
