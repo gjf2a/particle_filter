@@ -120,6 +120,7 @@ impl WeightStrategy {
     }
 
     fn min_distance_to_any_of(p: &Particle, inconsistent: &Vec<Particle>) -> f64 {
+        assert!(inconsistent.len() > 0);
         inconsistent
             .iter()
             .map(|i| {
@@ -210,6 +211,7 @@ impl ParticleFilter {
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, obstacle);
         let consistent = self.find_consistent_particles();
+        // Checking for a possible source of a bug.
         if consistent.count_ones() != consistent.one_indices().count() {
             panic!("ones bug:\ncount_ones: {}\none_indices().count(): {}\n{consistent}", consistent.count_ones(), consistent.one_indices().count());
         }
@@ -255,6 +257,7 @@ impl ParticleFilter {
             .one_indices()
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
+        assert_eq!(num_particles, consistent.count_ones() + inconsistent.len());
         self.particles = consistent
             .one_indices()
             .map(|i| self.particles[i].clone())
