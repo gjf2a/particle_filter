@@ -258,7 +258,9 @@ impl ParticleFilter {
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
         if consistent.count_ones() + inconsistent.len() != num_particles {
-            panic!("{num_particles}; consistent: {} !consistent: {} inconsistent.len(): {}", consistent.count_ones(), (!&consistent).count_ones(), inconsistent.len());
+            let ones = BitArray::ones(num_particles);
+            let xor = &consistent ^ &ones;
+            panic!("{num_particles}; consistent: {} !consistent: {} inconsistent.len(): {} xor: {}", consistent.count_ones(), (!&consistent).count_ones(), inconsistent.len(), xor.count_ones());
         }
         assert_eq!(num_particles, consistent.count_ones() + inconsistent.len());
         self.particles = consistent
