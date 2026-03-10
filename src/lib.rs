@@ -156,7 +156,11 @@ pub struct ParticleFilter {
 impl ParticleFilter {
     pub fn new(settings: ParticleFilterSettings) -> Self {
         let particles = repeat_n(
-            Particle::new(settings.square_size_m, settings.robot_radius_m, settings.noises),
+            Particle::new(
+                settings.square_size_m,
+                settings.robot_radius_m,
+                settings.noises,
+            ),
             settings.num_particles,
         )
         .collect();
@@ -245,8 +249,10 @@ impl ParticleFilter {
         let ones = BitArray::ones(num_particles);
         let inconsistent = (&consistent ^ &ones)
             .one_indices()
-            .inspect(|i| self.stats
-                .gather_data_from(self.total_iterations, &self.particles[*i].map))
+            .inspect(|i| {
+                self.stats
+                    .gather_data_from(self.total_iterations, &self.particles[*i].map)
+            })
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
 
@@ -255,7 +261,7 @@ impl ParticleFilter {
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
         let selector = self.make_selector(&inconsistent);
-        
+
         while self.particles.len() < num_particles {
             let choice = selector.choose();
             let mut new_particle = self.particles[choice].clone();
@@ -265,14 +271,23 @@ impl ParticleFilter {
     }
 
     fn make_selector(&mut self, inconsistent: &Vec<Particle>) -> WalkerAlias {
-        let weights = self.weight_strategy.weights(&self.particles, &inconsistent).ranking_with_counts();
-        self.sort_particles_by(weights.iter().map(|(i,_)| *i));
-        let weights = weights.iter().map(|(_,w)| *w).enumerate().collect::<HashHistogram<usize, f64>>();
+        let weights = self
+            .weight_strategy
+            .weights(&self.particles, &inconsistent)
+            .ranking_with_counts();
+        self.sort_particles_by(weights.iter().map(|(i, _)| *i));
+        let weights = weights
+            .iter()
+            .map(|(_, w)| *w)
+            .enumerate()
+            .collect::<HashHistogram<usize, f64>>();
         self.selection_strategy.selector(&weights)
     }
 
-    fn sort_particles_by<I: Iterator<Item=usize>>(&mut self, permutation: I) {
-        self.particles = permutation.map(|current| self.particles[current].clone()).collect();
+    fn sort_particles_by<I: Iterator<Item = usize>>(&mut self, permutation: I) {
+        self.particles = permutation
+            .map(|current| self.particles[current].clone())
+            .collect();
     }
 }
 

@@ -37,13 +37,14 @@ impl WalkerAlias {
     pub fn weighted(weights: &HashHistogram<usize, f64>) -> Self {
         let n = weights.len();
         let total = weights.total_count();
-        let probs_falling = weights.ranking_with_counts()
+        let probs_falling = weights
+            .ranking_with_counts()
             .iter()
             .map(|(i, w)| (*i, *w / total))
             .collect::<Vec<_>>();
         let prob = repeat_n(0.0, n).collect::<Vec<_>>();
         let alias = (0..n).collect::<Vec<_>>();
-        let mut result = Self {n, prob, alias};
+        let mut result = Self { n, prob, alias };
         result.table_entries_from(&probs_falling);
         result
     }
