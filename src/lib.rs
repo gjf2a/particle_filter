@@ -120,7 +120,6 @@ impl WeightStrategy {
     }
 
     fn min_distance_to_any_of(p: &Particle, inconsistent: &Vec<Particle>) -> f64 {
-        assert!(inconsistent.len() > 0);
         inconsistent
             .iter()
             .map(|i| {
@@ -211,10 +210,6 @@ impl ParticleFilter {
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, obstacle);
         let consistent = self.find_consistent_particles();
-        // Checking for a possible source of a bug.
-        if consistent.count_ones() != consistent.one_indices().count() {
-            panic!("ones bug:\ncount_ones: {}\none_indices().count(): {}\n{consistent}", consistent.count_ones(), consistent.one_indices().count());
-        }
         if consistent.count_ones() == 0 {
             self.example_failure = Some(self.particles[0].clone());
         } else if consistent.count_ones() < self.particles.len() {
@@ -254,12 +249,7 @@ impl ParticleFilter {
                 .gather_data_from(self.total_iterations, &self.particles[*i].map))
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
-        if consistent.count_ones() + inconsistent.len() != num_particles {
-            let ones = BitArray::ones(num_particles);
-            let xor = &consistent ^ &ones;
-            panic!("{num_particles}; consistent: {} !consistent: {} inconsistent.len(): {} xor: {}", consistent.count_ones(), (!&consistent).count_ones(), inconsistent.len(), xor.count_ones());
-        }
-        assert_eq!(num_particles, consistent.count_ones() + inconsistent.len());
+
         self.particles = consistent
             .one_indices()
             .map(|i| self.particles[i].clone())
