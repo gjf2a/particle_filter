@@ -257,6 +257,9 @@ impl ParticleFilter {
             .one_indices()
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
+        if consistent.count_ones() + inconsistent.len() != num_particles {
+            panic!("{num_particles}; consistent: {} !consistent: {} inconsistent.len(): {}", consistent.count_ones(), (!&consistent).count_ones(), inconsistent.len());
+        }
         assert_eq!(num_particles, consistent.count_ones() + inconsistent.len());
         self.particles = consistent
             .one_indices()
