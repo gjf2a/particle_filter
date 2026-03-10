@@ -243,7 +243,7 @@ impl ParticleFilter {
         let consistent: BitArray = (0..self.particles.len())
             .filter(|i| self.particles[*i].map.is_consistent())
             .collect();
-        let inconsistent = !&consistent;
+        let inconsistent = &consistent ^ &BitArray::ones(self.particles.len());
         for i in inconsistent.one_indices() {
             self.stats
                 .gather_data_from(self.total_iterations, &self.particles[i].map);
