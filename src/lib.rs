@@ -240,21 +240,18 @@ impl ParticleFilter {
     }
 
     fn find_consistent_particles(&mut self) -> BitArray {
-        let consistent: BitArray = (0..self.particles.len())
+        (0..self.particles.len())
             .filter(|i| self.particles[*i].map.is_consistent())
-            .collect();
-        let inconsistent = &consistent ^ &BitArray::ones(self.particles.len());
-        for i in inconsistent.one_indices() {
-            self.stats
-                .gather_data_from(self.total_iterations, &self.particles[i].map);
-        }
-        consistent
+            .collect()
     }
 
     fn repopulate(&mut self, consistent: BitArray, obstacle: Option<FloatPoint>) {
         let num_particles = self.particles.len();
-        let inconsistent = (!&consistent)
+        let ones = BitArray::ones(num_particles);
+        let inconsistent = (&consistent ^ &ones)
             .one_indices()
+            .inspect(|i| self.stats
+                .gather_data_from(self.total_iterations, &self.particles[*i].map))
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
         if consistent.count_ones() + inconsistent.len() != num_particles {
