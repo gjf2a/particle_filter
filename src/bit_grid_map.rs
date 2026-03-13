@@ -195,8 +195,25 @@ impl BitGridMap {
         }
     }
 
+    pub fn all_spaces(&self) -> &BitGrid {
+        &self.spaces
+    }
+
+    pub fn all_obstacles(&self) -> &BitGrid {
+        &self.obstacles
+    }
+
+    pub fn all_visited(&self) -> BitGrid {
+        &self.spaces | &self.obstacles
+    }
+
+    pub fn unvisited(&self) -> BitGrid {
+        let both = self.all_visited();
+        &(BitGrid::one_grid(both.bounding_box())) ^ &both
+    }
+
     pub fn all_frontier_spaces(&self) -> BitGrid {
-        let spaces_with_obstacles = &self.spaces | &self.obstacles;
+        let spaces_with_obstacles = self.all_visited();
         spaces_with_obstacles
             .ones_touching_zeros()
             .filter(|p| !self.obstacles.get(p))
