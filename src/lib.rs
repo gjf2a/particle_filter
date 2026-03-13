@@ -206,11 +206,15 @@ impl ParticleFilter {
     pub fn iterate(
         &mut self,
         new_raw_pose: Option<RobotPose<Radians>>,
-        obstacle: Option<FloatPoint>,
+        obstacle: Option<(f64, Radians)>,
     ) {
         if new_raw_pose.is_some() {
             self.last_raw = new_raw_pose;
         }
+        let obstacle = obstacle.zip(self.last_raw).map(|((distance, angle_offset), last_pose)| {
+            let heading = last_pose.theta + angle_offset;
+            last_pose.pos + (distance, heading).into()
+        });
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, obstacle);
         let consistent = self.find_consistent_particles();
