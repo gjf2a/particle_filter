@@ -21,14 +21,14 @@ use crate::walker::WalkerAlias;
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Noises {
-    pub odom: Noise,
+    pub clear: Noise,
     pub obst: Noise,
 }
 
 impl Noises {
     fn noise(&self, obstacle: Option<FloatPoint>) -> Noise {
         match obstacle {
-            None => self.odom,
+            None => self.clear,
             Some(_) => self.obst,
         }
     }
@@ -142,6 +142,28 @@ pub struct ParticleFilterSettings {
     pub weight_strategy: WeightStrategy,
 }
 
+impl Default for ParticleFilterSettings {
+    fn default() -> Self {
+        Self {
+            noises: Noises {
+                clear: Noise {
+                    stdev_x_y: 7e-4,
+                    stdev_angle: Degrees::new(2e-4),
+                },
+                obst: Noise {
+                    stdev_x_y: 0.032,
+                    stdev_angle: Degrees::new(0.62),
+                },
+            },
+            num_particles: 1000,
+            square_size_m: 0.1,
+            robot_radius_m: 0.2032,
+            selection_strategy: SelectionStrategy::RankProportion,
+            weight_strategy: WeightStrategy::MinPose,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct ParticleFilter {
     last_raw: Option<RobotPose<Radians>>,
@@ -211,10 +233,12 @@ impl ParticleFilter {
         if new_raw_pose.is_some() {
             self.last_raw = new_raw_pose;
         }
-        let obstacle = obstacle.zip(self.last_raw).map(|((distance, angle_offset), last_pose)| {
-            let heading = last_pose.theta + angle_offset;
-            last_pose.pos + (distance, heading).into()
-        });
+        let obstacle = obstacle
+            .zip(self.last_raw)
+            .map(|((distance, angle_offset), last_pose)| {
+                let heading = last_pose.theta + angle_offset;
+                last_pose.pos + (distance, heading).into()
+            });
         self.total_iterations += 1;
         self.update_all_particles(new_raw_pose, obstacle);
         let consistent = self.find_consistent_particles();
