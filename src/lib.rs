@@ -5,6 +5,7 @@ pub mod walker;
 pub use bit_grid_map::*;
 use bits::BitArray;
 use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
 pub use stats::*;
 
 use bit_grid::{
@@ -18,9 +19,9 @@ use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
-use crate::walker::WalkerAlias;
+use crate::walker::WalkerAliasTable;
 
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Noises {
     pub clear: Noise,
     pub obst: Noise,
@@ -35,7 +36,7 @@ impl Noises {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Particle {
     estimate: PoseEstimate,
     map: BitGridMap,
@@ -78,22 +79,22 @@ impl Particle {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug, Serialize, Deserialize)]
 pub enum SelectionStrategy {
     Weighted,
     RankProportion,
 }
 
 impl SelectionStrategy {
-    pub fn selector(&self, weights: &HashHistogram<usize, f64>) -> WalkerAlias {
+    pub fn selector(&self, weights: &HashHistogram<usize, f64>) -> WalkerAliasTable {
         match self {
-            Self::RankProportion => WalkerAlias::rank_proportionate(weights.len()),
-            Self::Weighted => WalkerAlias::weighted(weights),
+            Self::RankProportion => WalkerAliasTable::rank_proportionate(weights.len()),
+            Self::Weighted => WalkerAliasTable::weighted(weights),
         }
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug, Serialize, Deserialize)]
 pub enum WeightStrategy {
     Uniform,
     Compactness,
@@ -156,7 +157,7 @@ impl WeightStrategy {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParticleFilterSettings {
     pub noises: Noises,
     pub num_particles: usize,
@@ -188,7 +189,7 @@ impl Default for ParticleFilterSettings {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ParticleFilter {
     last_raw: Option<RobotPose<Radians>>,
     particles: Vec<Particle>,
@@ -322,7 +323,7 @@ impl ParticleFilter {
         }
     }
 
-    fn make_selector(&mut self, inconsistent: &Vec<Particle>) -> WalkerAlias {
+    fn make_selector(&mut self, inconsistent: &Vec<Particle>) -> WalkerAliasTable {
         let weights = self
             .weight_strategy
             .weights(&self.particles, &inconsistent)
@@ -351,7 +352,7 @@ impl Index<usize> for ParticleFilter {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Noise {
     pub stdev_x_y: f64,
     pub stdev_angle: Degrees,
@@ -376,7 +377,7 @@ pub trait StatCollector<M>: Default + Clone {
     fn gather_data_from(&mut self, iteration: usize, particle: &M);
 }
 
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PoseEstimate {
     last_raw: Option<RobotPose<Radians>>,
     current_estimate: RobotPose<Radians>,

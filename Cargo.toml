@@ -12,7 +12,8 @@ enum-iterator = "2"
 num-traits = "0.2"
 trait-set = "0.3"
 itertools = "0.14.0"
-anyhow = "1.0.101"
+anyhow = "1.0.102"
+serde = {version = "1.0.228", features = ["derive"]}
 hash_histogram = "0.14.0"
 bits = {git = "https://github.com/gjf2a/bits"}
 bit_grid = {git = "https://github.com/gjf2a/bit_grid"}

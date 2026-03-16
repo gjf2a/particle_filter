@@ -9,13 +9,13 @@ use hash_histogram::HashHistogram;
 use rand::{RngExt, rng};
 
 #[derive(Clone, Debug)]
-pub struct WalkerAlias {
+pub struct WalkerAliasTable {
     n: usize,
     prob: Vec<f64>,
     alias: Vec<usize>,
 }
 
-impl WalkerAlias {
+impl WalkerAliasTable {
     pub fn rank_proportionate(n: usize) -> Self {
         let sum_n = Self::gauss_sum_n(n);
         let mut prob = vec![];
@@ -97,13 +97,13 @@ impl WalkerAlias {
 mod tests {
     use hash_histogram::HashHistogram;
 
-    use crate::walker::WalkerAlias;
+    use crate::walker::WalkerAliasTable;
 
     #[test]
     fn test_rank_proportionate() {
         for n in 2..=8 {
             let mut histogram: HashHistogram<usize, usize> = HashHistogram::new();
-            let distro = WalkerAlias::rank_proportionate(n);
+            let distro = WalkerAliasTable::rank_proportionate(n);
             let num_samples = 100000;
             for _ in 0..num_samples {
                 histogram.bump(&distro.choose());
@@ -128,7 +128,7 @@ mod tests {
             .iter()
             .copied()
             .collect::<HashHistogram<_, _>>();
-        let distro = WalkerAlias::weighted(&weights);
+        let distro = WalkerAliasTable::weighted(&weights);
         let mut histogram: HashHistogram<usize, usize> = HashHistogram::new();
         let num_samples = 100000;
         for _ in 0..num_samples {

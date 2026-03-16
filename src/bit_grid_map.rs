@@ -10,8 +10,9 @@ use bit_grid::{
 };
 use enum_iterator::{Sequence, all};
 use hash_histogram::HashHistogram;
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Cell {
     Obstacle,
     Space,
@@ -35,7 +36,7 @@ fn to_grid_point(square_size_m: f64, fp: FloatPoint) -> GridPoint {
     fp.iter().map(|f| to_square(square_size_m, f)).collect()
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct BitGridMap {
     obstacles: BitGrid,
     spaces: BitGrid,
@@ -239,14 +240,14 @@ impl StatCollector<BitGridMap> for BitGridStats {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Sequence, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Sequence, Debug, Serialize, Deserialize)]
 pub enum Inconsistency {
     ObstacleSpaceOverlap,
     SeparatedSpaces,
     OffMap,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BitGridStats {
     pub stats: HashMap<Inconsistency, HashHistogram<usize, usize>>,
 }
