@@ -122,9 +122,9 @@ impl BitGridMap {
     }
 
     pub fn bounding_box(&self) -> BoundingBox<i64> {
-        self.spaces
-            .bounding_box()
-            .merge(self.obstacles.bounding_box())
+        let mut result = self.spaces.bounding_box() | self.obstacles.bounding_box();
+        result.grow(self.shadow.width());
+        result
     }
 
     pub fn width(&self) -> i64 {
@@ -210,9 +210,7 @@ impl BitGridMap {
 
     pub fn unvisited(&self) -> BitGrid {
         let both = self.all_visited();
-        let mut both_box = both.bounding_box();
-        both_box.grow(self.shadow.width());
-        &(BitGrid::one_grid(both_box)) ^ &both
+        &(BitGrid::one_grid(self.bounding_box())) ^ &both
     }
 
     pub fn all_frontier_spaces(&self) -> BitGrid {
