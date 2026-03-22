@@ -210,7 +210,9 @@ impl BitGridMap {
 
     pub fn unvisited(&self) -> BitGrid {
         let both = self.all_visited();
-        &(BitGrid::one_grid(both.bounding_box())) ^ &both
+        let mut both_box = both.bounding_box();
+        both_box.grow(self.shadow.width());
+        &(BitGrid::one_grid(both_box)) ^ &both
     }
 
     pub fn all_frontier_spaces(&self) -> BitGrid {
