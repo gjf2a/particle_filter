@@ -132,13 +132,11 @@ impl BitGridMap {
     }
 
     pub fn width(&self) -> i64 {
-        let bb = self.bounding_box();
-        span(bb.min()[0], bb.max()[0])
+        self.bounding_box().width()
     }
 
     pub fn height(&self) -> i64 {
-        let bb = self.bounding_box();
-        span(bb.min()[1], bb.max()[1])
+        self.bounding_box().height()
     }
 
     fn to_point(&self, fp: FloatPoint) -> GridPoint {
