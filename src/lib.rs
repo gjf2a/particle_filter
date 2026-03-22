@@ -1,6 +1,7 @@
 pub mod bit_grid_map;
 pub mod stats;
 pub mod walker;
+pub mod path_plan;
 
 pub use bit_grid_map::*;
 use bits::BitArray;
