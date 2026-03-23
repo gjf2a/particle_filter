@@ -98,10 +98,10 @@ impl SelectionStrategy {
 #[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug, Serialize, Deserialize)]
 pub enum WeightStrategy {
     Uniform,
-    Compactness,
     MinPose,
     MinSpaceDifference,
     MinObstacleDifference,
+    Compactness,
 }
 
 impl WeightStrategy {

@@ -1,6 +1,6 @@
-use std::{collections::{HashMap, VecDeque}, f64::consts::PI};
+use std::{collections::{HashMap, VecDeque}, cmp::Reverse, f64::consts::PI};
 
-use bit_grid::{BitGrid, angle::Radians, point::{GridPoint, Point}, pose::RobotPose, pt};
+use bit_grid::{BitGrid, angle::Radians, point::{GridPoint, Point, manhattan_offsets}, pose::RobotPose, pt};
 
 use crate::{BitGridMap, Particle};
 
@@ -13,8 +13,8 @@ pub fn waypoint_grid(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
         if !waypoints.get(&current) && (&map.grid_shadow(current) & &map.all_obstacles()).count_ones() == 0 {
             waypoints.set(current, true);
             if map.all_spaces().get(&current) {
-                for offset in [pt!(step_size, 0), pt!(-step_size, 0), pt!(0, step_size), pt!(0, -step_size)] {
-                    queue.push_back(current + offset);
+                for offset in manhattan_offsets() {
+                    queue.push_back(current + offset * step_size);
                 }
             }
         }
@@ -22,6 +22,28 @@ pub fn waypoint_grid(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
     waypoints
 }
 
+pub fn paths_from(particle: &Particle) -> PathsBackTo {
+    let mut result = PathsBackTo::default();
+    let start = GridVector::new(particle);
+    result.start = start.current;
+    let mut queue = PriorityQueue::new();
+    queue.push(start, Reverse(0));
+    while let Some(current) = queue.pop() {
+        if !result.parent_of.contains_key(current.current) {
+            
+        }
+    }
+    result
+}
+
+#[derive(Clone, Default)]
+pub struct PathsBackTo {
+    start: GridPoint,
+    parent_of: HashMap<GridPoint, Option<GridPoint>>,
+    leaves: BitGrid,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
 struct GridVector {
     prev: GridPoint,
     current: GridPoint,
@@ -63,18 +85,4 @@ impl GridVector {
             2
         }
     }
-}
-
-#[derive(Clone, Default)]
-pub struct PathsBackTo {
-    start: GridPoint,
-    parent_of: HashMap<GridPoint, Option<GridPoint>>,
-    leaves: BitGrid,
-}
-
-pub fn paths_from(particle: &Particle) -> PathsBackTo {
-    let result = PathsBackTo::default();
-    let start = particle.map.to_point(particle.estimated_pose().pos);
-    
-    result
 }
