@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 pub use stats::*;
 
 use bit_grid::{
-    BitGrid,
     angle::{Degrees, Radians},
     point::FloatPoint,
     pose::RobotPose,
@@ -100,9 +99,6 @@ pub enum WeightStrategy {
     Uniform,
     MinPose,
     BoundingBoxArea,
-    MinSpaceDifference,
-    MinObstacleDifference,
-    Compactness,
 }
 
 impl WeightStrategy {
@@ -119,17 +115,6 @@ impl WeightStrategy {
                 Self::BoundingBoxArea => {
                     let wh = p.map.width_height_meters(); 
                     wh[0] * wh[1]
-                }
-                Self::MinSpaceDifference => {
-                    Self::min_map_difference_to_any_of(p, &inconsistent, |p| p.map.all_spaces())
-                }
-                Self::MinObstacleDifference => {
-                    Self::min_map_difference_to_any_of(p, &inconsistent, |p| p.map.all_obstacles())
-                }
-                Self::Compactness => {
-                    let visited = p.map.all_visited();
-                    let unvisited = &(BitGrid::one_grid(visited.bounding_box())) ^ &visited;
-                    (visited.count_ones() - unvisited.count_ones()) as f64
                 }
             };
             weights.bump_by(&i, weight);
@@ -157,19 +142,6 @@ impl WeightStrategy {
                     .euclidean_distance(p.estimated_pose().pos)
             })
             .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
-            .unwrap()
-    }
-
-    fn min_map_difference_to_any_of<F: Fn(&Particle) -> &BitGrid>(
-        p: &Particle,
-        inconsistent: &Vec<Particle>,
-        which_map: F,
-    ) -> f64 {
-        inconsistent
-            .iter()
-            .map(|i| (which_map(i) ^ which_map(p)).count_ones())
-            .min()
-            .map(|c| c as f64)
             .unwrap()
     }
 }
