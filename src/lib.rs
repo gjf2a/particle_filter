@@ -99,6 +99,7 @@ impl SelectionStrategy {
 pub enum WeightStrategy {
     Uniform,
     MinPose,
+    BoundingBoxArea,
     MinSpaceDifference,
     MinObstacleDifference,
     Compactness,
@@ -115,6 +116,10 @@ impl WeightStrategy {
             let weight = match self {
                 Self::Uniform => 1.0,
                 Self::MinPose => Self::min_distance_to_any_of(p, &inconsistent),
+                Self::BoundingBoxArea => {
+                    let wh = p.map.width_height_meters(); 
+                    wh[0] * wh[1]
+                }
                 Self::MinSpaceDifference => {
                     Self::min_map_difference_to_any_of(p, &inconsistent, |p| p.map.all_spaces())
                 }
@@ -129,7 +134,18 @@ impl WeightStrategy {
             };
             weights.bump_by(&i, weight);
         }
+        if self.reverse_weights() {
+            let max_weight = weights.iter().max_by(|(_,a), (_,b)| a.partial_cmp(b).unwrap_or(Ordering::Equal)).unwrap().1;
+            weights = weights.iter().map(|(i, w)| (*i, *max_weight - *w + 1.0)).collect();
+        }
         weights
+    }
+
+    fn reverse_weights(&self) -> bool {
+        match self {
+            Self::BoundingBoxArea => true,
+            _ => false
+        }
     }
 
     fn min_distance_to_any_of(p: &Particle, inconsistent: &Vec<Particle>) -> f64 {

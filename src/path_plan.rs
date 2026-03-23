@@ -1,6 +1,7 @@
 use std::{collections::{HashMap, VecDeque}, cmp::Reverse, f64::consts::PI};
 
 use bit_grid::{BitGrid, angle::Radians, point::{GridPoint, Point, manhattan_offsets}, pose::RobotPose, pt};
+use priority_queue::PriorityQueue;
 
 use crate::{BitGridMap, Particle};
 
@@ -29,7 +30,7 @@ pub fn paths_from(particle: &Particle) -> PathsBackTo {
     let mut queue = PriorityQueue::new();
     queue.push(start, Reverse(0));
     while let Some(current) = queue.pop() {
-        if !result.parent_of.contains_key(current.current) {
+        if !result.parent_of.contains_key(&current.0.current) {
             
         }
     }
@@ -43,7 +44,7 @@ pub struct PathsBackTo {
     leaves: BitGrid,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 struct GridVector {
     prev: GridPoint,
     current: GridPoint,
