@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use crate::StatCollector;
 use bit_grid::{
@@ -6,7 +6,7 @@ use bit_grid::{
     angle::Radians,
     point::{BoundingBox, FloatPoint, GridPoint, Point},
     pose::RobotPose,
-    pt, span,
+    pt,
 };
 use enum_iterator::{Sequence, all};
 use hash_histogram::HashHistogram;
@@ -139,7 +139,7 @@ impl BitGridMap {
         self.bounding_box().height()
     }
 
-    fn to_point(&self, fp: FloatPoint) -> GridPoint {
+    pub fn to_point(&self, fp: FloatPoint) -> GridPoint {
         to_grid_point(self.square_size_m, fp)
     }
 
@@ -147,7 +147,7 @@ impl BitGridMap {
         self.grid_shadow(self.to_point(pose.pos))
     }
 
-    fn grid_shadow(&self, grid_point: GridPoint) -> BitGrid {
+    pub fn grid_shadow(&self, grid_point: GridPoint) -> BitGrid {
         self.shadow.translated(grid_point)
     }
 
@@ -231,24 +231,6 @@ impl BitGridMap {
                 (&shadow & &self.obstacles).count_ones() == 0
             })
             .collect()
-    }
-
-    pub fn waypoint_grid(&self, start: RobotPose<Radians>) -> BitGrid {
-        let step_size = self.shadow.width() / 2;
-        let mut waypoints = BitGrid::default();
-        let mut queue = VecDeque::new();
-        queue.push_back(self.to_point(start.pos));
-        while let Some(current) = queue.pop_front() {
-            if !waypoints.get(&current) && (&self.grid_shadow(current) & &self.obstacles).count_ones() == 0 {
-                waypoints.set(current, true);
-                if self.spaces.get(&current) {
-                    for offset in [pt!(step_size, 0), pt!(-step_size, 0), pt!(0, step_size), pt!(0, -step_size)] {
-                        queue.push_back(current + offset);
-                    }
-                }
-            }
-        }
-        waypoints
     }
 }
 
