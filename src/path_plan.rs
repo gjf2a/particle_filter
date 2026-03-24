@@ -21,9 +21,7 @@ pub fn waypoint_grid(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
     let mut queue = VecDeque::new();
     queue.push_back(map.to_point(start.pos));
     while let Some(current) = queue.pop_front() {
-        if !waypoints.get(&current)
-            && (&map.grid_shadow(current) & &map.all_obstacles()).count_ones() == 0
-        {
+        if !waypoints.get(&current) && !map.collides_at_position(current) {
             waypoints.set(current, true);
             if map.all_spaces().get(&current) {
                 for offset in manhattan_offsets() {
@@ -44,7 +42,7 @@ pub fn paths_from(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
     queue.push(start, Reverse(0));
     while let Some((current, cost)) = queue.pop() {
         if !result.parent_of.contains_key(&current.current)
-            && (&map.grid_shadow(current.current) & &map.all_obstacles()).count_ones() == 0
+            && !map.collides_at_position(current.current)
         {
             result.parent_of.insert(current.current, current.parent());
             result.leaves.set(current.current, true);
