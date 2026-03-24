@@ -31,14 +31,16 @@ pub fn paths_from(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
     let mut queue = PriorityQueue::new();
     queue.push(start, Reverse(0));
     while let Some((current, cost)) = queue.pop() {
-        if !result.parent_of.contains_key(&current.current) {
+        if !result.parent_of.contains_key(&current.current) && (&map.grid_shadow(current.current) & &map.all_obstacles()).count_ones() == 0 {
             result.parent_of.insert(current.current, current.parent());
             result.leaves.set(current.current, true);
             if let Some(parent) = current.parent() {
                 result.leaves.set(parent, false);
             }
-            for (successor, upcharge) in current.successors(grid_step) {
-                queue.push(successor, Reverse(cost.0 + upcharge));
+            if map.all_spaces().get(&current.current) {
+                for (successor, upcharge) in current.successors(grid_step) {
+                    queue.push(successor, Reverse(cost.0 + upcharge));
+                }
             }
         }
     }
