@@ -15,24 +15,6 @@ use priority_queue::PriorityQueue;
 
 use crate::BitGridMap;
 
-pub fn waypoint_grid(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
-    let step_size = map.robot_shadow(start).width() / 2;
-    let mut waypoints = BitGrid::default();
-    let mut queue = VecDeque::new();
-    queue.push_back(map.to_point(start.pos));
-    while let Some(current) = queue.pop_front() {
-        if !waypoints.get(&current) && !map.collides_at_position(current) {
-            waypoints.set(current, true);
-            if map.all_spaces().get(&current) {
-                for offset in manhattan_offsets() {
-                    queue.push_back(current + offset * step_size);
-                }
-            }
-        }
-    }
-    waypoints
-}
-
 pub fn paths_from(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
     let grid_step = map.robot_shadow(start).width() / 2;
     let mut result = PathsBackTo::default();
