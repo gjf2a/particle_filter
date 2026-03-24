@@ -1,7 +1,7 @@
 pub mod bit_grid_map;
+pub mod path_plan;
 pub mod stats;
 pub mod walker;
-pub mod path_plan;
 
 pub use bit_grid_map::*;
 use bits::BitArray;
@@ -113,15 +113,22 @@ impl WeightStrategy {
                 Self::Uniform => 1.0,
                 Self::MinPose => Self::min_distance_to_any_of(p, &inconsistent),
                 Self::BoundingBoxArea => {
-                    let wh = p.map.width_height_meters(); 
+                    let wh = p.map.width_height_meters();
                     wh[0] * wh[1]
                 }
             };
             weights.bump_by(&i, weight);
         }
         if self.reverse_weights() {
-            let max_weight = weights.iter().max_by(|(_,a), (_,b)| a.partial_cmp(b).unwrap_or(Ordering::Equal)).unwrap().1;
-            weights = weights.iter().map(|(i, w)| (*i, *max_weight - *w + 1.0)).collect();
+            let max_weight = weights
+                .iter()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+                .unwrap()
+                .1;
+            weights = weights
+                .iter()
+                .map(|(i, w)| (*i, *max_weight - *w + 1.0))
+                .collect();
         }
         weights
     }
@@ -129,7 +136,7 @@ impl WeightStrategy {
     fn reverse_weights(&self) -> bool {
         match self {
             Self::BoundingBoxArea => true,
-            _ => false
+            _ => false,
         }
     }
 
