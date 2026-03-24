@@ -143,6 +143,10 @@ impl BitGridMap {
         to_grid_point(self.square_size_m, fp)
     }
 
+    pub fn to_meters(&self, gp: GridPoint) -> FloatPoint {
+        to_float_point(self.square_size_m, gp)
+    }
+
     pub fn robot_shadow(&self, pose: RobotPose<Radians>) -> BitGrid {
         self.grid_shadow(self.to_point(pose.pos))
     }
