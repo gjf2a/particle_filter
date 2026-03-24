@@ -1,5 +1,5 @@
 use std::{
-    cmp::{Reverse, min, max},
+    cmp::{Reverse, max, min},
     collections::{HashMap, VecDeque},
     f64::consts::PI,
 };
@@ -69,15 +69,7 @@ impl PathsBackTo {
     pub fn shortest_path(&self) -> Option<VecDeque<GridPoint>> {
         let mut result = None;
         for leaf in self.leaves.ones() {
-            let mut path_back = VecDeque::new();
-            path_back.push_front(leaf);
-            while let Some(parent) = path_back
-                .front()
-                .and_then(|path| self.parent_of.get(path))
-                .and_then(|parent| *parent)
-            {
-                path_back.push_front(parent);
-            }
+            let path_back = self.path_to_start(leaf);
             match result.as_mut() {
                 None => result = Some(path_back),
                 Some(best) => {
@@ -88,6 +80,19 @@ impl PathsBackTo {
             }
         }
         result
+    }
+
+    pub fn path_to_start(&self, leaf: GridPoint) -> VecDeque<GridPoint> {
+        let mut path_back = VecDeque::new();
+        path_back.push_front(leaf);
+        while let Some(parent) = path_back
+            .front()
+            .and_then(|path| self.parent_of.get(path))
+            .and_then(|parent| *parent)
+        {
+            path_back.push_front(parent);
+        }
+        path_back
     }
 
     pub fn leaves(&self) -> &BitGrid {
@@ -130,9 +135,11 @@ impl GridVector {
 
     fn clear_path(&self, map: &BitGridMap) -> bool {
         if self.horizontal() {
-            (min(self.current[0], self.prev[0])..=max(self.current[0], self.prev[0])).all(|i| !map.collides_at_position(pt!(i, self.current[1]))) 
+            (min(self.current[0], self.prev[0])..=max(self.current[0], self.prev[0]))
+                .all(|i| !map.collides_at_position(pt!(i, self.current[1])))
         } else if self.vertical() {
-            (min(self.current[1], self.prev[1])..=max(self.current[1], self.prev[1])).all(|i| !map.collides_at_position(pt!(self.current[0], i))) 
+            (min(self.current[1], self.prev[1])..=max(self.current[1], self.prev[1]))
+                .all(|i| !map.collides_at_position(pt!(self.current[0], i)))
         } else {
             false
         }
