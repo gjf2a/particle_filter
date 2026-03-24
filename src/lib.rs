@@ -45,6 +45,10 @@ pub struct Particle {
 }
 
 impl Particle {
+    pub fn estimate(&self) -> &PoseEstimate {
+        &self.estimate
+    }
+
     pub fn estimated_pose(&self) -> RobotPose<Radians> {
         self.estimate.into()
     }
