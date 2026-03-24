@@ -403,6 +403,15 @@ impl PoseEstimate {
         raw2estimated.pos + *pt
     }
 
+    pub fn convert_to_raw_space(&self, estimate_space: &FloatPoint) -> FloatPoint {
+        match self.last_raw {
+            None => *estimate_space,
+            Some(last_raw) => {
+                *estimate_space + last_raw.pos - self.current_estimate.pos
+            }
+        }
+    }
+
     pub fn add_noise(&mut self, noise: Noise) {
         self.current_estimate = noise.noise(self.current_estimate);
     }
@@ -410,6 +419,8 @@ impl PoseEstimate {
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::PI;
+
     use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
     use bit_grid::point::Point;
     use bit_grid::pt;
@@ -430,6 +441,20 @@ mod tests {
             estimate.updated_raw_pose(pose);
             let estimated: RobotPose<Radians> = estimate.into();
             assert_eq!(pose, estimated);
+        }
+    }
+
+    #[test]
+    fn test_estimated_to_raw() {
+        let example = PoseEstimate {
+            last_raw: Some(RobotPose { pos: pt!(1.0, 2.0), theta: Radians::new(PI / 2.0) }),
+            current_estimate: RobotPose { pos: pt!(1.25, 1.75), theta: Radians::new(PI / 2.0) },
+        };
+        for (other_estimate, expected) in [
+            (pt!(3.0, 2.0), pt!(2.75, 2.25)),
+            (pt!(-1.0, 1.0), pt!(-1.25, 1.25)),
+            ] {
+                assert_eq!(example.convert_to_raw_space(&other_estimate), expected);
         }
     }
 
