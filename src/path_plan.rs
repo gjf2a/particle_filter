@@ -1,5 +1,5 @@
 use std::{
-    cmp::Reverse,
+    cmp::{Reverse, min, max},
     collections::{HashMap, VecDeque},
     f64::consts::PI,
 };
@@ -41,9 +41,7 @@ pub fn paths_from(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
     let mut queue = PriorityQueue::new();
     queue.push(start, Reverse(0));
     while let Some((current, cost)) = queue.pop() {
-        if !result.parent_of.contains_key(&current.current)
-            && !map.collides_at_position(current.current)
-        {
+        if !result.parent_of.contains_key(&current.current) && current.clear_path(map) {
             result.parent_of.insert(current.current, current.parent());
             result.leaves.set(current.current, true);
             if let Some(parent) = current.parent() {
@@ -124,6 +122,16 @@ impl GridVector {
 
     fn parent(&self) -> Option<GridPoint> {
         if self.is_start { None } else { Some(self.prev) }
+    }
+
+    fn clear_path(&self, map: &BitGridMap) -> bool {
+        if self.horizontal() {
+            (min(self.current[0], self.prev[0])..=max(self.current[0], self.prev[0])).all(|i| !map.collides_at_position(pt!(i, self.current[1]))) 
+        } else if self.vertical() {
+            (min(self.current[1], self.prev[1])..=max(self.current[1], self.prev[1])).all(|i| !map.collides_at_position(pt!(self.current[0], i))) 
+        } else {
+            false
+        }
     }
 
     fn successors(&self, grid_step: i64) -> impl Iterator<Item = (Self, u64)> {
