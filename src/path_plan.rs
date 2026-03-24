@@ -23,10 +23,10 @@ pub fn waypoint_grid(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
     waypoints
 }
 
-pub fn paths_from(particle: &Particle) -> PathsBackTo {
-    let grid_step = particle.map.robot_shadow(particle.estimated_pose()).width() / 2;
+pub fn paths_from(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
+    let grid_step = map.robot_shadow(start).width() / 2;
     let mut result = PathsBackTo::default();
-    let start = GridVector::new(particle);
+    let start = GridVector::new(map, start);
     result.start = start.current;
     let mut queue = PriorityQueue::new();
     queue.push(start, Reverse(0));
@@ -82,10 +82,10 @@ struct GridVector {
 }
 
 impl GridVector {
-    fn new(particle: &Particle) -> Self {
-        let heading = particle.estimated_pose().theta;
+    fn new(map: &BitGridMap, pose: RobotPose<Radians>) -> Self {
+        let heading = pose.theta;
         let tolerance = Radians::new(PI / 4.0); 
-        let current = particle.map.to_point(particle.estimated_pose().pos);
+        let current = map.to_point(pose.pos);
         let prev = current - if heading.abs() < tolerance {
             pt!(1, 0)
         } else if (heading - Radians::new(PI / 2.0)).abs() < tolerance {
