@@ -24,14 +24,22 @@ pub fn waypoint_grid(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
 }
 
 pub fn paths_from(particle: &Particle) -> PathsBackTo {
+    let grid_step = particle.map.robot_shadow(particle.estimated_pose()).width() / 2;
     let mut result = PathsBackTo::default();
     let start = GridVector::new(particle);
     result.start = start.current;
     let mut queue = PriorityQueue::new();
     queue.push(start, Reverse(0));
-    while let Some(current) = queue.pop() {
-        if !result.parent_of.contains_key(&current.0.current) {
-            
+    while let Some((current, cost)) = queue.pop() {
+        if !result.parent_of.contains_key(&current.current) {
+            result.parent_of.insert(current.current, current.parent());
+            result.leaves.set(current.current, true);
+            if let Some(parent) = current.parent() {
+                result.leaves.set(parent, false);
+            }
+            for (successor, upcharge) in current.successors(grid_step) {
+                queue.push(successor, Reverse(cost.0 + upcharge));
+            }
         }
     }
     result
@@ -44,8 +52,31 @@ pub struct PathsBackTo {
     leaves: BitGrid,
 }
 
+impl PathsBackTo {
+    pub fn shortest_path(&self) -> Option<VecDeque<GridPoint>> {
+        let mut result = None;
+        for leaf in self.leaves.ones() {
+            let mut path_back = VecDeque::new();
+            path_back.push_front(leaf);
+            while let Some(parent) = self.parent_of.get(path_back.front().unwrap()).unwrap() {
+                path_back.push_front(*parent);
+            }
+            match result.as_mut() {
+                None => result = Some(path_back),
+                Some(best) => {
+                    if path_back.len() < best.len() {
+                        *best = path_back;
+                    }
+                }
+            }
+        }
+        result
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 struct GridVector {
+    is_start: bool,
     prev: GridPoint,
     current: GridPoint,
 }
@@ -64,7 +95,24 @@ impl GridVector {
         } else {
             pt!(-1, 0)
         };
-        Self {prev, current}
+        Self {is_start: true, prev, current}
+    }
+
+    fn parent(&self) -> Option<GridPoint> {
+        if self.is_start {
+            None
+        } else {
+            Some(self.prev)
+        }
+    }
+
+    fn successors(&self, grid_step: i64) -> impl Iterator<Item=(Self, u64)> {
+        let copy = *self;
+        manhattan_offsets().map(move |offset| {
+            let next = copy.current + offset * grid_step;
+            let cost = copy.num_moves_needed(next);
+            (Self {is_start: false, prev: copy.current, current: next}, cost)
+        })
     }
 
     fn horizontal(&self) -> bool {
