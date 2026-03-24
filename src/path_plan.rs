@@ -89,6 +89,10 @@ impl PathsBackTo {
         }
         result
     }
+
+    pub fn leaves(&self) -> &BitGrid {
+        &self.leaves
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
