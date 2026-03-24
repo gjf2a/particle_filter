@@ -3,7 +3,7 @@ use std::{collections::{HashMap, VecDeque}, cmp::Reverse, f64::consts::PI};
 use bit_grid::{BitGrid, angle::Radians, point::{GridPoint, Point, manhattan_offsets}, pose::RobotPose, pt};
 use priority_queue::PriorityQueue;
 
-use crate::{BitGridMap, Particle};
+use crate::BitGridMap;
 
 pub fn waypoint_grid(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
     let step_size = map.robot_shadow(start).width() / 2;
@@ -44,6 +44,7 @@ pub fn paths_from(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
             }
         }
     }
+    result.leaves = &result.leaves & &map.unvisited();
     result
 }
 
@@ -60,8 +61,8 @@ impl PathsBackTo {
         for leaf in self.leaves.ones() {
             let mut path_back = VecDeque::new();
             path_back.push_front(leaf);
-            while let Some(parent) = self.parent_of.get(path_back.front().unwrap()).unwrap() {
-                path_back.push_front(*parent);
+            while let Some(parent) = path_back.front().and_then(|path| self.parent_of.get(path)).and_then(|parent| *parent) {
+                path_back.push_front(parent);
             }
             match result.as_mut() {
                 None => result = Some(path_back),
