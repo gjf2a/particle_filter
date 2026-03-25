@@ -99,6 +99,11 @@ impl BitGridMap {
         ])
     }
 
+    pub fn area(&self) -> f64 {
+        let wh = self.width_height_meters();
+        wh[0] * wh[1]
+    }
+
     pub fn points(&self) -> impl Iterator<Item = (GridPoint, Cell)> {
         self.spaces.coord_iter().map(|p| (p, self.cell_for(&p)))
     }
