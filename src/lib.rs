@@ -113,26 +113,11 @@ impl WeightStrategy {
     ) -> HashHistogram<usize, f64> {
         let mut weights = HashHistogram::new();
         for (i, p) in particles.iter().enumerate() {
-            let weight = match self {
-                Self::Uniform => 1.0,
-                Self::MinPose => Self::min_distance_to_any_of(p, &inconsistent),
-                Self::BoundingBoxArea => {
-                    let wh = p.map.width_height_meters();
-                    wh[0] * wh[1]
-                }
-            };
+            let weight = self.weight(p, inconsistent);
             weights.bump_by(&i, weight);
         }
         if self.reverse_weights() {
-            let max_weight = weights
-                .iter()
-                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-                .unwrap()
-                .1;
-            weights = weights
-                .iter()
-                .map(|(i, w)| (*i, *max_weight - *w + 1.0))
-                .collect();
+            weights = reversed_weights(weights);
         }
         weights
     }
@@ -141,6 +126,17 @@ impl WeightStrategy {
         match self {
             Self::BoundingBoxArea => true,
             _ => false,
+        }
+    }
+
+    fn weight(&self, p: &Particle, inconsistent: &Vec<Particle>) -> f64 {
+        match self {
+            Self::Uniform => 1.0,
+            Self::MinPose => Self::min_distance_to_any_of(p, &inconsistent),
+            Self::BoundingBoxArea => {
+                let wh = p.map.width_height_meters();
+                wh[0] * wh[1]
+            }
         }
     }
 
@@ -155,6 +151,18 @@ impl WeightStrategy {
             .min_by(|d1, d2| d1.partial_cmp(d2).unwrap_or(Ordering::Equal))
             .unwrap()
     }
+}
+
+fn reversed_weights(weights: HashHistogram<usize, f64>) -> HashHistogram<usize, f64> {
+    let max_weight = weights
+        .iter()
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+        .unwrap()
+        .1;
+    weights
+        .iter()
+        .map(|(i, w)| (*i, *max_weight - *w + 1.0))
+        .collect()
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
@@ -410,9 +418,7 @@ impl PoseEstimate {
     pub fn convert_to_raw_space(&self, estimate_space: &FloatPoint) -> FloatPoint {
         match self.last_raw {
             None => *estimate_space,
-            Some(last_raw) => {
-                *estimate_space + last_raw.pos - self.current_estimate.pos
-            }
+            Some(last_raw) => *estimate_space + last_raw.pos - self.current_estimate.pos,
         }
     }
 
@@ -451,14 +457,20 @@ mod tests {
     #[test]
     fn test_estimated_to_raw() {
         let example = PoseEstimate {
-            last_raw: Some(RobotPose { pos: pt!(1.0, 2.0), theta: Radians::new(PI / 2.0) }),
-            current_estimate: RobotPose { pos: pt!(1.25, 1.75), theta: Radians::new(PI / 2.0) },
+            last_raw: Some(RobotPose {
+                pos: pt!(1.0, 2.0),
+                theta: Radians::new(PI / 2.0),
+            }),
+            current_estimate: RobotPose {
+                pos: pt!(1.25, 1.75),
+                theta: Radians::new(PI / 2.0),
+            },
         };
         for (other_estimate, expected) in [
             (pt!(3.0, 2.0), pt!(2.75, 2.25)),
             (pt!(-1.0, 1.0), pt!(-1.25, 1.25)),
-            ] {
-                assert_eq!(example.convert_to_raw_space(&other_estimate), expected);
+        ] {
+            assert_eq!(example.convert_to_raw_space(&other_estimate), expected);
         }
     }
 
