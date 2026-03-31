@@ -15,33 +15,6 @@ use priority_queue::PriorityQueue;
 
 use crate::BitGridMap;
 
-pub fn paths_from(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
-    let grid_step = map.robot_shadow(start).width() / 2;
-    let mut result = PathsBackTo::default();
-    if map.is_consistent() {
-        let start = GridVector::new(map, start);
-        result.start = start.current;
-        let mut queue = PriorityQueue::new();
-        queue.push(start, Reverse(0));
-        while let Some((current, cost)) = queue.pop() {
-            if !result.parent_of.contains_key(&current.current) && current.clear_path(map) {
-                result.parent_of.insert(current.current, current.parent());
-                result.leaves.set(current.current, true);
-                if let Some(parent) = current.parent() {
-                    result.leaves.set(parent, false);
-                }
-                if map.all_spaces().get(&current.current) {
-                    for (successor, upcharge) in current.successors(grid_step) {
-                        queue.push(successor, Reverse(cost.0 + upcharge));
-                    }
-                }
-            }
-        }
-        result.leaves = &result.leaves & &map.unvisited();
-    }
-    result
-}
-
 #[derive(Clone, Default)]
 pub struct PathsBackTo {
     start: GridPoint,
@@ -50,6 +23,41 @@ pub struct PathsBackTo {
 }
 
 impl PathsBackTo {
+    pub fn new(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
+        let mut result = PathsBackTo::default();
+        if map.is_consistent() {
+            result.exhaustive_search(map, start);
+        }
+        result
+    }
+
+    fn exhaustive_search(&mut self, map: &BitGridMap, start: RobotPose<Radians>) {
+        let grid_step = map.robot_shadow(start).width() / 2;
+        let start = GridVector::new(map, start);
+        self.start = start.current;
+        let mut queue = PriorityQueue::new();
+        queue.push(start, Reverse(0));
+        while let Some((current, cost)) = queue.pop() {
+            if !self.parent_of.contains_key(&current.current) && current.clear_path(map) {
+                self.add_vector(&current);
+                if map.all_spaces().get(&current.current) {
+                    for (successor, upcharge) in current.successors(grid_step) {
+                        queue.push(successor, Reverse(cost.0 + upcharge));
+                    }
+                }
+            }
+        }
+        self.leaves = &self.leaves & &map.unvisited();
+    }
+
+    fn add_vector(&mut self, v: &GridVector) {
+        self.parent_of.insert(v.current, v.parent());
+        self.leaves.set(v.current, true);
+        if let Some(parent) = v.parent() {
+            self.leaves.set(parent, false);
+        }
+    }
+
     pub fn shortest_path(&self) -> Option<VecDeque<GridPoint>> {
         let mut result = None;
         for leaf in self.leaves.ones() {
