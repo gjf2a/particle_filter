@@ -1,7 +1,7 @@
 use std::{f64::consts::PI, str::FromStr};
 use bit_grid::angle::Radians;
 
-pub const RADIUS: f64 = 0.2032; // meters
+pub const RADIUS_M: f64 = 0.2032;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Bump {
@@ -46,6 +46,6 @@ impl Bump {
     }
 
     pub fn obstacle_at(&self) -> (f64, Radians) {
-        (RADIUS, self.angle_offset())
+        (RADIUS_M, self.angle_offset())
     }
 }
