@@ -198,6 +198,30 @@ impl Default for ParticleFilterSettings {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum MapInput {
+    Pose(RobotPose<Radians>),
+    Obstacle(f64, Radians),
+}
+
+impl MapInput {
+    pub fn pose(&self) -> Option<RobotPose<Radians>> {
+        if let Self::Pose(pose) = self {
+            Some(*pose)
+        } else {
+            None
+        }
+    }
+
+    pub fn obstacle(&self) -> Option<(f64, Radians)> {
+        if let Self::Obstacle(distance, heading) = self {
+            Some((*distance, *heading))
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ParticleFilter {
     last_raw: Option<RobotPose<Radians>>,
@@ -261,20 +285,19 @@ impl ParticleFilter {
 
     pub fn iterate(
         &mut self,
-        new_raw_pose: Option<RobotPose<Radians>>,
-        obstacle: Option<(f64, Radians)>,
+        map_input: MapInput,
     ) {
-        if new_raw_pose.is_some() {
-            self.last_raw = new_raw_pose;
+        if let Some(new_raw_pose) = map_input.pose() {
+            self.last_raw = Some(new_raw_pose);
         }
-        let obstacle = obstacle
+        let obstacle = map_input.obstacle()
             .zip(self.last_raw)
             .map(|((distance, angle_offset), last_pose)| {
                 let heading = last_pose.theta + angle_offset;
                 last_pose.pos + (distance, heading).into()
             });
         self.total_iterations += 1;
-        self.update_all_particles(new_raw_pose, obstacle);
+        self.update_all_particles(map_input.pose(), obstacle);
         let consistent = self.find_consistent_particles();
         if consistent.count_ones() == 0 {
             self.example_failure = Some(self.particles[0].clone());

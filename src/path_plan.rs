@@ -18,25 +18,27 @@ use crate::BitGridMap;
 pub fn paths_from(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
     let grid_step = map.robot_shadow(start).width() / 2;
     let mut result = PathsBackTo::default();
-    let start = GridVector::new(map, start);
-    result.start = start.current;
-    let mut queue = PriorityQueue::new();
-    queue.push(start, Reverse(0));
-    while let Some((current, cost)) = queue.pop() {
-        if !result.parent_of.contains_key(&current.current) && current.clear_path(map) {
-            result.parent_of.insert(current.current, current.parent());
-            result.leaves.set(current.current, true);
-            if let Some(parent) = current.parent() {
-                result.leaves.set(parent, false);
-            }
-            if map.all_spaces().get(&current.current) {
-                for (successor, upcharge) in current.successors(grid_step) {
-                    queue.push(successor, Reverse(cost.0 + upcharge));
+    if map.is_consistent() {
+        let start = GridVector::new(map, start);
+        result.start = start.current;
+        let mut queue = PriorityQueue::new();
+        queue.push(start, Reverse(0));
+        while let Some((current, cost)) = queue.pop() {
+            if !result.parent_of.contains_key(&current.current) && current.clear_path(map) {
+                result.parent_of.insert(current.current, current.parent());
+                result.leaves.set(current.current, true);
+                if let Some(parent) = current.parent() {
+                    result.leaves.set(parent, false);
+                }
+                if map.all_spaces().get(&current.current) {
+                    for (successor, upcharge) in current.successors(grid_step) {
+                        queue.push(successor, Reverse(cost.0 + upcharge));
+                    }
                 }
             }
         }
+        result.leaves = &result.leaves & &map.unvisited();
     }
-    result.leaves = &result.leaves & &map.unvisited();
     result
 }
 
