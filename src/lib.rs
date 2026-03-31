@@ -2,6 +2,7 @@ pub mod bit_grid_map;
 pub mod path_plan;
 pub mod stats;
 pub mod walker;
+pub mod irobot_create3;
 
 pub use bit_grid_map::*;
 use bits::BitArray;
