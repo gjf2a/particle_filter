@@ -22,32 +22,49 @@ pub struct PathsBackTo {
     leaves: BitGrid,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum WhenToStop {
+    First, All
+}
+
 impl PathsBackTo {
-    pub fn new(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
+    pub fn all(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
+        Self::new(map, start, WhenToStop::All)
+    }
+
+    pub fn any(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
+        Self::new(map, start, WhenToStop::First)
+    }
+
+    fn new(map: &BitGridMap, start: RobotPose<Radians>, stop: WhenToStop) -> Self {
         let mut result = PathsBackTo::default();
         if map.is_consistent() {
-            result.exhaustive_search(map, start);
+            result.exhaustive_search(map, start, stop);
         }
         result
     }
 
-    fn exhaustive_search(&mut self, map: &BitGridMap, start: RobotPose<Radians>) {
+    fn exhaustive_search(&mut self, map: &BitGridMap, start: RobotPose<Radians>, stop: WhenToStop) {
         let grid_step = map.robot_shadow(start).width() / 2;
         let start = GridVector::new(map, start);
         self.start = start.current;
+        let unvisited = map.unvisited();
         let mut queue = PriorityQueue::new();
         queue.push(start, Reverse(0));
         while let Some((current, cost)) = queue.pop() {
             if !self.parent_of.contains_key(&current.current) && current.clear_path(map) {
                 self.add_vector(&current);
+                if unvisited.get(&current.current) && stop == WhenToStop::First {
+                    break;
+                }   
                 if map.all_spaces().get(&current.current) {
                     for (successor, upcharge) in current.successors(grid_step) {
                         queue.push(successor, Reverse(cost.0 + upcharge));
                     }
-                }
+                }             
             }
         }
-        self.leaves = &self.leaves & &map.unvisited();
+        self.leaves = &self.leaves & &unvisited;
     }
 
     fn add_vector(&mut self, v: &GridVector) {
