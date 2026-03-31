@@ -174,6 +174,7 @@ pub struct ParticleFilterSettings {
     pub robot_radius_m: f64,
     pub selection_strategy: SelectionStrategy,
     pub weight_strategy: WeightStrategy,
+    pub save_inputs: bool,
 }
 
 impl Default for ParticleFilterSettings {
@@ -194,11 +195,12 @@ impl Default for ParticleFilterSettings {
             robot_radius_m: 0.2032,
             selection_strategy: SelectionStrategy::RankProportion,
             weight_strategy: WeightStrategy::MinPose,
+            save_inputs: false,
         }
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum MapInput {
     Pose(RobotPose<Radians>),
     Obstacle(f64, Radians),
@@ -231,6 +233,8 @@ pub struct ParticleFilter {
     example_failure: Option<Particle>,
     selection_strategy: SelectionStrategy,
     weight_strategy: WeightStrategy,
+    save_inputs: bool,
+    inputs: Vec<MapInput>,
 }
 
 impl ParticleFilter {
@@ -252,6 +256,8 @@ impl ParticleFilter {
             example_failure: None,
             selection_strategy: settings.selection_strategy,
             weight_strategy: settings.weight_strategy,
+            save_inputs: settings.save_inputs,
+            inputs: vec![],
         }
     }
 
@@ -287,6 +293,9 @@ impl ParticleFilter {
         &mut self,
         map_input: MapInput,
     ) {
+        if self.save_inputs {
+            self.inputs.push(map_input);
+        }
         if let Some(new_raw_pose) = map_input.pose() {
             self.last_raw = Some(new_raw_pose);
         }
