@@ -75,6 +75,10 @@ impl PathsBackTo {
         }
     }
 
+    pub fn no_path_to_unvisited(&self) -> bool {
+        self.leaves.count_ones() == 0
+    }
+
     pub fn shortest_path(&self) -> Option<VecDeque<GridPoint>> {
         let mut result = None;
         for leaf in self.leaves.ones() {
