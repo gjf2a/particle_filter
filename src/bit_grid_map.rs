@@ -248,8 +248,8 @@ impl BitGridMap {
 }
 
 impl StatCollector<BitGridMap> for BitGridStats {
-    fn gather_data_from(&mut self, iteration: usize, particle: &BitGridMap) {
-        if let Some(inconsistency) = particle.inconsistency() {
+    fn gather_data_from(&mut self, iteration: usize, map: &BitGridMap) {
+        if let Some(inconsistency) = map.inconsistency() {
             self.stats.get_mut(&inconsistency).unwrap().bump(&iteration);
         }
     }
