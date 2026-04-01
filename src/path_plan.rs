@@ -13,7 +13,7 @@ use bit_grid::{
 };
 use priority_queue::PriorityQueue;
 
-use crate::BitGridMap;
+use crate::{BitGridMap, Particle};
 
 #[derive(Clone, Default)]
 pub struct PathsBackTo {
@@ -34,6 +34,11 @@ impl PathsBackTo {
 
     pub fn any(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
         Self::new(map, start, WhenToStop::First)
+    }
+
+    pub fn done(particle: &Particle) -> bool {
+        let pbt = Self::any(&particle.map, particle.estimated_pose());
+        pbt.no_path_to_unvisited()
     }
 
     fn new(map: &BitGridMap, start: RobotPose<Radians>, stop: WhenToStop) -> Self {
