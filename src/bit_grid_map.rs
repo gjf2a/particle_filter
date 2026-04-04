@@ -6,12 +6,13 @@ use bit_grid::{
     angle::Radians,
     point::{BoundingBox, FloatPoint, GridPoint, Point},
     pose::RobotPose,
-    pt, span,
+    pt,
 };
 use enum_iterator::{Sequence, all};
 use hash_histogram::HashHistogram;
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Cell {
     Obstacle,
     Space,
@@ -35,7 +36,7 @@ fn to_grid_point(square_size_m: f64, fp: FloatPoint) -> GridPoint {
     fp.iter().map(|f| to_square(square_size_m, f)).collect()
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct BitGridMap {
     obstacles: BitGrid,
     spaces: BitGrid,
@@ -98,6 +99,11 @@ impl BitGridMap {
         ])
     }
 
+    pub fn area(&self) -> f64 {
+        let wh = self.width_height_meters();
+        wh[0] * wh[1]
+    }
+
     pub fn points(&self) -> impl Iterator<Item = (GridPoint, Cell)> {
         self.spaces.coord_iter().map(|p| (p, self.cell_for(&p)))
     }
@@ -121,31 +127,41 @@ impl BitGridMap {
     }
 
     pub fn bounding_box(&self) -> BoundingBox<i64> {
-        self.spaces
-            .bounding_box()
-            .merge(self.obstacles.bounding_box())
+        self.spaces.bounding_box() | self.obstacles.bounding_box()
+    }
+
+    pub fn bordered_bounding_box(&self) -> BoundingBox<i64> {
+        let mut result = self.bounding_box();
+        result.grow(self.shadow.width());
+        result
     }
 
     pub fn width(&self) -> i64 {
-        let bb = self.bounding_box();
-        span(bb.min()[0], bb.max()[0])
+        self.bounding_box().width()
     }
 
     pub fn height(&self) -> i64 {
-        let bb = self.bounding_box();
-        span(bb.min()[1], bb.max()[1])
+        self.bounding_box().height()
     }
 
-    fn to_point(&self, fp: FloatPoint) -> GridPoint {
+    pub fn to_point(&self, fp: FloatPoint) -> GridPoint {
         to_grid_point(self.square_size_m, fp)
+    }
+
+    pub fn to_meters(&self, gp: GridPoint) -> FloatPoint {
+        to_float_point(self.square_size_m, gp)
     }
 
     pub fn robot_shadow(&self, pose: RobotPose<Radians>) -> BitGrid {
         self.grid_shadow(self.to_point(pose.pos))
     }
 
-    fn grid_shadow(&self, grid_point: GridPoint) -> BitGrid {
+    pub fn grid_shadow(&self, grid_point: GridPoint) -> BitGrid {
         self.shadow.translated(grid_point)
+    }
+
+    pub fn collides_at_position(&self, grid_point: GridPoint) -> bool {
+        (&self.grid_shadow(grid_point) & &self.obstacles).count_ones() > 0
     }
 
     fn draw_overlapping_shadow_on(&mut self, grid_point: GridPoint) -> bool {
@@ -195,8 +211,25 @@ impl BitGridMap {
         }
     }
 
+    pub fn all_spaces(&self) -> &BitGrid {
+        &self.spaces
+    }
+
+    pub fn all_obstacles(&self) -> &BitGrid {
+        &self.obstacles
+    }
+
+    pub fn all_visited(&self) -> BitGrid {
+        &self.spaces | &self.obstacles
+    }
+
+    pub fn unvisited(&self) -> BitGrid {
+        let both = self.all_visited();
+        &(BitGrid::one_grid(self.bordered_bounding_box())) ^ &both
+    }
+
     pub fn all_frontier_spaces(&self) -> BitGrid {
-        let spaces_with_obstacles = &self.spaces | &self.obstacles;
+        let spaces_with_obstacles = self.all_visited();
         spaces_with_obstacles
             .ones_touching_zeros()
             .filter(|p| !self.obstacles.get(p))
@@ -215,21 +248,21 @@ impl BitGridMap {
 }
 
 impl StatCollector<BitGridMap> for BitGridStats {
-    fn gather_data_from(&mut self, iteration: usize, particle: &BitGridMap) {
-        if let Some(inconsistency) = particle.inconsistency() {
+    fn gather_data_from(&mut self, iteration: usize, map: &BitGridMap) {
+        if let Some(inconsistency) = map.inconsistency() {
             self.stats.get_mut(&inconsistency).unwrap().bump(&iteration);
         }
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Sequence, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Sequence, Debug, Serialize, Deserialize)]
 pub enum Inconsistency {
     ObstacleSpaceOverlap,
     SeparatedSpaces,
     OffMap,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BitGridStats {
     pub stats: HashMap<Inconsistency, HashHistogram<usize, usize>>,
 }

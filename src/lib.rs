@@ -1,10 +1,13 @@
 pub mod bit_grid_map;
+pub mod path_plan;
 pub mod stats;
 pub mod walker;
+pub mod irobot_create3;
 
 pub use bit_grid_map::*;
 use bits::BitArray;
 use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
 pub use stats::*;
 
 use bit_grid::{
@@ -17,9 +20,9 @@ use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
-use crate::walker::WalkerAlias;
+use crate::walker::WalkerAliasTable;
 
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Noises {
     pub clear: Noise,
     pub obst: Noise,
@@ -34,7 +37,7 @@ impl Noises {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Particle {
     estimate: PoseEstimate,
     map: BitGridMap,
@@ -43,6 +46,10 @@ pub struct Particle {
 }
 
 impl Particle {
+    pub fn estimate(&self) -> &PoseEstimate {
+        &self.estimate
+    }
+
     pub fn estimated_pose(&self) -> RobotPose<Radians> {
         self.estimate.into()
     }
@@ -77,28 +84,26 @@ impl Particle {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug, Serialize, Deserialize)]
 pub enum SelectionStrategy {
     Weighted,
     RankProportion,
 }
 
 impl SelectionStrategy {
-    pub fn selector(&self, weights: &HashHistogram<usize, f64>) -> WalkerAlias {
+    pub fn selector(&self, weights: &HashHistogram<usize, f64>) -> WalkerAliasTable {
         match self {
-            Self::RankProportion => WalkerAlias::rank_proportionate(weights.len()),
-            Self::Weighted => WalkerAlias::weighted(weights),
+            Self::RankProportion => WalkerAliasTable::rank_proportionate(weights.len()),
+            Self::Weighted => WalkerAliasTable::weighted(weights),
         }
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug, Serialize, Deserialize)]
 pub enum WeightStrategy {
     Uniform,
-    Compactness,
     MinPose,
-    MinSpaceDifference,
-    MinObstacleDifference,
+    BoundingBoxArea,
 }
 
 impl WeightStrategy {
@@ -109,14 +114,31 @@ impl WeightStrategy {
     ) -> HashHistogram<usize, f64> {
         let mut weights = HashHistogram::new();
         for (i, p) in particles.iter().enumerate() {
-            let weight = match self {
-                Self::Uniform => 1.0,
-                Self::MinPose => Self::min_distance_to_any_of(p, &inconsistent),
-                _ => todo!(),
-            };
+            let weight = self.weight(p, inconsistent);
             weights.bump_by(&i, weight);
         }
+        if self.reverse_weights() {
+            weights = reversed_weights(weights);
+        }
         weights
+    }
+
+    fn reverse_weights(&self) -> bool {
+        match self {
+            Self::BoundingBoxArea => true,
+            _ => false,
+        }
+    }
+
+    fn weight(&self, p: &Particle, inconsistent: &Vec<Particle>) -> f64 {
+        match self {
+            Self::Uniform => 1.0,
+            Self::MinPose => Self::min_distance_to_any_of(p, &inconsistent),
+            Self::BoundingBoxArea => {
+                let wh = p.map.width_height_meters();
+                wh[0] * wh[1]
+            }
+        }
     }
 
     fn min_distance_to_any_of(p: &Particle, inconsistent: &Vec<Particle>) -> f64 {
@@ -132,7 +154,19 @@ impl WeightStrategy {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+fn reversed_weights(weights: HashHistogram<usize, f64>) -> HashHistogram<usize, f64> {
+    let max_weight = weights
+        .iter()
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+        .unwrap()
+        .1;
+    weights
+        .iter()
+        .map(|(i, w)| (*i, *max_weight - *w + 1.0))
+        .collect()
+}
+
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParticleFilterSettings {
     pub noises: Noises,
     pub num_particles: usize,
@@ -140,6 +174,7 @@ pub struct ParticleFilterSettings {
     pub robot_radius_m: f64,
     pub selection_strategy: SelectionStrategy,
     pub weight_strategy: WeightStrategy,
+    pub save_inputs: bool,
 }
 
 impl Default for ParticleFilterSettings {
@@ -160,11 +195,36 @@ impl Default for ParticleFilterSettings {
             robot_radius_m: 0.2032,
             selection_strategy: SelectionStrategy::RankProportion,
             weight_strategy: WeightStrategy::MinPose,
+            save_inputs: false,
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub enum MapInput {
+    Pose(RobotPose<Radians>),
+    Obstacle(f64, Radians),
+}
+
+impl MapInput {
+    pub fn pose(&self) -> Option<RobotPose<Radians>> {
+        if let Self::Pose(pose) = self {
+            Some(*pose)
+        } else {
+            None
+        }
+    }
+
+    pub fn obstacle(&self) -> Option<(f64, Radians)> {
+        if let Self::Obstacle(distance, heading) = self {
+            Some((*distance, *heading))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ParticleFilter {
     last_raw: Option<RobotPose<Radians>>,
     particles: Vec<Particle>,
@@ -173,6 +233,8 @@ pub struct ParticleFilter {
     example_failure: Option<Particle>,
     selection_strategy: SelectionStrategy,
     weight_strategy: WeightStrategy,
+    save_inputs: bool,
+    inputs: Vec<MapInput>,
 }
 
 impl ParticleFilter {
@@ -194,6 +256,8 @@ impl ParticleFilter {
             example_failure: None,
             selection_strategy: settings.selection_strategy,
             weight_strategy: settings.weight_strategy,
+            save_inputs: settings.save_inputs,
+            inputs: vec![],
         }
     }
 
@@ -227,20 +291,22 @@ impl ParticleFilter {
 
     pub fn iterate(
         &mut self,
-        new_raw_pose: Option<RobotPose<Radians>>,
-        obstacle: Option<(f64, Radians)>,
+        map_input: MapInput,
     ) {
-        if new_raw_pose.is_some() {
-            self.last_raw = new_raw_pose;
+        if self.save_inputs {
+            self.inputs.push(map_input);
         }
-        let obstacle = obstacle
+        if let Some(new_raw_pose) = map_input.pose() {
+            self.last_raw = Some(new_raw_pose);
+        }
+        let obstacle = map_input.obstacle()
             .zip(self.last_raw)
             .map(|((distance, angle_offset), last_pose)| {
                 let heading = last_pose.theta + angle_offset;
                 last_pose.pos + (distance, heading).into()
             });
         self.total_iterations += 1;
-        self.update_all_particles(new_raw_pose, obstacle);
+        self.update_all_particles(map_input.pose(), obstacle);
         let consistent = self.find_consistent_particles();
         if consistent.count_ones() == 0 {
             self.example_failure = Some(self.particles[0].clone());
@@ -298,7 +364,7 @@ impl ParticleFilter {
         }
     }
 
-    fn make_selector(&mut self, inconsistent: &Vec<Particle>) -> WalkerAlias {
+    fn make_selector(&mut self, inconsistent: &Vec<Particle>) -> WalkerAliasTable {
         let weights = self
             .weight_strategy
             .weights(&self.particles, &inconsistent)
@@ -327,7 +393,7 @@ impl Index<usize> for ParticleFilter {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Noise {
     pub stdev_x_y: f64,
     pub stdev_angle: Degrees,
@@ -352,7 +418,7 @@ pub trait StatCollector<M>: Default + Clone {
     fn gather_data_from(&mut self, iteration: usize, particle: &M);
 }
 
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PoseEstimate {
     last_raw: Option<RobotPose<Radians>>,
     current_estimate: RobotPose<Radians>,
@@ -382,6 +448,13 @@ impl PoseEstimate {
         raw2estimated.pos + *pt
     }
 
+    pub fn convert_to_raw_space(&self, estimate_space: &FloatPoint) -> FloatPoint {
+        match self.last_raw {
+            None => *estimate_space,
+            Some(last_raw) => *estimate_space + last_raw.pos - self.current_estimate.pos,
+        }
+    }
+
     pub fn add_noise(&mut self, noise: Noise) {
         self.current_estimate = noise.noise(self.current_estimate);
     }
@@ -389,6 +462,8 @@ impl PoseEstimate {
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::PI;
+
     use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
     use bit_grid::point::Point;
     use bit_grid::pt;
@@ -409,6 +484,26 @@ mod tests {
             estimate.updated_raw_pose(pose);
             let estimated: RobotPose<Radians> = estimate.into();
             assert_eq!(pose, estimated);
+        }
+    }
+
+    #[test]
+    fn test_estimated_to_raw() {
+        let example = PoseEstimate {
+            last_raw: Some(RobotPose {
+                pos: pt!(1.0, 2.0),
+                theta: Radians::new(PI / 2.0),
+            }),
+            current_estimate: RobotPose {
+                pos: pt!(1.25, 1.75),
+                theta: Radians::new(PI / 2.0),
+            },
+        };
+        for (other_estimate, expected) in [
+            (pt!(3.0, 2.0), pt!(2.75, 2.25)),
+            (pt!(-1.0, 1.0), pt!(-1.25, 1.25)),
+        ] {
+            assert_eq!(example.convert_to_raw_space(&other_estimate), expected);
         }
     }
 
