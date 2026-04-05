@@ -174,6 +174,7 @@ pub struct ParticleFilterSettings {
     pub robot_radius_m: f64,
     pub selection_strategy: SelectionStrategy,
     pub weight_strategy: WeightStrategy,
+    pub disruption_chance: f64,
     pub save_inputs: bool,
 }
 
@@ -195,6 +196,7 @@ impl Default for ParticleFilterSettings {
             robot_radius_m: 0.2032,
             selection_strategy: SelectionStrategy::RankProportion,
             weight_strategy: WeightStrategy::MinPose,
+            disruption_chance: 0.0,
             save_inputs: false,
         }
     }
@@ -233,6 +235,7 @@ pub struct ParticleFilter {
     example_failure: Option<Particle>,
     selection_strategy: SelectionStrategy,
     weight_strategy: WeightStrategy,
+    disruption_chance: f64,
     save_inputs: bool,
     inputs: Vec<MapInput>,
 }
@@ -256,6 +259,7 @@ impl ParticleFilter {
             example_failure: None,
             selection_strategy: settings.selection_strategy,
             weight_strategy: settings.weight_strategy,
+            disruption_chance: settings.disruption_chance,
             save_inputs: settings.save_inputs,
             inputs: vec![],
         }
@@ -299,12 +303,7 @@ impl ParticleFilter {
         if let Some(new_raw_pose) = map_input.pose() {
             self.last_raw = Some(new_raw_pose);
         }
-        let obstacle = map_input.obstacle()
-            .zip(self.last_raw)
-            .map(|((distance, angle_offset), last_pose)| {
-                let heading = last_pose.theta + angle_offset;
-                last_pose.pos + (distance, heading).into()
-            });
+        let obstacle = self.obstacle_point(map_input);
         self.total_iterations += 1;
         self.update_all_particles(map_input.pose(), obstacle);
         let consistent = self.find_consistent_particles();
@@ -312,7 +311,18 @@ impl ParticleFilter {
             self.example_failure = Some(self.particles[0].clone());
         } else if consistent.count_ones() < self.particles.len() {
             self.repopulate(consistent, obstacle);
+        } else if rand::random::<f64>() < self.disruption_chance {
+            self.disrupt();
         }
+    }
+
+    fn obstacle_point(&self, map_input: MapInput) -> Option<FloatPoint> {
+        map_input.obstacle()
+            .zip(self.last_raw)
+            .map(|((distance, angle_offset), last_pose)| {
+                let heading = last_pose.theta + angle_offset;
+                last_pose.pos + (distance, heading).into()
+            })
     }
 
     fn update_all_particles(
@@ -382,6 +392,20 @@ impl ParticleFilter {
         self.particles = permutation
             .map(|current| self.particles[current].clone())
             .collect();
+    }
+
+    fn disrupt(&mut self) {
+        let mut new_particles = vec![];
+        for (i, particle) in self.particles.iter().enumerate() {
+            if i % 2 == 0 {
+                new_particles.push(particle.clone());
+            } else {
+                let mut new_particle = self.particles[i - 1].clone();
+                new_particle.add_noise(Some(FloatPoint::default()));
+                new_particles.push(new_particle);
+            }
+        }
+        self.particles = new_particles;
     }
 }
 
