@@ -4,10 +4,10 @@ use std::{
     f64::consts::PI,
 };
 
-use bit_grid::{
-    BitGrid,
+use crate::{
     angle::Radians,
-    point::{GridPoint, Point, manhattan_offsets},
+    bit_grid::BitGrid,
+    point::{GridPoint, manhattan_offsets},
     pose::RobotPose,
     pt,
 };
@@ -60,10 +60,10 @@ impl PathsBackTo {
         while let Some((current, cost)) = queue.pop() {
             if !self.parent_of.contains_key(&current.current) && current.clear_path(map) {
                 self.add_vector(&current);
-                if unvisited.get(&current.current) && stop == WhenToStop::First {
+                if unvisited.contains(&current.current) && stop == WhenToStop::First {
                     break;
                 }
-                if map.all_spaces().get(&current.current) {
+                if map.all_spaces().contains(&current.current) {
                     for (successor, upcharge) in current.successors(grid_step) {
                         queue.push(successor, Reverse(cost.0 + upcharge));
                     }
@@ -75,19 +75,19 @@ impl PathsBackTo {
 
     fn add_vector(&mut self, v: &GridVector) {
         self.parent_of.insert(v.current, v.parent());
-        self.leaves.set(v.current, true);
-        if let Some(parent) = v.parent() {
-            self.leaves.set(parent, false);
+        self.leaves.insert(v.current);
+        if let Some(parent) = v.parent().as_ref() {
+            self.leaves.remove(parent);
         }
     }
 
     pub fn no_path_to_unvisited(&self) -> bool {
-        self.leaves.count_ones() == 0
+        self.leaves.len() == 0
     }
 
     pub fn shortest_path(&self) -> Option<VecDeque<GridPoint>> {
         let mut result = None;
-        for leaf in self.leaves.ones() {
+        for leaf in self.leaves.iter() {
             let path_back = self.path_to_start(leaf);
             match result.as_mut() {
                 None => result = Some(path_back),

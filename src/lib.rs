@@ -1,7 +1,11 @@
+pub mod angle;
+pub mod bit_grid;
 pub mod bit_grid_map;
 pub mod bits;
 pub mod irobot_create3;
 pub mod path_plan;
+pub mod point;
+pub mod pose;
 pub mod stats;
 pub mod walker;
 
@@ -11,11 +15,10 @@ use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 pub use stats::*;
 
-use bit_grid::{
-    angle::{Degrees, Radians},
-    point::FloatPoint,
-    pose::RobotPose,
-};
+use angle::{Degrees, Radians};
+use point::FloatPoint;
+use pose::RobotPose;
+
 use hash_histogram::HashHistogram;
 use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
@@ -485,11 +488,8 @@ impl PoseEstimate {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose, pt};
     use std::f64::consts::PI;
-
-    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
-    use bit_grid::point::Point;
-    use bit_grid::pt;
 
     #[test]
     fn test_current_estimated_pose() {

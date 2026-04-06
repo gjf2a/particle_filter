@@ -1,4 +1,4 @@
-use bit_grid::angle::Radians;
+use crate::angle::Radians;
 use std::{f64::consts::PI, str::FromStr};
 
 pub const RADIUS_M: f64 = 0.2032;

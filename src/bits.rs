@@ -7,18 +7,40 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Hash, Eq, Ord, PartialOrd, Clone, Debug, Default)]
 pub struct BitArray {
     bits: Vec<u64>,
 }
 
+impl PartialEq for BitArray {
+    fn eq(&self, other: &Self) -> bool {
+        for (w1, w2) in self.bits.iter().zip(other.bits.iter()) {
+            if w1 != w2 {
+                return false;
+            }
+        }
+        if self.bits.len() >= other.bits.len() {
+            (other.bits.len()..self.bits.len()).all(|i| self.bits[i] == 0)
+        } else {
+            (self.bits.len()..other.bits.len()).all(|i| other.bits[i] == 0)
+        }
+    }
+}
+
 impl BitArray {
+    pub fn zeros(num_zeros: usize) -> Self {
+        let mut num_words = num_zeros / Self::bits_per_word();
+        if num_zeros % Self::bits_per_word() > 0 {
+            num_words += 1;
+        }
+        Self {
+            bits: std::iter::repeat_n(0, num_words).collect(),
+        }
+    }
+
     pub fn ones(num_ones: usize) -> Self {
         let num_words = num_ones / Self::bits_per_word();
-        let mut bits = Vec::new();
-        for _ in 0..num_words {
-            bits.push(u64::MAX);
-        }
+        let mut bits = std::iter::repeat_n(u64::MAX, num_words).collect::<Vec<_>>();
         let leftover = num_ones % Self::bits_per_word();
         if leftover > 0 {
             bits.push(2_u64.pow(leftover as u32));
@@ -66,9 +88,6 @@ impl BitArray {
         let word = BitArray::find_word(value);
         if word < self.bits.len() {
             self.bits[word] &= !mask;
-        }
-        while self.bits.last().map_or(false, |v| *v == 0) {
-            self.bits.pop();
         }
     }
 
