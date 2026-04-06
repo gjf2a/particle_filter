@@ -24,7 +24,8 @@ pub struct PathsBackTo {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum WhenToStop {
-    First, All
+    First,
+    All,
 }
 
 impl PathsBackTo {
@@ -61,12 +62,12 @@ impl PathsBackTo {
                 self.add_vector(&current);
                 if unvisited.get(&current.current) && stop == WhenToStop::First {
                     break;
-                }   
+                }
                 if map.all_spaces().get(&current.current) {
                     for (successor, upcharge) in current.successors(grid_step) {
                         queue.push(successor, Reverse(cost.0 + upcharge));
                     }
-                }             
+                }
             }
         }
         self.leaves = &self.leaves & &unvisited;

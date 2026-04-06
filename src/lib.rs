@@ -1,8 +1,9 @@
 pub mod bit_grid_map;
+pub mod bits;
+pub mod irobot_create3;
 pub mod path_plan;
 pub mod stats;
 pub mod walker;
-pub mod irobot_create3;
 
 pub use bit_grid_map::*;
 use bits::BitArray;
@@ -293,10 +294,7 @@ impl ParticleFilter {
         self.particles.iter()
     }
 
-    pub fn iterate(
-        &mut self,
-        map_input: MapInput,
-    ) {
+    pub fn iterate(&mut self, map_input: MapInput) {
         if self.save_inputs {
             self.inputs.push(map_input);
         }
@@ -307,9 +305,9 @@ impl ParticleFilter {
         self.total_iterations += 1;
         self.update_all_particles(map_input.pose(), obstacle);
         let consistent = self.find_consistent_particles();
-        if consistent.count_ones() == 0 {
+        if consistent.len() == 0 {
             self.example_failure = Some(self.particles[0].clone());
-        } else if consistent.count_ones() < self.particles.len() {
+        } else if consistent.len() < self.particles.len() {
             self.repopulate(consistent, obstacle);
         } else if rand::random::<f64>() < self.disruption_chance {
             self.disrupt();
@@ -317,7 +315,8 @@ impl ParticleFilter {
     }
 
     fn obstacle_point(&self, map_input: MapInput) -> Option<FloatPoint> {
-        map_input.obstacle()
+        map_input
+            .obstacle()
             .zip(self.last_raw)
             .map(|((distance, angle_offset), last_pose)| {
                 let heading = last_pose.theta + angle_offset;
@@ -352,7 +351,7 @@ impl ParticleFilter {
         let num_particles = self.particles.len();
         let ones = BitArray::ones(num_particles);
         let inconsistent = (&consistent ^ &ones)
-            .one_indices()
+            .iter()
             .inspect(|i| {
                 self.stats
                     .gather_data_from(self.total_iterations, &self.particles[*i].map)
@@ -361,7 +360,7 @@ impl ParticleFilter {
             .collect::<Vec<_>>();
 
         self.particles = consistent
-            .one_indices()
+            .iter()
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
         let selector = self.make_selector(&inconsistent);
