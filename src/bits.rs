@@ -274,9 +274,10 @@ mod tests {
 
     #[test]
     fn test_ones() {
-        let num_ones = 65;
-        let bits = BitArray::ones(num_ones);
-        assert!((0..num_ones).all(|i| bits.contains(&i)));
+        for num_ones in 0..1025 {
+            let bits = BitArray::ones(num_ones);
+            assert!((0..num_ones).all(|i| bits.contains(&i)));
+        }
     }
 
     #[test]
