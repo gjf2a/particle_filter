@@ -178,7 +178,6 @@ pub struct ParticleFilterSettings {
     pub robot_radius_m: f64,
     pub selection_strategy: SelectionStrategy,
     pub weight_strategy: WeightStrategy,
-    pub disruption_chance: f64,
     pub save_inputs: bool,
 }
 
@@ -200,7 +199,6 @@ impl Default for ParticleFilterSettings {
             robot_radius_m: 0.2032,
             selection_strategy: SelectionStrategy::RankProportion,
             weight_strategy: WeightStrategy::MinPose,
-            disruption_chance: 0.0,
             save_inputs: false,
         }
     }
@@ -239,7 +237,6 @@ pub struct ParticleFilter {
     example_failure: Option<Particle>,
     selection_strategy: SelectionStrategy,
     weight_strategy: WeightStrategy,
-    disruption_chance: f64,
     save_inputs: bool,
     inputs: Vec<MapInput>,
 }
@@ -263,7 +260,6 @@ impl ParticleFilter {
             example_failure: None,
             selection_strategy: settings.selection_strategy,
             weight_strategy: settings.weight_strategy,
-            disruption_chance: settings.disruption_chance,
             save_inputs: settings.save_inputs,
             inputs: vec![],
         }
@@ -312,8 +308,6 @@ impl ParticleFilter {
             self.example_failure = Some(self.particles[0].clone());
         } else if consistent.len() < self.particles.len() {
             self.repopulate(consistent, obstacle);
-        } else if rand::random::<f64>() < self.disruption_chance {
-            self.disrupt();
         }
     }
 
@@ -394,20 +388,6 @@ impl ParticleFilter {
         self.particles = permutation
             .map(|current| self.particles[current].clone())
             .collect();
-    }
-
-    fn disrupt(&mut self) {
-        let mut new_particles = vec![];
-        for (i, particle) in self.particles.iter().enumerate() {
-            if i % 2 == 0 {
-                new_particles.push(particle.clone());
-            } else {
-                let mut new_particle = self.particles[i - 1].clone();
-                new_particle.add_noise(Some(FloatPoint::default()));
-                new_particles.push(new_particle);
-            }
-        }
-        self.particles = new_particles;
     }
 }
 
