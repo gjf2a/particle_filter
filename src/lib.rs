@@ -1,8 +1,13 @@
+pub mod angle;
+pub mod bit_grid;
 pub mod bit_grid_map;
+pub mod bits;
+pub mod irobot_create3;
 pub mod path_plan;
+pub mod point;
+pub mod pose;
 pub mod stats;
 pub mod walker;
-pub mod irobot_create3;
 
 pub use bit_grid_map::*;
 use bits::BitArray;
@@ -10,11 +15,10 @@ use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 pub use stats::*;
 
-use bit_grid::{
-    angle::{Degrees, Radians},
-    point::FloatPoint,
-    pose::RobotPose,
-};
+use angle::{Degrees, Radians};
+use point::FloatPoint;
+use pose::RobotPose;
+
 use hash_histogram::HashHistogram;
 use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
@@ -289,30 +293,32 @@ impl ParticleFilter {
         self.particles.iter()
     }
 
-    pub fn iterate(
-        &mut self,
-        map_input: MapInput,
-    ) {
+    pub fn iterate(&mut self, map_input: MapInput) {
         if self.save_inputs {
             self.inputs.push(map_input);
         }
         if let Some(new_raw_pose) = map_input.pose() {
             self.last_raw = Some(new_raw_pose);
         }
-        let obstacle = map_input.obstacle()
+        let obstacle = self.obstacle_point(map_input);
+        self.total_iterations += 1;
+        self.update_all_particles(map_input.pose(), obstacle);
+        let consistent = self.find_consistent_particles();
+        if consistent.len() == 0 {
+            self.example_failure = Some(self.particles[0].clone());
+        } else if consistent.len() < self.particles.len() {
+            self.repopulate(consistent, obstacle);
+        }
+    }
+
+    fn obstacle_point(&self, map_input: MapInput) -> Option<FloatPoint> {
+        map_input
+            .obstacle()
             .zip(self.last_raw)
             .map(|((distance, angle_offset), last_pose)| {
                 let heading = last_pose.theta + angle_offset;
                 last_pose.pos + (distance, heading).into()
-            });
-        self.total_iterations += 1;
-        self.update_all_particles(map_input.pose(), obstacle);
-        let consistent = self.find_consistent_particles();
-        if consistent.count_ones() == 0 {
-            self.example_failure = Some(self.particles[0].clone());
-        } else if consistent.count_ones() < self.particles.len() {
-            self.repopulate(consistent, obstacle);
-        }
+            })
     }
 
     fn update_all_particles(
@@ -342,7 +348,7 @@ impl ParticleFilter {
         let num_particles = self.particles.len();
         let ones = BitArray::ones(num_particles);
         let inconsistent = (&consistent ^ &ones)
-            .one_indices()
+            .iter()
             .inspect(|i| {
                 self.stats
                     .gather_data_from(self.total_iterations, &self.particles[*i].map)
@@ -351,7 +357,7 @@ impl ParticleFilter {
             .collect::<Vec<_>>();
 
         self.particles = consistent
-            .one_indices()
+            .iter()
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
         let selector = self.make_selector(&inconsistent);
@@ -462,11 +468,8 @@ impl PoseEstimate {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose, pt};
     use std::f64::consts::PI;
-
-    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
-    use bit_grid::point::Point;
-    use bit_grid::pt;
 
     #[test]
     fn test_current_estimated_pose() {

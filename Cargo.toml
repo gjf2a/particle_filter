@@ -16,6 +16,5 @@ anyhow = "1.0.102"
 ryu = "1.0.23"
 priority-queue = "2.7.0"
 serde = {version = "1.0.228", features = ["derive"]}
+serde_arrays = "0.2.0"
 hash_histogram = "0.14.0"
-bits = {git = "https://github.com/gjf2a/bits"}
-bit_grid = {git = "https://github.com/gjf2a/bit_grid"}

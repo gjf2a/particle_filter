@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::StatCollector;
-use bit_grid::{
-    BitGrid, ColumnMajorCoordIter,
+use crate::{
     angle::Radians,
-    point::{BoundingBox, FloatPoint, GridPoint, Point},
+    bit_grid::{BitGrid, ColumnMajorCoordIter},
+    point::{BoundingBox, FloatPoint, GridPoint},
     pose::RobotPose,
     pt,
 };
@@ -56,7 +56,7 @@ impl BitGridMap {
         {
             let float = to_float_point(square_size_m, coord);
             if float.euclidean_distance(pt!(0.0, 0.0)) < robot_radius_m {
-                shadow.set(coord, true);
+                shadow.insert(coord);
             }
         }
         shadow
@@ -79,7 +79,7 @@ impl BitGridMap {
 
     pub fn add_obstacle_at(&mut self, obstacle: &FloatPoint) {
         let p = self.to_point(*obstacle);
-        self.obstacles.set(p, true);
+        self.obstacles.insert(p);
     }
 
     pub fn add_odometry_reading(&mut self, odometry_location: &FloatPoint) {
@@ -109,8 +109,8 @@ impl BitGridMap {
     }
 
     pub fn cell_for(&self, p: &GridPoint) -> Cell {
-        if self.spaces.get(p) {
-            if self.obstacles.get(p) {
+        if self.spaces.contains(p) {
+            if self.obstacles.contains(p) {
                 if self.consistent_obstacle(p) {
                     Cell::Obstacle
                 } else {
@@ -119,7 +119,7 @@ impl BitGridMap {
             } else {
                 Cell::Space
             }
-        } else if self.obstacles.get(p) {
+        } else if self.obstacles.contains(p) {
             Cell::Obstacle
         } else {
             Cell::Unvisited
@@ -161,24 +161,24 @@ impl BitGridMap {
     }
 
     pub fn collides_at_position(&self, grid_point: GridPoint) -> bool {
-        (&self.grid_shadow(grid_point) & &self.obstacles).count_ones() > 0
+        (&self.grid_shadow(grid_point) & &self.obstacles).len() > 0
     }
 
     fn draw_overlapping_shadow_on(&mut self, grid_point: GridPoint) -> bool {
         let mut overlapping = false;
-        for p in self.grid_shadow(grid_point).ones() {
-            overlapping |= self.spaces.get(&p);
-            self.spaces.set(p, true);
+        for p in self.grid_shadow(grid_point).iter() {
+            overlapping |= self.spaces.contains(&p);
+            self.spaces.insert(p);
         }
         overlapping
     }
 
     pub fn num_obstacles(&self) -> usize {
-        self.obstacles.count_ones()
+        self.obstacles.len()
     }
 
     pub fn num_spaces(&self) -> usize {
-        self.spaces.count_ones()
+        self.spaces.len()
     }
 
     pub fn space_contiguous(&self) -> bool {
@@ -186,7 +186,7 @@ impl BitGridMap {
     }
 
     pub fn obstacle_space_independent(&self) -> bool {
-        self.obstacles.ones().all(|p| self.consistent_obstacle(&p))
+        self.obstacles.iter().all(|p| self.consistent_obstacle(&p))
     }
 
     pub fn num_neighbors_spaces(&self, p: &GridPoint) -> usize {
@@ -232,16 +232,16 @@ impl BitGridMap {
         let spaces_with_obstacles = self.all_visited();
         spaces_with_obstacles
             .ones_touching_zeros()
-            .filter(|p| !self.obstacles.get(p))
+            .filter(|p| !self.obstacles.contains(p))
             .collect()
     }
 
     pub fn open_frontier_spaces(&self) -> BitGrid {
         self.all_frontier_spaces()
-            .ones()
+            .iter()
             .filter(|p| {
                 let shadow = self.grid_shadow(*p);
-                (&shadow & &self.obstacles).count_ones() == 0
+                (&shadow & &self.obstacles).len() == 0
             })
             .collect()
     }
@@ -250,7 +250,9 @@ impl BitGridMap {
 impl StatCollector<BitGridMap> for BitGridStats {
     fn gather_data_from(&mut self, iteration: usize, map: &BitGridMap) {
         if let Some(inconsistency) = map.inconsistency() {
-            self.stats.get_mut(&inconsistency).unwrap().bump(&iteration);
+            if let Some(histogram) = self.stats.get_mut(&inconsistency) {
+                histogram.bump(&iteration);
+            }
         }
     }
 }
@@ -303,10 +305,7 @@ impl Default for BitGridStats {
 
 #[cfg(test)]
 mod tests {
-    use bit_grid::{
-        point::{GridPoint, Point},
-        pt,
-    };
+    use crate::{point::GridPoint, pt};
 
     use crate::bit_grid_map::BitGridMap;
 
@@ -320,7 +319,7 @@ mod tests {
 
         tester.obstacles = [pt!(0, 0), pt!(-2, -1), pt!(-2, 0)].iter().collect();
         let intersected = &tester.obstacles & &shadow;
-        assert_eq!(intersected.count_ones(), 2);
+        assert_eq!(intersected.len(), 2);
 
         let intersected = tester.obstacles.overlapping_counts(&shadow);
         assert_eq!(intersected, 2);
