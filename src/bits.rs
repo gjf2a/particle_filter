@@ -43,7 +43,7 @@ impl BitArray {
         let mut bits = std::iter::repeat_n(u64::MAX, num_words).collect::<Vec<_>>();
         let leftover = num_ones % Self::bits_per_word();
         if leftover > 0 {
-            bits.push(2_u64.pow(leftover as u32));
+            bits.push(2_u64.pow(leftover as u32) - 1);
         }
         BitArray { bits }
     }
@@ -270,6 +270,13 @@ mod tests {
                 assert_eq!(n1, *n2);
             }
         }
+    }
+
+    #[test]
+    fn test_ones() {
+        let num_ones = 65;
+        let bits = BitArray::ones(num_ones);
+        assert!((0..num_ones).all(|i| bits.contains(&i)));
     }
 
     #[test]
