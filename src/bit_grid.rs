@@ -250,11 +250,12 @@ impl BitXor for &BitGrid {
                 bounds: self.bounds,
             }
         } else {
-            let mut union = self.iter().filter(|p| !rhs.contains(p)).collect::<BitGrid>();
-            for p in rhs.iter() {
-                if !self.contains(&p) {
-                    union.insert(p);
-                }
+            let mut union = self
+                .iter()
+                .filter(|p| !rhs.contains(p))
+                .collect::<BitGrid>();
+            for p in rhs.iter().filter(|p| !self.contains(p)) {
+                union.insert(p);
             }
             union
         }
