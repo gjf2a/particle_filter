@@ -252,7 +252,7 @@ impl BitXor for &BitGrid {
         } else {
             let mut union = self.iter().filter(|p| !rhs.contains(p)).collect::<BitGrid>();
             for p in rhs.iter() {
-                if !union.contains(&p) {
+                if !self.contains(&p) {
                     union.insert(p);
                 }
             }
@@ -606,12 +606,12 @@ mod tests {
         assert_eq!(expected, found);
         let one_count = test_grid.len();
         assert_eq!(found.len() + 1, one_count);
-        assert_eq!(51, test_grid.bits().len());
+        assert_eq!(23, test_grid.bits().len());
         assert_eq!(1, test_grid.words_used());
     }
 
     #[test]
-    fn test_bit_or() {
+    fn test_bit_or_even() {
         let a: BitGrid = "(0,0)\n101\n011\n000".parse().unwrap();
         let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
         let c: BitGrid = "(0,0)\n101\n111\n010".parse().unwrap();
@@ -619,7 +619,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bit_and() {
+    fn test_bit_and_even() {
         let a: BitGrid = "(0,0)\n101\n011\n000".parse().unwrap();
         let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
         let c: BitGrid = [pt!(2, 0), pt!(2, 1)].iter().collect();
@@ -627,8 +627,32 @@ mod tests {
     }
 
     #[test]
-    fn test_bit_xor() {
+    fn test_bit_xor_even() {
         let a: BitGrid = "(0,0)\n101\n011\n000".parse().unwrap();
+        let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
+        let c: BitGrid = "(0,0)\n10\n11\n01".parse().unwrap();
+        assert_eq!((&a ^ &b), c);
+    }
+
+    #[test]
+    fn test_bit_or_uneven() {
+        let a: BitGrid = "(0,0)\n101\n011".parse().unwrap();
+        let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
+        let c: BitGrid = "(0,0)\n101\n111\n010".parse().unwrap();
+        assert_eq!((&a | &b), c);
+    }
+
+    #[test]
+    fn test_bit_and_uneven() {
+        let a: BitGrid = "(0,0)\n101\n011".parse().unwrap();
+        let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
+        let c: BitGrid = [pt!(2, 0), pt!(2, 1)].iter().collect();
+        assert_eq!((&a & &b), c);
+    }
+
+    #[test]
+    fn test_bit_xor_uneven() {
+        let a: BitGrid = "(0,0)\n101\n011".parse().unwrap();
         let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
         let c: BitGrid = "(0,0)\n10\n11\n01".parse().unwrap();
         assert_eq!((&a ^ &b), c);
@@ -637,10 +661,10 @@ mod tests {
     #[test]
     fn test_resize() {
         let mut a: BitGrid = "(0,0)\n101\n011\n000".parse().unwrap();
-        assert_eq!(9, a.bits().len());
+        assert_eq!(4, a.bits().len());
         assert_eq!(1, a.words_used());
         a.insert(pt!(-2, -2));
-        assert_eq!(20, a.bits.len());
+        assert_eq!(5, a.bits.len());
         assert_eq!(1, a.words_used());
         let ex1 = "(-2,-2)\n10000\n00000\n00101\n00011";
         assert_eq!(ex1, format!("{a}").as_str());
@@ -652,7 +676,7 @@ mod tests {
         assert_eq!(ex2, format!("{a}").as_str());
         assert_eq!(a.bounds.min(), pt!(-2, -2));
         assert_eq!(a.bounds.max(), pt!(2, 3));
-        assert_eq!(30, a.bits.len());
+        assert_eq!(6, a.bits.len());
         assert_eq!(1, a.words_used());
     }
 

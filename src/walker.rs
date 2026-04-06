@@ -130,7 +130,7 @@ mod tests {
             .collect::<HashHistogram<_, _>>();
         let distro = WalkerAliasTable::weighted(&weights);
         let mut histogram: HashHistogram<usize, usize> = HashHistogram::new();
-        let num_samples = 100000;
+        let num_samples = 1_000_000;
         for _ in 0..num_samples {
             histogram.bump(&distro.choose());
         }
