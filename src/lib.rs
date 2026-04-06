@@ -24,7 +24,7 @@ use rand_distr::{Distribution, Normal};
 use std::fmt::Debug;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
-use crate::walker::WalkerAliasTable;
+use walker::WalkerAliasTable;
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Noises {
