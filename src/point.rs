@@ -20,13 +20,6 @@ pub struct Point<N: NumType, const S: usize> {
     coords: [N; S],
 }
 
-#[macro_export]
-macro_rules! pt {
-    ($x:expr, $y:expr) => {
-        crate::point::Point::new([$x, $y])
-    };
-}
-
 impl<N: NumType, const S: usize> Display for Point<N, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let joined = self.coords.map(|n| format!("{n}")).join(",");
@@ -432,7 +425,7 @@ mod tests {
 
     use crate::{
         bit_grid::ColumnMajorCoordIter,
-        point::{BoundingBox, Point},
+        point::{BoundingBox, Point}, pt,
     };
 
     use super::GridPoint;

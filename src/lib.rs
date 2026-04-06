@@ -26,6 +26,13 @@ use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
 use walker::WalkerAliasTable;
 
+#[macro_export]
+macro_rules! pt {
+    ($x:expr, $y:expr) => {
+        $crate::point::Point::new([$x, $y])
+    };
+}
+
 #[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Noises {
     pub clear: Noise,
@@ -468,7 +475,7 @@ impl PoseEstimate {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose, pt};
+    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
     use std::f64::consts::PI;
 
     #[test]
