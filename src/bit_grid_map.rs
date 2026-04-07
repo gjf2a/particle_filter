@@ -108,8 +108,12 @@ impl BitGridMap {
         wh[0] * wh[1]
     }
 
-    pub fn points(&self) -> impl Iterator<Item = (GridPoint, Cell)> {
+    pub fn row_major_points(&self) -> impl Iterator<Item = (GridPoint, Cell)> {
         self.spaces.row_major_coord_iter().map(|p| (p, self.cell_for(&p)))
+    }
+
+    pub fn col_major_points(&self) -> impl Iterator<Item = (GridPoint, Cell)> {
+        self.spaces.col_major_coord_iter().map(|p| (p, self.cell_for(&p)))
     }
 
     pub fn cell_for(&self, p: &GridPoint) -> Cell {
