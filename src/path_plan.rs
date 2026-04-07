@@ -51,7 +51,7 @@ impl PathsBackTo {
     }
 
     fn exhaustive_search(&mut self, map: &BitGridMap, start: RobotPose<Radians>, stop: WhenToStop) {
-        let grid_step = map.robot_shadow(start).width() / 2;
+        let grid_step = (map.robot_shadow(start).width() / 2) as i64;
         let start = GridVector::new(map, start);
         self.start = start.current;
         let unvisited = map.unvisited();

@@ -49,7 +49,7 @@ pub struct BitGridMap {
 impl BitGridMap {
     fn create_shadow(square_size_m: f64, robot_radius_m: f64) -> BitGrid {
         let grid_radius = to_square(square_size_m, robot_radius_m);
-        let grid_diameter = grid_radius * 2 + 1;
+        let grid_diameter = grid_radius as u64 * 2 + 1;
         let mut shadow = BitGrid::default();
         for coord in
             ColumnMajorCoordIter::new(-grid_radius, -grid_radius, grid_diameter, grid_diameter)
@@ -71,6 +71,10 @@ impl BitGridMap {
             brand_new: true,
             space_contiguous: true,
         }
+    }
+
+    pub fn square_size_m(&self) -> f64 {
+        self.square_size_m
     }
 
     pub fn is_consistent(&self) -> bool {
@@ -132,15 +136,15 @@ impl BitGridMap {
 
     pub fn bordered_bounding_box(&self) -> BoundingBox<i64> {
         let mut result = self.bounding_box();
-        result.grow(self.shadow.width());
+        result.grow(self.shadow.width() as i64);
         result
     }
 
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> u64 {
         self.bounding_box().width()
     }
 
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> u64 {
         self.bounding_box().height()
     }
 

@@ -15,8 +15,10 @@ trait_set! {
 
 use crate::point::{BoundingBox, GridPoint};
 
-pub fn span(min: i64, max: i64) -> i64 {
-    1 + max - min
+pub fn span(a: i64, b: i64) -> u64 {
+    let max = if a > b {a} else {b};
+    let min = if a < b {a} else {b};
+    (1 + max - min) as u64
 }
 
 #[derive(Clone, Eq, Debug, Serialize, Deserialize)]
@@ -148,11 +150,11 @@ impl BitGrid {
         }
     }
 
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> u64 {
         self.bounds.width()
     }
 
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> u64 {
         self.bounds.height()
     }
 
@@ -206,13 +208,13 @@ impl BitGrid {
     fn index_1d(&self, p: &GridPoint) -> usize {
         let grid_x = p[0] - self.bounds.min()[0];
         let grid_y = p[1] - self.bounds.min()[1];
-        (grid_y * self.width() + grid_x) as usize
+        (grid_y * self.width() as i64 + grid_x) as usize
     }
 
     fn index_2d(&self, i: usize) -> GridPoint {
         let i = i as i64;
-        let uy = i / self.width();
-        let ux = i % self.width();
+        let uy = i / self.width() as i64;
+        let ux = i % self.width() as i64;
         pt!(ux + self.bounds.min()[0], uy + self.bounds.min()[1])
     }
 
@@ -378,10 +380,10 @@ macro_rules! make_coord_iter {
 make_coord_iter!(ColumnMajorCoordIter, max_x, min_y, max_y, y, x);
 
 impl ColumnMajorCoordIter {
-    pub fn new(x_start: i64, y_start: i64, width: i64, height: i64) -> Self {
+    pub fn new(x_start: i64, y_start: i64, width: u64, height: u64) -> Self {
         Self {
-            max_x: x_start + width - 1,
-            max_y: y_start + height - 1,
+            max_x: x_start + width as i64 - 1,
+            max_y: y_start + height as i64 - 1,
             min_y: y_start,
             x: x_start,
             y: y_start,
@@ -391,10 +393,10 @@ impl ColumnMajorCoordIter {
 
 make_coord_iter!(RowMajorCoordIter, max_y, min_x, max_x, x, y);
 impl RowMajorCoordIter {
-    pub fn new(x_start: i64, y_start: i64, width: i64, height: i64) -> Self {
+    pub fn new(x_start: i64, y_start: i64, width: u64, height: u64) -> Self {
         Self {
-            max_x: x_start + width - 1,
-            max_y: y_start + height - 1,
+            max_x: x_start + width as i64 - 1,
+            max_y: y_start + height as i64 - 1,
             min_x: x_start,
             x: x_start,
             y: y_start,

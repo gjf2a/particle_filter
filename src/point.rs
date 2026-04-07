@@ -346,15 +346,15 @@ impl<N: NumType> BoundingBox<N> {
 }
 
 impl BoundingBox<i64> {
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> u64 {
         span(self.min[0], self.max[0])
     }
 
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> u64 {
         span(self.min[1], self.max[1])
     }
 
-    pub fn area(&self) -> i64 {
+    pub fn area(&self) -> u64 {
         self.width() * self.height()
     }
 
