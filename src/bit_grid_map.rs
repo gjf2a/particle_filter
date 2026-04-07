@@ -109,7 +109,7 @@ impl BitGridMap {
     }
 
     pub fn points(&self) -> impl Iterator<Item = (GridPoint, Cell)> {
-        self.spaces.coord_iter().map(|p| (p, self.cell_for(&p)))
+        self.spaces.row_major_coord_iter().map(|p| (p, self.cell_for(&p)))
     }
 
     pub fn cell_for(&self, p: &GridPoint) -> Cell {

@@ -158,8 +158,12 @@ impl BitGrid {
         self.bounds.height()
     }
 
-    pub fn coord_iter(&self) -> RowMajorCoordIter {
-        self.bounds.coord_iter()
+    pub fn col_major_coord_iter(&self) -> ColumnMajorCoordIter {
+        self.bounds.col_major_coord_iter()
+    }
+
+    pub fn row_major_coord_iter(&self) -> RowMajorCoordIter {
+        self.bounds.row_major_coord_iter()
     }
 
     pub fn words_used(&self) -> usize {
@@ -169,7 +173,7 @@ impl BitGrid {
     }
 
     pub fn coord_contains_iter(&self) -> impl Iterator<Item = (GridPoint, bool)> {
-        self.coord_iter().map(|p| (p, self.contains(&p)))
+        self.row_major_coord_iter().map(|p| (p, self.contains(&p)))
     }
 
     pub fn iter(&self) -> impl Iterator<Item = GridPoint> {

@@ -9,7 +9,7 @@ use std::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::bit_grid::{NumType, RowMajorCoordIter, span};
+use crate::bit_grid::{ColumnMajorCoordIter, NumType, RowMajorCoordIter, span};
 
 pub type GridPoint = Point<i64, 2>;
 pub type FloatPoint = Point<f64, 2>;
@@ -358,7 +358,11 @@ impl BoundingBox<i64> {
         self.width() * self.height()
     }
 
-    pub fn coord_iter(&self) -> RowMajorCoordIter {
+    pub fn col_major_coord_iter(&self) -> ColumnMajorCoordIter {
+        ColumnMajorCoordIter::new(self.min()[0], self.min()[1], self.width(), self.height())
+    }
+
+    pub fn row_major_coord_iter(&self) -> RowMajorCoordIter {
         RowMajorCoordIter::new(self.min()[0], self.min()[1], self.width(), self.height())
     }
 }
