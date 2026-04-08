@@ -26,6 +26,8 @@ use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
 use walker::WalkerAliasTable;
 
+use crate::bit_grid::BitGrid;
+
 #[macro_export]
 macro_rules! pt {
     ($x:expr, $y:expr) => {
@@ -67,6 +69,10 @@ impl Particle {
 
     pub fn map(&self) -> &BitGridMap {
         &self.map
+    }
+
+    pub fn robot_shadow(&self) -> BitGrid {
+        self.map.robot_shadow(self.estimated_pose())
     }
 
     pub fn parent_index(&self) -> Option<usize> {
