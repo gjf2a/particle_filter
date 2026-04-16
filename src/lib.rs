@@ -306,6 +306,14 @@ impl ParticleFilter {
         self.particles.iter()
     }
 
+    pub fn inputs(&self) -> Option<Vec<MapInput>> {
+        if self.save_inputs {
+            Some(self.inputs.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn iterate(&mut self, map_input: MapInput) {
         if self.save_inputs {
             self.inputs.push(map_input);
