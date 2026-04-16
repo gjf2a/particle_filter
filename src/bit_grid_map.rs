@@ -36,7 +36,7 @@ fn to_grid_point(square_size_m: f64, fp: FloatPoint) -> GridPoint {
     fp.iter().map(|f| to_square(square_size_m, f)).collect()
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct BitGridMap {
     obstacles: BitGrid,
     spaces: BitGrid,
