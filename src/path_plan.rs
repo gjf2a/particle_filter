@@ -52,11 +52,17 @@ impl PathsBackTo {
 
     fn exhaustive_search(&mut self, map: &BitGridMap, start: RobotPose<Radians>, stop: WhenToStop) {
         let grid_step = (map.robot_shadow(start).width() / 2) as i64;
-        let start = GridVector::new(map, start);
-        self.start = start.current;
         let unvisited = map.unvisited();
         let mut queue = PriorityQueue::new();
+        let start = GridVector::new(map, start);
         queue.push(start, Reverse(0));
+        /*
+        let (start, all_start_vecs) = GridVector::all_starts(map, start);
+        self.start = start;
+        for start_vec in all_start_vecs {
+            queue.push(start_vec, Reverse(0));
+        }
+        */
         while let Some((current, cost)) = queue.pop() {
             if !self.parent_of.contains_key(&current.current) && current.clear_path(map) {
                 self.add_vector(&current);
@@ -119,7 +125,7 @@ impl PathsBackTo {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 struct GridVector {
     is_start: bool,
     prev: GridPoint,
@@ -148,6 +154,11 @@ impl GridVector {
         }
     }
 
+    fn all_starts(map: &BitGridMap, pose: RobotPose<Radians>) -> (GridPoint, Vec<Self>) {
+        let current = map.to_point(pose.pos);
+        (current, current.manhattan_neighbors().map(|prev| Self {is_start: true, prev, current}).collect())
+    }
+
     fn parent(&self) -> Option<GridPoint> {
         if self.is_start { None } else { Some(self.prev) }
     }
@@ -155,10 +166,10 @@ impl GridVector {
     fn clear_path(&self, map: &BitGridMap) -> bool {
         if self.horizontal() {
             (min(self.current[0], self.prev[0])..=max(self.current[0], self.prev[0]))
-                .all(|i| !map.collides_at_position(pt!(i, self.current[1])))
+                .all(|i| !map.shadow_envelops_obstacle(pt!(i, self.current[1])))
         } else if self.vertical() {
             (min(self.current[1], self.prev[1])..=max(self.current[1], self.prev[1]))
-                .all(|i| !map.collides_at_position(pt!(self.current[0], i)))
+                .all(|i| !map.shadow_envelops_obstacle(pt!(self.current[0], i)))
         } else {
             false
         }
@@ -196,5 +207,46 @@ impl GridVector {
         } else {
             2
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{BitGridMap, angle::Radians, path_plan::PathsBackTo, pose::RobotPose};
+
+    const TEST_MAP_STR_1: &str = r#"{"obstacles":{"bits":{"bits":[1]},"bounds":{"min":{"coords":[-15,3]},"max":{"coords":[-15,3]}}},"spaces":{"bits":{"bits":[8935143584848674816,13835058055281115134,206156595199]},"bounds":{"min":{"coords":[-18,-5]},"max":{"coords":[2,2]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
+    const TEST_POSE_STR_1: &str = r#"{"pos":{"coords":[-1.5637336449019554,0.11068795293575091]},"theta":-3.074780485700006}"#;
+
+    const TEST_MAP_STR_2: &str = r#"{"obstacles":{"bits":{"bits":[1]},"bounds":{"min":{"coords":[-15,3]},"max":{"coords":[-15,3]}}},"spaces":{"bits":{"bits":[14951951243906514944,18374686479671558143,805292031]},"bounds":{"min":{"coords":[-17,-5]},"max":{"coords":[2,2]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
+    const TEST_POSE_STR_2: &str = r#"{"pos":{"coords":[-1.5866413378378004,0.0998764804308733]},"theta":-3.086761081685883}"#;
+
+    #[test]
+    fn test_unexpected_no_paths() {
+        let paths = paths_from(TEST_MAP_STR_1, TEST_POSE_STR_1);
+        println!("{}", paths.leaves);
+    }
+
+    #[test]
+    fn test_expected_paths() {
+        let paths = paths_from(TEST_MAP_STR_2, TEST_POSE_STR_2);
+        println!("{}", paths.leaves);
+    }
+
+    fn paths_from(map: &str, pose: &str) -> PathsBackTo {
+        let map: BitGridMap = serde_json::from_str(map).unwrap();
+        println!("Consistent? {}", map.is_consistent());
+        print!("Obstacles:");
+        for obstacle in map.all_obstacles().iter() {
+            print!(" {obstacle} ({}) ", map.num_neighbors_spaces(&obstacle));
+        }
+        println!();
+        let start: RobotPose<Radians> = serde_json::from_str(pose).unwrap();
+        println!("Robot at: {}", map.to_point(start.pos));
+        print!("Shadow:");
+        for bot in map.robot_shadow(start).iter() {
+            print!(" {bot}");
+        }
+        println!();
+        PathsBackTo::any(&map, start)
     }
 }

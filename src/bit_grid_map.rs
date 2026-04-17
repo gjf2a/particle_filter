@@ -164,6 +164,12 @@ impl BitGridMap {
         (&self.grid_shadow(grid_point) & &self.obstacles).len() > 0
     }
 
+    pub fn shadow_envelops_obstacle(&self, grid_point: GridPoint) -> bool {
+        let shadow = self.grid_shadow(grid_point);
+        let collisions = &shadow & &self.obstacles;
+        collisions.iter().any(|obst| self.num_neighbors_spaces(&obst) == 0)
+    }
+
     fn draw_overlapping_shadow_on(&mut self, grid_point: GridPoint) -> bool {
         let mut overlapping = false;
         for p in self.grid_shadow(grid_point).iter() {
