@@ -17,7 +17,6 @@ use crate::{BitGridMap, Particle};
 
 #[derive(Clone, Default)]
 pub struct PathsBackTo {
-    start: GridPoint,
     parent_of: HashMap<GridPoint, Option<GridPoint>>,
     leaves: BitGrid,
 }
@@ -134,29 +133,13 @@ struct GridVector {
 
 impl GridVector {
     fn new(map: &BitGridMap, pose: RobotPose<Radians>) -> Self {
-        let heading = pose.theta;
-        let tolerance = Radians::new(PI / 4.0);
         let current = map.to_point(pose.pos);
-        let prev = current
-            - if heading.abs() < tolerance {
-                pt!(1, 0)
-            } else if (heading - Radians::new(PI / 2.0)).abs() < tolerance {
-                pt!(0, 1)
-            } else if (heading - Radians::new(3.0 * PI / 2.0)).abs() < tolerance {
-                pt!(0, -1)
-            } else {
-                pt!(-1, 0)
-            };
+        let prev = current - heading2manhattan(pose.theta);
         Self {
             is_start: true,
             prev,
             current,
         }
-    }
-
-    fn all_starts(map: &BitGridMap, pose: RobotPose<Radians>) -> (GridPoint, Vec<Self>) {
-        let current = map.to_point(pose.pos);
-        (current, current.manhattan_neighbors().map(|prev| Self {is_start: true, prev, current}).collect())
     }
 
     fn parent(&self) -> Option<GridPoint> {
@@ -207,6 +190,19 @@ impl GridVector {
         } else {
             2
         }
+    }
+}
+
+fn heading2manhattan(heading: Radians) -> GridPoint {
+    let tolerance = Radians::new(PI / 4.0);
+    if heading.abs() < tolerance {
+        pt!(1, 0)
+    } else if (heading - Radians::new(PI / 2.0)).abs() < tolerance {
+        pt!(0, 1)
+    } else if (heading - Radians::new(3.0 * PI / 2.0)).abs() < tolerance {
+        pt!(0, -1)
+    } else {
+        pt!(-1, 0)
     }
 }
 
