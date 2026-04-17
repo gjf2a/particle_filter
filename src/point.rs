@@ -423,13 +423,68 @@ impl<'a, N: NumType> FromIterator<&'a Point<N, 2>> for Option<BoundingBox<N>> {
     }
 }
 
+pub struct GridLineIterator {
+    x: i64,
+    y: i64,
+    dx: i64,
+    dy: i64,
+    a: i64,
+    b: i64, 
+    diff: i64,
+    y_up: bool,
+}
+
+impl GridLineIterator {
+    pub fn from_to(p1: GridPoint, p2: GridPoint) -> Self {
+        if p1[0] > p2[0] {
+            Self::from_to(p2, p1)
+        } else {
+            let y_up = p1[1] < p2[1];
+            let dy = if y_up {p2[1] - p1[1]} else {p1[1] - p2[1]};
+            Self {
+                x: p1[0],
+                y: p1[1],
+                dx: p2[0] - p1[0],
+                dy,
+                a: 0,
+                b: 0,
+                diff: 0,
+                y_up,
+            }
+        }
+    }
+
+    pub fn pt(&self) -> GridPoint {
+        GridPoint::new([self.x + self.a, self.y + if self.y_up {self.b} else {-self.b}])
+    }
+}
+
+impl Iterator for GridLineIterator {
+    type Item = GridPoint;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.a <= self.dx && self.b <= self.dy {
+            let result = self.pt();
+            if self.diff < 0 || self.dy == 0 {
+                self.a += 1;
+                self.diff += self.dy;
+            } else {
+                self.b += 1;
+                self.diff -= self.dx;
+            }
+            Some(result)
+        } else {
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
     use crate::{
-        bit_grid::ColumnMajorCoordIter,
-        point::{BoundingBox, Point}, pt,
+        angle::{Angle, Degrees}, bit_grid::ColumnMajorCoordIter, point::{BoundingBox, GridLineIterator, Point}, pt
     };
 
     use super::GridPoint;
@@ -586,5 +641,17 @@ mod tests {
         let mut pts = cds.clone();
         pts.sort();
         assert_eq!(cds, pts);
+    }
+
+    #[test]
+    fn test_grid_line() {
+        let start = GridPoint::new([10, 10]);
+        for incline in (0..360).step_by(30) {
+            let incline = Degrees::new(incline as f64);
+            let offset = GridPoint::new([(15.0 * incline.cos()) as i64, (15.0 * incline.sin()) as i64]);
+            let end = start + offset;
+            let iter = GridLineIterator::from_to(start, end);
+            println!("{start} to {end}: {:?}\n", iter.collect::<Vec<_>>());
+        }
     }
 }
