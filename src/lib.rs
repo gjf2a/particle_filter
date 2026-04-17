@@ -42,10 +42,11 @@ pub struct Noises {
 }
 
 impl Noises {
-    fn noise(&self, obstacle: Option<FloatPoint>) -> Noise {
-        match obstacle {
-            None => self.clear,
-            Some(_) => self.obst,
+    fn noise(&self, collision: bool) -> Noise {
+        if collision {
+            self.obst
+        } else {
+            self.clear
         }
     }
 }
@@ -88,8 +89,8 @@ impl Particle {
         }
     }
 
-    fn add_noise(&mut self, obstacle: Option<FloatPoint>) {
-        let noise = self.noises.noise(obstacle);
+    fn add_noise(&mut self, collision: bool) {
+        let noise = self.noises.noise(collision);
         self.estimate.add_noise(noise);
     }
 
@@ -220,7 +221,8 @@ impl Default for ParticleFilterSettings {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum MapInput {
     Pose(RobotPose<Radians>),
-    Obstacle(f64, Radians),
+    Collision(f64, Radians),
+    RangeObject(f64, Radians),
 }
 
 impl MapInput {
@@ -232,11 +234,19 @@ impl MapInput {
         }
     }
 
-    pub fn obstacle(&self) -> Option<(f64, Radians)> {
-        if let Self::Obstacle(distance, heading) = self {
-            Some((*distance, *heading))
+    pub fn collision(&self) -> bool {
+        if let Self::Collision(_, _) = self {
+            true
         } else {
-            None
+            false
+        }
+    }
+
+    pub fn obstacle(&self) -> Option<(f64, Radians)> {
+        match self {
+            Self::RangeObject(distance, heading) => Some((*distance, *heading)),
+            Self::Collision(distance, heading) => Some((*distance, *heading)),
+            Self::Pose(_) => None
         }
     }
 }
@@ -321,14 +331,13 @@ impl ParticleFilter {
         if let Some(new_raw_pose) = map_input.pose() {
             self.last_raw = Some(new_raw_pose);
         }
-        let obstacle = self.obstacle_point(map_input);
         self.total_iterations += 1;
-        self.update_all_particles(map_input.pose(), obstacle);
+        self.update_all_particles(map_input);
         let consistent = self.find_consistent_particles();
         if consistent.len() == 0 {
             self.example_failure = Some(self.particles[0].clone());
         } else if consistent.len() < self.particles.len() {
-            self.repopulate(consistent, obstacle);
+            self.repopulate(consistent, map_input.collision());
         }
     }
 
@@ -342,11 +351,9 @@ impl ParticleFilter {
             })
     }
 
-    fn update_all_particles(
-        &mut self,
-        new_raw_pose: Option<RobotPose<Radians>>,
-        obstacle: Option<FloatPoint>,
-    ) {
+    fn update_all_particles(&mut self, map_input: MapInput) {
+        let obstacle = self.obstacle_point(map_input);
+        let new_raw_pose = map_input.pose();
         for particle in self.particles.iter_mut() {
             if let Some(raw_pose) = new_raw_pose {
                 particle.estimate.updated_raw_pose(raw_pose);
@@ -354,7 +361,7 @@ impl ParticleFilter {
                     .map
                     .add_odometry_reading(&particle.estimated_pose().pos);
             }
-            particle.add_noise(obstacle);
+            particle.add_noise(map_input.collision());
             particle.add_sensed_obstacles(obstacle);
         }
     }
@@ -365,7 +372,7 @@ impl ParticleFilter {
             .collect()
     }
 
-    fn repopulate(&mut self, consistent: BitArray, obstacle: Option<FloatPoint>) {
+    fn repopulate(&mut self, consistent: BitArray, collision: bool) {
         let num_particles = self.particles.len();
         let ones = BitArray::ones(num_particles);
         let inconsistent = (&consistent ^ &ones)
@@ -386,7 +393,7 @@ impl ParticleFilter {
         while self.particles.len() < num_particles {
             let choice = selector.choose();
             let mut new_particle = self.particles[choice].clone();
-            new_particle.add_noise(obstacle);
+            new_particle.add_noise(collision);
             self.particles.push(new_particle);
         }
     }

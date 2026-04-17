@@ -479,12 +479,32 @@ impl Iterator for GridLineIterator {
     }
 }
 
+pub fn assert_valid_line_render(p1: GridPoint, p2: GridPoint) {
+    let points = GridLineIterator::from_to(p1, p2).collect::<Vec<_>>();
+    if p1[0] <= p2[0] {
+        assert_eq!(points[0], p1);
+        assert_eq!(points[points.len() - 1], p2);
+    } else {
+        assert_eq!(points[0], p2);
+        assert_eq!(points[points.len() - 1], p1);
+    }
+    for i in 1..points.len() {
+        if points[i - 1][0] == points[i][0] {
+            assert!(points[i - 1][1] == points[i][1] + 1 || points[i - 1][1] == points[i][1] - 1);
+        } else {
+            assert!(points[i - 1][0] + 1 == points[i][0]);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
+    use rand::RngExt;
+
     use crate::{
-        angle::{Angle, Degrees}, bit_grid::ColumnMajorCoordIter, point::{BoundingBox, GridLineIterator, Point}, pt
+        angle::{Angle, Degrees}, bit_grid::ColumnMajorCoordIter, point::{BoundingBox, Point, assert_valid_line_render}, pt
     };
 
     use super::GridPoint;
@@ -644,14 +664,23 @@ mod tests {
     }
 
     #[test]
-    fn test_grid_line() {
+    fn test_grid_line_systematic() {
         let start = GridPoint::new([10, 10]);
         for incline in (0..360).step_by(30) {
             let incline = Degrees::new(incline as f64);
             let offset = GridPoint::new([(15.0 * incline.cos()) as i64, (15.0 * incline.sin()) as i64]);
             let end = start + offset;
-            let iter = GridLineIterator::from_to(start, end);
-            println!("{start} to {end}: {:?}\n", iter.collect::<Vec<_>>());
+            assert_valid_line_render(start, end);
+        }
+    }
+
+    #[test]
+    fn test_grid_line_randomized() {
+        let mut rnd = rand::rng();
+        for _ in 0..100 {
+            let p1 = GridPoint::new([rnd.random_range(-100..=100), rnd.random_range(-100..=100)]);
+            let p2 = GridPoint::new([rnd.random_range(-100..=100), rnd.random_range(-100..=100)]);
+            assert_valid_line_render(p1, p2);
         }
     }
 }
