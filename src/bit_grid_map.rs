@@ -86,6 +86,12 @@ impl BitGridMap {
         self.obstacles.insert(p);
     }
 
+    pub fn add_space_between(&mut self, start: &GridPoint, end: &GridPoint) {
+        for pt in start.line_to(end).filter(|p| p != end) {
+            self.spaces.insert(pt);
+        }
+    }
+
     pub fn add_odometry_reading(&mut self, odometry_location: &FloatPoint) {
         let overlap = self.draw_overlapping_shadow_on(self.to_point(*odometry_location));
         self.space_contiguous = self.space_contiguous && (self.brand_new || overlap);

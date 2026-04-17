@@ -96,8 +96,11 @@ impl Particle {
 
     fn add_sensed_obstacles(&mut self, obstacle: Option<FloatPoint>) {
         if let Some(obstacle) = obstacle {
-            self.map
-                .add_obstacle_at(&self.estimate.update_other_point(&obstacle));
+            let obstacle = self.estimate.update_other_point(&obstacle);
+            self.map.add_obstacle_at(&obstacle);
+            let start = self.map.to_point(self.estimated_pose().pos);
+            let end = self.map.to_point(obstacle);
+            self.map.add_space_between(&start, &end);
         }
     }
 }

@@ -423,6 +423,12 @@ impl<'a, N: NumType> FromIterator<&'a Point<N, 2>> for Option<BoundingBox<N>> {
     }
 }
 
+impl GridPoint {
+    pub fn line_to(&self, other: &Self) -> GridLineIterator {
+        GridLineIterator::from_to(self, other)
+    }
+}
+
 pub struct GridLineIterator {
     x: i64,
     y: i64,
@@ -435,7 +441,7 @@ pub struct GridLineIterator {
 }
 
 impl GridLineIterator {
-    pub fn from_to(p1: GridPoint, p2: GridPoint) -> Self {
+    pub fn from_to(p1: &GridPoint, p2: &GridPoint) -> Self {
         if p1[0] > p2[0] {
             Self::from_to(p2, p1)
         } else {
@@ -479,14 +485,14 @@ impl Iterator for GridLineIterator {
     }
 }
 
-pub fn assert_valid_line_render(p1: GridPoint, p2: GridPoint) {
+pub fn assert_valid_line_render(p1: &GridPoint, p2: &GridPoint) {
     let points = GridLineIterator::from_to(p1, p2).collect::<Vec<_>>();
     if p1[0] <= p2[0] {
-        assert_eq!(points[0], p1);
-        assert_eq!(points[points.len() - 1], p2);
+        assert_eq!(points[0], *p1);
+        assert_eq!(points[points.len() - 1], *p2);
     } else {
-        assert_eq!(points[0], p2);
-        assert_eq!(points[points.len() - 1], p1);
+        assert_eq!(points[0], *p2);
+        assert_eq!(points[points.len() - 1], *p1);
     }
     for i in 1..points.len() {
         if points[i - 1][0] == points[i][0] {
@@ -670,7 +676,7 @@ mod tests {
             let incline = Degrees::new(incline as f64);
             let offset = GridPoint::new([(15.0 * incline.cos()) as i64, (15.0 * incline.sin()) as i64]);
             let end = start + offset;
-            assert_valid_line_render(start, end);
+            assert_valid_line_render(&start, &end);
         }
     }
 
@@ -680,7 +686,7 @@ mod tests {
         for _ in 0..100 {
             let p1 = GridPoint::new([rnd.random_range(-100..=100), rnd.random_range(-100..=100)]);
             let p2 = GridPoint::new([rnd.random_range(-100..=100), rnd.random_range(-100..=100)]);
-            assert_valid_line_render(p1, p2);
+            assert_valid_line_render(&p1, &p2);
         }
     }
 }
