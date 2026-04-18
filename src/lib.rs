@@ -21,7 +21,8 @@ use pose::RobotPose;
 
 use hash_histogram::HashHistogram;
 use rand_distr::{Distribution, Normal};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
+use std::str::FromStr;
 use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
 use walker::WalkerAliasTable;
@@ -250,6 +251,46 @@ impl MapInput {
             Self::RangeObject(distance, heading) => Some((*distance, *heading)),
             Self::Collision(distance, heading) => Some((*distance, *heading)),
             Self::Pose(_) => None
+        }
+    }
+}
+
+impl FromStr for MapInput {
+    type Err = anyhow::Error;
+
+    fn from_str(msg: &str) -> Result<Self, Self::Err> {
+        match msg.parse::<FloatPoint>() {
+            Ok(fp) => Ok(MapInput::Collision(fp[0], Radians::new(fp[1]))),
+            Err(_) => {
+                let msg = msg.trim();
+                let parts = msg[1..msg.len() - 1].split(",").map(|s| s.trim()).collect::<Vec<_>>();
+                if parts.len() == 3 {
+                    let distance = parts[1].parse::<f64>()?;
+                    let heading = Radians::new(parts[2].parse::<f64>()?);
+                    match parts[0] {
+                        "collision" => Ok(Self::Collision(distance, heading)),
+                        "object" => Ok(Self::RangeObject(distance, heading)),
+                        mismatch => Err(anyhow::anyhow!("Tag '{mismatch}' doesn't match known options 'collision' and 'object'"))
+                    }
+                } else if parts.len() == 4 && parts[0] == "pose" {
+                    let pos_x = parts[1].parse::<f64>()?;
+                    let pos_y = parts[2].parse::<f64>()?;
+                    let theta = Radians::new(parts[3].parse::<f64>()?);
+                    Ok(Self::Pose(RobotPose { pos: FloatPoint::new([pos_x, pos_y]), theta }))
+                } else {
+                    Err(anyhow::anyhow!("Input '{}' doesn't match MapInput format", msg))
+                }
+            }
+        }
+    }
+}
+
+impl Display for MapInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Collision(distance, heading) => write!(f, "(collision,{distance},{heading})"),
+            Self::RangeObject(distance, heading) => write!(f, "(object,{distance},{heading})"),
+            Self::Pose(pose) => write!(f, "(pose,{},{},{})", pose.pos[0], pose.pos[1], f64::from(pose.theta))
         }
     }
 }
