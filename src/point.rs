@@ -437,31 +437,34 @@ pub struct GridLineIterator {
     a: i64,
     b: i64, 
     diff: i64,
-    y_up: bool,
+    y_increase: bool,
+    x_increase: bool,
 }
 
 impl GridLineIterator {
     pub fn from_to(p1: &GridPoint, p2: &GridPoint) -> Self {
-        if p1[0] > p2[0] {
-            Self::from_to(p2, p1)
-        } else {
-            let y_up = p1[1] < p2[1];
-            let dy = if y_up {p2[1] - p1[1]} else {p1[1] - p2[1]};
-            Self {
-                x: p1[0],
-                y: p1[1],
-                dx: p2[0] - p1[0],
-                dy,
-                a: 0,
-                b: 0,
-                diff: 0,
-                y_up,
-            }
+        let x_increase = p1[0] < p2[0];
+        let y_increase = p1[1] < p2[1];
+        let dx = if x_increase {p2[0] - p1[1]} else {p1[0] - p2[0]};
+        let dy = if y_increase {p2[1] - p1[1]} else {p1[1] - p2[1]};
+        Self {
+            x: p1[0],
+            y: p1[1],
+            dx,
+            dy,
+            a: 0,
+            b: 0,
+            diff: 0,
+            x_increase,
+            y_increase,
         }
     }
 
     pub fn pt(&self) -> GridPoint {
-        GridPoint::new([self.x + self.a, self.y + if self.y_up {self.b} else {-self.b}])
+        GridPoint::new([
+            self.x + if self.x_increase {self.a} else {-self.a}, 
+            self.y + if self.y_increase {self.b} else {-self.b}
+        ])
     }
 }
 
@@ -487,13 +490,8 @@ impl Iterator for GridLineIterator {
 
 pub fn assert_valid_line_render(p1: &GridPoint, p2: &GridPoint) {
     let points = GridLineIterator::from_to(p1, p2).collect::<Vec<_>>();
-    if p1[0] <= p2[0] {
-        assert_eq!(points[0], *p1);
-        assert_eq!(points[points.len() - 1], *p2);
-    } else {
-        assert_eq!(points[0], *p2);
-        assert_eq!(points[points.len() - 1], *p1);
-    }
+    assert_eq!(points[0], *p1);
+    assert_eq!(points[points.len() - 1], *p2);
     for i in 1..points.len() {
         if points[i - 1][0] == points[i][0] {
             assert!(points[i - 1][1] == points[i][1] + 1 || points[i - 1][1] == points[i][1] - 1);
@@ -673,9 +671,11 @@ mod tests {
     fn test_grid_line_systematic() {
         let start = GridPoint::new([10, 10]);
         for incline in (0..360).step_by(30) {
+            println!("incline: {incline}");
             let incline = Degrees::new(incline as f64);
             let offset = GridPoint::new([(15.0 * incline.cos()) as i64, (15.0 * incline.sin()) as i64]);
             let end = start + offset;
+            println!("start: {start} end: {end}");
             assert_valid_line_render(&start, &end);
         }
     }
