@@ -443,9 +443,10 @@ pub struct GridLineIterator {
 
 impl GridLineIterator {
     pub fn from_to(p1: &GridPoint, p2: &GridPoint) -> Self {
+        println!("p1: {p1} p2: {p2}");
         let x_increase = p1[0] < p2[0];
         let y_increase = p1[1] < p2[1];
-        let dx = if x_increase {p2[0] - p1[1]} else {p1[0] - p2[0]};
+        let dx = if x_increase {p2[0] - p1[0]} else {p1[0] - p2[0]};
         let dy = if y_increase {p2[1] - p1[1]} else {p1[1] - p2[1]};
         Self {
             x: p1[0],
@@ -473,6 +474,7 @@ impl Iterator for GridLineIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.a <= self.dx && self.b <= self.dy {
+            println!("a: {} dx: {} b: {} dy: {}", self.a, self.dx, self.b, self.dy);
             let result = self.pt();
             if self.diff < 0 || self.dy == 0 {
                 self.a += 1;
@@ -496,7 +498,7 @@ pub fn assert_valid_line_render(p1: &GridPoint, p2: &GridPoint) {
         if points[i - 1][0] == points[i][0] {
             assert!(points[i - 1][1] == points[i][1] + 1 || points[i - 1][1] == points[i][1] - 1);
         } else {
-            assert!(points[i - 1][0] + 1 == points[i][0]);
+            assert!(points[i - 1][0] == points[i][0] + 1 || points[i - 1][0] == points[i][0] - 1);
         }
     }
 }
@@ -686,7 +688,19 @@ mod tests {
         for _ in 0..100 {
             let p1 = GridPoint::new([rnd.random_range(-100..=100), rnd.random_range(-100..=100)]);
             let p2 = GridPoint::new([rnd.random_range(-100..=100), rnd.random_range(-100..=100)]);
+            println!("p1: {p1} p2: {p2}");
             assert_valid_line_render(&p1, &p2);
+        }
+    }
+
+    #[test]
+    fn test_grid_line_spot_check() {
+        for ((x1, y1), (x2, y2)) in [
+            ((3,-81), (20,-77)),
+            ((-42,84), (78,94)),
+            ((-47,-88), (91,-24))
+        ] {
+            assert_valid_line_render(&pt!(x1, y1), &pt!(x2, y2));
         }
     }
 }
