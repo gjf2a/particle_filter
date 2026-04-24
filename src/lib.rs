@@ -94,16 +94,6 @@ impl Particle {
         let noise = self.noises.noise(collision);
         self.estimate.add_noise(noise);
     }
-
-    fn add_sensed_obstacles(&mut self, obstacle: Option<FloatPoint>) {
-        if let Some(obstacle) = obstacle {
-            let obstacle = self.estimate.update_other_point(&obstacle);
-            self.map.add_obstacle_at(&obstacle);
-            let start = self.map.to_point(self.estimated_pose().pos);
-            let end = self.map.to_point(obstacle);
-            self.map.add_space_between(&start, &end);
-        }
-    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug, Serialize, Deserialize)]
@@ -295,6 +285,28 @@ impl Display for MapInput {
     }
 }
 
+pub enum MapUpdate {
+    NewPosition(FloatPoint),
+    NewObstacle {sensor: FloatPoint, object: FloatPoint}
+}
+
+impl MapUpdate {
+    pub fn new(map_input: &MapInput, estimate: &mut PoseEstimate) -> Self {
+        match map_input {
+            MapInput::Pose(raw_pose) => {
+                estimate.updated_raw_pose(*raw_pose);
+                Self::NewPosition(estimate.current_estimate.pos)
+            }
+            MapInput::Collision(distance, radians) => {
+                Self::NewObstacle { sensor: estimate.current_estimate.pos, object: estimate.current_estimate + (*distance, *radians) }
+            }
+            MapInput::RangeObject(distance, radians) => {
+                Self::NewObstacle { sensor: estimate.current_estimate.pos, object: estimate.current_estimate + (*distance, *radians) }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ParticleFilter {
     last_raw: Option<RobotPose<Radians>>,
@@ -385,28 +397,11 @@ impl ParticleFilter {
         }
     }
 
-    fn obstacle_point(&self, map_input: MapInput) -> Option<FloatPoint> {
-        map_input
-            .obstacle()
-            .zip(self.last_raw)
-            .map(|((distance, angle_offset), last_pose)| {
-                let heading = last_pose.theta + angle_offset;
-                last_pose.pos + (distance, heading).into()
-            })
-    }
-
     fn update_all_particles(&mut self, map_input: MapInput) {
-        let obstacle = self.obstacle_point(map_input);
-        let new_raw_pose = map_input.pose();
         for particle in self.particles.iter_mut() {
-            if let Some(raw_pose) = new_raw_pose {
-                particle.estimate.updated_raw_pose(raw_pose);
-                particle
-                    .map
-                    .add_odometry_reading(&particle.estimated_pose().pos);
-            }
+            let map_update = MapUpdate::new(&map_input, &mut particle.estimate);
+            particle.map.add_map_update(&map_update);
             particle.add_noise(map_input.collision());
-            particle.add_sensed_obstacles(obstacle);
         }
     }
 

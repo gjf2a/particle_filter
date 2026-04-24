@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::StatCollector;
+use crate::{MapUpdate, StatCollector};
 use crate::{
     angle::Radians,
     bit_grid::{BitGrid, ColumnMajorCoordIter},
@@ -73,6 +73,13 @@ impl BitGridMap {
         }
     }
 
+    pub fn add_map_update(&mut self, map_update: &MapUpdate) {
+        match map_update {
+            MapUpdate::NewPosition(odometry_location) => self.add_odometry_reading(odometry_location),
+            MapUpdate::NewObstacle { sensor, object } => self.add_obstacle_sensed_from(object, sensor),
+        }
+    }
+
     pub fn square_size_m(&self) -> f64 {
         self.square_size_m
     }
@@ -84,6 +91,13 @@ impl BitGridMap {
     pub fn add_obstacle_at(&mut self, obstacle: &FloatPoint) {
         let p = self.to_point(*obstacle);
         self.obstacles.insert(p);
+    }
+
+    pub fn add_obstacle_sensed_from(&mut self, object: &FloatPoint, sensor: &FloatPoint) {
+        self.add_obstacle_at(object);
+        let start = self.to_point(*sensor);
+        let end = self.to_point(*object);
+        self.add_space_between(&start, &end);
     }
 
     pub fn add_space_between(&mut self, start: &GridPoint, end: &GridPoint) {
