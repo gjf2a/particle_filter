@@ -69,7 +69,7 @@ impl Particle {
             noises,
         }
     }
-
+    
     pub fn estimate(&self) -> &PoseEstimate {
         &self.estimate
     }
@@ -432,7 +432,7 @@ impl ParticleFilter {
         while self.particles.len() < num_particles {
             let choice = selector.choose();
             let mut new_particle = self.particles[choice].clone();
-            //new_particle.add_noise(collision);
+            new_particle.add_noise(collision);
             self.particles.push(new_particle);
         }
     }
