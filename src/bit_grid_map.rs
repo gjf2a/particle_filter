@@ -239,8 +239,11 @@ impl BitGridMap {
     }
 
     pub fn consistent_obstacle(&self, p: &GridPoint) -> bool {
-        let neighbor_spaces = self.num_neighbors_spaces(p);
-        0 < neighbor_spaces && neighbor_spaces < 4
+        self.num_neighbors_spaces(p) < 4
+    }
+
+    pub fn inconsistent_obstacles(&self) -> impl Iterator<Item=GridPoint> {
+        self.obstacles.iter().filter(|ob| !self.consistent_obstacle(ob))
     }
 
     pub fn inconsistency(&self) -> Option<Inconsistency> {

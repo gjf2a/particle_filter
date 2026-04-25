@@ -61,6 +61,15 @@ pub struct Particle {
 }
 
 impl Particle {
+    fn new(square_size_m: f64, robot_radius_m: f64, noises: Noises) -> Self {
+        Self {
+            estimate: PoseEstimate::default(),
+            map: BitGridMap::new(square_size_m, robot_radius_m),
+            parent: None,
+            noises,
+        }
+    }
+
     pub fn estimate(&self) -> &PoseEstimate {
         &self.estimate
     }
@@ -79,15 +88,6 @@ impl Particle {
 
     pub fn parent_index(&self) -> Option<usize> {
         self.parent
-    }
-
-    fn new(square_size_m: f64, robot_radius_m: f64, noises: Noises) -> Self {
-        Self {
-            estimate: PoseEstimate::default(),
-            map: BitGridMap::new(square_size_m, robot_radius_m),
-            parent: None,
-            noises,
-        }
     }
 
     fn add_noise(&mut self, collision: bool) {
@@ -432,7 +432,7 @@ impl ParticleFilter {
         while self.particles.len() < num_particles {
             let choice = selector.choose();
             let mut new_particle = self.particles[choice].clone();
-            new_particle.add_noise(collision);
+            //new_particle.add_noise(collision);
             self.particles.push(new_particle);
         }
     }
