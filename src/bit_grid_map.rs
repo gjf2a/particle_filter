@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{MapUpdate, StatCollector};
+use crate::{MapInput, MapUpdate, PoseEstimate, StatCollector};
 use crate::{
     angle::Radians,
     bit_grid::{BitGrid, ColumnMajorCoordIter},
@@ -73,6 +73,22 @@ impl BitGridMap {
         }
     }
 
+    pub fn from_map_inputs(square_size_m: f64, robot_radius_m: f64, map_input_filename: &str) -> anyhow::Result<Self> {
+        let mut result = Self::new(square_size_m, robot_radius_m);
+        let file_contents = std::fs::read_to_string(map_input_filename)?;
+        let map_inputs = file_contents.lines().map(|line| line.parse::<MapInput>()).collect::<anyhow::Result<Vec<MapInput>>>()?;
+        if let Some(starting_pose) = map_inputs.iter().find_map(|mi| mi.pose()) {
+            let mut estimate = PoseEstimate::from(starting_pose);
+            for map_input in map_inputs.iter() {
+                let map_update = MapUpdate::new(map_input, &mut estimate);
+                result.add_map_update(&map_update);
+            }
+            Ok(result)
+        } else {
+            anyhow::bail!("No odometry readings");
+        }
+    }
+
     pub fn add_map_update(&mut self, map_update: &MapUpdate) {
         match map_update {
             MapUpdate::NewPosition(odometry_location) => self.add_odometry_reading(odometry_location),
@@ -88,25 +104,25 @@ impl BitGridMap {
         self.space_contiguous && self.obstacle_space_independent()
     }
 
-    pub fn add_obstacle_at(&mut self, obstacle: &FloatPoint) {
+    fn add_obstacle_at(&mut self, obstacle: &FloatPoint) {
         let p = self.to_point(*obstacle);
         self.obstacles.insert(p);
     }
 
-    pub fn add_obstacle_sensed_from(&mut self, object: &FloatPoint, sensor: &FloatPoint) {
+    fn add_obstacle_sensed_from(&mut self, object: &FloatPoint, sensor: &FloatPoint) {
         self.add_obstacle_at(object);
         let start = self.to_point(*sensor);
         let end = self.to_point(*object);
         self.add_space_between(&start, &end);
     }
 
-    pub fn add_space_between(&mut self, start: &GridPoint, end: &GridPoint) {
+    fn add_space_between(&mut self, start: &GridPoint, end: &GridPoint) {
         for pt in start.line_to(end).filter(|p| p != end) {
             self.spaces.insert(pt);
         }
     }
 
-    pub fn add_odometry_reading(&mut self, odometry_location: &FloatPoint) {
+    fn add_odometry_reading(&mut self, odometry_location: &FloatPoint) {
         let overlap = self.draw_overlapping_shadow_on(self.to_point(*odometry_location));
         self.space_contiguous = self.space_contiguous && (self.brand_new || overlap);
         self.brand_new = false;

@@ -497,6 +497,15 @@ pub struct PoseEstimate {
     current_estimate: RobotPose<Radians>,
 }
 
+impl From<RobotPose<Radians>> for PoseEstimate {
+    fn from(value: RobotPose<Radians>) -> Self {
+        Self {
+            last_raw: None,
+            current_estimate: value,
+        }
+    }
+}
+
 impl From<PoseEstimate> for RobotPose<Radians> {
     fn from(value: PoseEstimate) -> Self {
         value.current_estimate
