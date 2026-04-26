@@ -99,7 +99,7 @@ impl Particle {
 
     pub fn consistent_alternative(&self, inconsistent_obstacle: &GridPoint) -> Self {
         let obstacle_meters = self.map.to_meters(*inconsistent_obstacle);
-        let alternative = alternative_obstacle_points( inconsistent_obstacle, &self.map.consistent_obstacle_options());
+        let alternative = random_alternative_obstacle( inconsistent_obstacle, &self.map.consistent_obstacle_options());
         let offset = self.map.to_meters(alternative) - obstacle_meters;
         let mut map = self.map.clone();
         map.erase_obstacle(inconsistent_obstacle);
@@ -617,7 +617,7 @@ impl PoseEstimate {
     }
 }
 
-pub fn alternative_obstacle_points(original: &GridPoint, candidates: &BitGrid) -> GridPoint {
+pub fn random_alternative_obstacle(original: &GridPoint, candidates: &BitGrid) -> GridPoint {
     let candidates = candidates.iter().collect::<Vec<_>>();
     let weights = candidates.iter().enumerate().map(|(i, p)| (i, original.euclidean_distance(*p))).collect::<HashHistogram<usize,f64>>();
     let walker = WalkerAliasTable::weighted(&weights);
