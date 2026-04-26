@@ -12,6 +12,7 @@ pub mod walker;
 pub use bit_grid_map::*;
 use bits::BitArray;
 use enum_iterator::Sequence;
+use rand::{RngExt, rng};
 use serde::{Deserialize, Serialize};
 pub use stats::*;
 
@@ -483,20 +484,25 @@ impl ParticleFilter {
         let mut candidates = vec![];
         std::mem::swap(&mut candidates, &mut self.particles);
         let mut inconsistent = vec![];
+        let mut rng = rng();
         for p in candidates.iter_mut() {
             let problems = p.map.inconsistent_obstacles().collect::<Vec<_>>();
             if problems.len() > 0 {
                 inconsistent.push(p.clone());
-                for problem in problems.iter() {
-                    *p = p.consistent_alternative(problem);
+                let choice = rng.random_range(0..problems.len());
+                *p = p.consistent_alternative(&problems[choice]);
+                for i in 0..problems.len() {
+                    if i != choice {
+                        p.map.erase_obstacle(&problems[i]);
+                    }
                 }
             }
         }
         assert_eq!(candidates.len(), num_particles);
         if inconsistent.len() > 0 {
-            let weights = self
+            let weights = reversed_weights(self
                 .weight_strategy
-                .weights(&candidates, &inconsistent)
+                .weights(&candidates, &inconsistent))
                 .ranking_with_counts();
             let mut ranked_candidates = vec![];
             for (i, _) in weights.iter() {
