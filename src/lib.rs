@@ -486,11 +486,9 @@ impl ParticleFilter {
         for p in candidates.iter_mut() {
             let problems = p.map.inconsistent_obstacles().collect::<Vec<_>>();
             if problems.len() > 0 {
-                if problems.len() == 1 {
-                    inconsistent.push(p.clone());
-                    *p = p.consistent_alternative(&problems[0]);
-                } else {
-                    panic!("I believe this should be unreachable");
+                inconsistent.push(p.clone());
+                for problem in problems.iter() {
+                    *p = p.consistent_alternative(problem);
                 }
             }
         }
