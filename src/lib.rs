@@ -493,25 +493,27 @@ impl ParticleFilter {
                 }
             }
         }
-        let weights = self
-            .weight_strategy
-            .weights(&candidates, &inconsistent)
-            .ranking_with_counts();
-        let mut ranked_candidates = vec![];
-        for (i, _) in weights.iter() {
-            ranked_candidates.push(candidates[*i].clone());
-        }
-        let weights = weights
-            .iter()
-            .map(|(_, w)| *w)
-            .enumerate()
-            .collect::<HashHistogram<usize, f64>>();
-        let selector = self.selection_strategy.selector(&weights);
+        if inconsistent.len() > 0 {
+            let weights = self
+                .weight_strategy
+                .weights(&candidates, &inconsistent)
+                .ranking_with_counts();
+            let mut ranked_candidates = vec![];
+            for (i, _) in weights.iter() {
+                ranked_candidates.push(candidates[*i].clone());
+            }
+            let weights = weights
+                .iter()
+                .map(|(_, w)| *w)
+                .enumerate()
+                .collect::<HashHistogram<usize, f64>>();
+            let selector = self.selection_strategy.selector(&weights);
 
-        while self.particles.len() < ranked_candidates.len() {
-            let mut chosen = ranked_candidates[selector.choose()].clone();
-            chosen.add_noise(collision);
-            self.particles.push(chosen);
+            while self.particles.len() < ranked_candidates.len() {
+                let mut chosen = ranked_candidates[selector.choose()].clone();
+                chosen.add_noise(collision);
+                self.particles.push(chosen);
+            }
         }
     }
 }
