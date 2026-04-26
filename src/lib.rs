@@ -479,6 +479,7 @@ impl ParticleFilter {
     }
 
     fn replacing_repopulate(&mut self, collision: bool) {
+        let num_particles = self.particles.len();
         let mut candidates = vec![];
         std::mem::swap(&mut candidates, &mut self.particles);
         let mut inconsistent = vec![];
@@ -493,6 +494,7 @@ impl ParticleFilter {
                 }
             }
         }
+        assert_eq!(candidates.len(), num_particles);
         if inconsistent.len() > 0 {
             let weights = self
                 .weight_strategy
@@ -509,7 +511,7 @@ impl ParticleFilter {
                 .collect::<HashHistogram<usize, f64>>();
             let selector = self.selection_strategy.selector(&weights);
 
-            while self.particles.len() < ranked_candidates.len() {
+            while self.particles.len() < num_particles {
                 let mut chosen = ranked_candidates[selector.choose()].clone();
                 chosen.add_noise(collision);
                 self.particles.push(chosen);
