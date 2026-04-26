@@ -516,6 +516,8 @@ impl ParticleFilter {
                 chosen.add_noise(collision);
                 self.particles.push(chosen);
             }
+        } else {
+            std::mem::swap(&mut candidates, &mut self.particles);
         }
     }
 }
