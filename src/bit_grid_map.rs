@@ -246,6 +246,17 @@ impl BitGridMap {
         self.obstacles.iter().filter(|ob| !self.consistent_obstacle(ob))
     }
 
+    pub fn consistent_obstacle_options(&self) -> BitGrid {
+        let unvisited = self.unvisited();
+        let mut result = self.obstacles.iter().filter(|ob| self.consistent_obstacle(ob)).collect::<BitGrid>();
+        for space in self.spaces.iter() {
+            for neighbor in space.manhattan_neighbors().filter(|n| unvisited.contains(n)) {
+                result.insert(neighbor);
+            }
+        }
+        result
+    }
+
     pub fn inconsistency(&self) -> Option<Inconsistency> {
         if !self.space_contiguous {
             Some(Inconsistency::SeparatedSpaces)
@@ -289,6 +300,10 @@ impl BitGridMap {
                 (&shadow & &self.obstacles).len() == 0
             })
             .collect()
+    }
+
+    pub fn erase_obstacle(&mut self, obstacle: &GridPoint) {
+        self.obstacles.remove(obstacle);
     }
 }
 

@@ -28,6 +28,7 @@ use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 use walker::WalkerAliasTable;
 
 use crate::bit_grid::BitGrid;
+use crate::point::GridPoint;
 
 #[macro_export]
 macro_rules! pt {
@@ -93,6 +94,20 @@ impl Particle {
     fn add_noise(&mut self, collision: bool) {
         let noise = self.noises.noise(collision);
         self.estimate.add_noise(noise);
+    }
+
+    pub fn consistent_alternative(&self, inconsistent_obstacle: &GridPoint) -> Self {
+        let obstacle_meters = self.map.to_meters(*inconsistent_obstacle);
+        let alternative = alternative_obstacle_points( inconsistent_obstacle, &self.map.consistent_obstacle_options());
+        let offset = self.map.to_meters(alternative) - obstacle_meters;
+        let mut map = self.map.clone();
+        map.erase_obstacle(inconsistent_obstacle);
+        Self {
+            estimate: self.estimate.replaced_estimate(&offset),
+            map,
+            parent: self.parent,
+            noises: self.noises.clone(),
+        }
     }
 }
 
@@ -380,7 +395,7 @@ impl ParticleFilter {
         }
     }
 
-    pub fn iterate(&mut self, map_input: MapInput) {
+    pub fn iterate(&mut self, map_input: MapInput, can_fail: bool) {
         if self.save_inputs {
             self.inputs.push(map_input);
         }
@@ -389,11 +404,15 @@ impl ParticleFilter {
         }
         self.total_iterations += 1;
         self.update_all_particles(map_input);
-        let consistent = self.find_consistent_particles();
-        if consistent.len() == 0 {
-            self.example_failure = Some(self.particles[0].clone());
-        } else if consistent.len() < self.particles.len() {
-            self.repopulate(consistent, map_input.collision());
+        if can_fail {
+            let consistent = self.find_consistent_particles();
+            if consistent.len() == 0 {
+                self.example_failure = Some(self.particles[0].clone());
+            } else if consistent.len() < self.particles.len() {
+                self.repopulate(consistent, map_input.collision());
+            }
+        } else {
+            self.replacing_repopulate(map_input.collision());
         }
     }
 
@@ -455,6 +474,43 @@ impl ParticleFilter {
         self.particles = permutation
             .map(|current| self.particles[current].clone())
             .collect();
+    }
+
+    fn replacing_repopulate(&mut self, collision: bool) {
+        let mut candidates = vec![];
+        std::mem::swap(&mut candidates, &mut self.particles);
+        let mut inconsistent = vec![];
+        for p in candidates.iter_mut() {
+            let problems = p.map.inconsistent_obstacles().collect::<Vec<_>>();
+            if problems.len() > 0 {
+                if problems.len() == 1 {
+                    inconsistent.push(p.clone());
+                    *p = p.consistent_alternative(&problems[0]);
+                } else {
+                    panic!("I believe this should be unreachable");
+                }
+            }
+        }
+        let weights = self
+            .weight_strategy
+            .weights(&candidates, &inconsistent)
+            .ranking_with_counts();
+        let mut ranked_candidates = vec![];
+        for (i, _) in weights.iter() {
+            ranked_candidates.push(candidates[*i].clone());
+        }
+        let weights = weights
+            .iter()
+            .map(|(_, w)| *w)
+            .enumerate()
+            .collect::<HashHistogram<usize, f64>>();
+        let selector = self.selection_strategy.selector(&weights);
+
+        while self.particles.len() < ranked_candidates.len() {
+            let mut chosen = ranked_candidates[selector.choose()].clone();
+            chosen.add_noise(collision);
+            self.particles.push(chosen);
+        }
     }
 }
 
@@ -525,6 +581,13 @@ impl PoseEstimate {
         self.last_raw = Some(raw_pose);
     }
 
+    pub fn replaced_estimate(&self, offset: &FloatPoint) -> Self {
+        Self {
+            last_raw: self.last_raw,
+            current_estimate: self.current_estimate + *offset
+        }
+    }
+
     pub fn update_other_point(&self, pt: &FloatPoint) -> FloatPoint {
         let raw2estimated = self.current_estimate - self.last_raw.unwrap_or(RobotPose::default());
         raw2estimated.pos + *pt
@@ -540,6 +603,13 @@ impl PoseEstimate {
     pub fn add_noise(&mut self, noise: Noise) {
         self.current_estimate = noise.noise(self.current_estimate);
     }
+}
+
+pub fn alternative_obstacle_points(original: &GridPoint, candidates: &BitGrid) -> GridPoint {
+    let candidates = candidates.iter().collect::<Vec<_>>();
+    let weights = candidates.iter().enumerate().map(|(i, p)| (i, original.euclidean_distance(*p))).collect::<HashHistogram<usize,f64>>();
+    let walker = WalkerAliasTable::weighted(&weights);
+    candidates[walker.choose()]
 }
 
 #[cfg(test)]
