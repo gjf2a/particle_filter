@@ -201,6 +201,7 @@ pub struct ParticleFilterSettings {
     pub robot_radius_m: f64,
     pub selection_strategy: SelectionStrategy,
     pub weight_strategy: WeightStrategy,
+    pub can_fail: bool,
     pub save_inputs: bool,
 }
 
@@ -223,6 +224,7 @@ impl Default for ParticleFilterSettings {
             selection_strategy: SelectionStrategy::RankProportion,
             weight_strategy: WeightStrategy::MinPose,
             save_inputs: false,
+            can_fail: true,
         }
     }
 }
