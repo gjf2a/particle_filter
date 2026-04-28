@@ -28,6 +28,7 @@ use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
 use walker::WalkerAliasTable;
 
+use crate::angle::Angle;
 use crate::bit_grid::BitGrid;
 use crate::point::GridPoint;
 
@@ -39,13 +40,13 @@ macro_rules! pt {
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Noises {
-    pub clear: Noise,
-    pub obst: Noise,
+pub struct Noises<A: Angle + Copy> {
+    pub clear: Noise<A>,
+    pub obst: Noise<A>,
 }
 
-impl Noises {
-    fn noise(&self, collision: bool) -> Noise {
+impl<A: Angle + Copy> Noises<A> {
+    fn noise(&self, collision: bool) -> Noise<A> {
         if collision {
             self.obst
         } else {
@@ -59,11 +60,11 @@ pub struct Particle {
     estimate: PoseEstimate,
     map: BitGridMap,
     parent: Option<usize>,
-    noises: Noises,
+    noises: Noises<Degrees>,
 }
 
 impl Particle {
-    fn new(square_size_m: f64, robot_radius_m: f64, noises: Noises) -> Self {
+    fn new(square_size_m: f64, robot_radius_m: f64, noises: Noises<Degrees>) -> Self {
         Self {
             estimate: PoseEstimate::default(),
             map: BitGridMap::new(square_size_m, robot_radius_m),
@@ -196,7 +197,7 @@ fn reversed_weights(weights: HashHistogram<usize, f64>) -> HashHistogram<usize, 
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParticleFilterSettings {
-    pub noises: Noises,
+    pub noises: Noises<Degrees>,
     pub num_particles: usize,
     pub square_size_m: f64,
     pub robot_radius_m: f64,
@@ -301,6 +302,13 @@ impl Display for MapInput {
             Self::Pose(pose) => write!(f, "(pose,{},{},{})", pose.pos[0], pose.pos[1], f64::from(pose.theta))
         }
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MapObstacle {
+    distance: f64,
+    heading: Radians,
+    noise: Noise<Radians>,
 }
 
 pub enum MapUpdate {
@@ -535,16 +543,16 @@ impl Index<usize> for ParticleFilter {
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Noise {
+pub struct Noise<A: Angle> {
     pub stdev_x_y: f64,
-    pub stdev_angle: Degrees,
+    pub stdev_angle: A,
 }
 
-impl Noise {
+impl<A: Angle> Noise<A> {
     fn noise(&self, pose: RobotPose<Radians>) -> RobotPose<Radians> {
         let mut rng = rand::rng();
         let x_y_gaussian = Normal::new(0.0, self.stdev_x_y).unwrap();
-        let theta_gaussian = Normal::new(0.0, self.stdev_angle.into()).unwrap();
+        let theta_gaussian = Normal::new(0.0, self.stdev_angle.radians().into()).unwrap();
         let x_y_noise =
             FloatPoint::new([x_y_gaussian.sample(&mut rng), x_y_gaussian.sample(&mut rng)]);
         let theta_noise = Degrees::new(theta_gaussian.sample(&mut rng));
@@ -612,7 +620,7 @@ impl PoseEstimate {
         }
     }
 
-    pub fn add_noise(&mut self, noise: Noise) {
+    pub fn add_noise(&mut self, noise: Noise<Degrees>) {
         self.current_estimate = noise.noise(self.current_estimate);
     }
 }
