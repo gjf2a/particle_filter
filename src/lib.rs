@@ -262,6 +262,14 @@ impl MapInput {
             Self::Pose(_) => None
         }
     }
+
+    pub fn without_obstacle_noise(&self) -> Self {
+        match self {
+            Self::Pose(p) => Self::Pose(*p),
+            Self::RangeObject(obstacle) => Self::RangeObject(obstacle.without_noise()),
+            Self::Collision(obstacle) => Self::Collision(obstacle.without_noise()),
+        }
+    }
 }
 
 impl FromStr for MapInput {
@@ -317,6 +325,14 @@ impl MapObstacle {
         let noisy_distance = self.distance + distance_gaussian.sample(&mut rng);
         let noisy_heading = self.heading + Radians::new(heading_gaussian.sample(&mut rng));
         MapUpdate::NewObstacle { sensor: pose.pos, object: pose + (noisy_distance, noisy_heading) }
+    }
+
+    fn without_noise(&self) -> Self {
+        Self {
+            distance: self.distance,
+            heading: self.heading,
+            noise: ObstacleNoise::default(),
+        }
     }
 }
 
