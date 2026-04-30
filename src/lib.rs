@@ -661,7 +661,7 @@ pub fn random_alternative_obstacle(original: &GridPoint, candidates: &BitGrid) -
 
 #[cfg(test)]
 mod tests {
-    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose, angle::Angle};
+    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
     use std::f64::consts::PI;
 
     #[test]

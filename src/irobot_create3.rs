@@ -1,6 +1,6 @@
 use crate::{
     MapInput, MapObstacle, ObstacleNoise,
-    angle::{Angle, Radians},
+    angle::Radians,
 };
 use std::{f64::consts::PI, str::FromStr};
 

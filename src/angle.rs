@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 use crate::point::FloatPoint;
 
 pub trait Angle {
-    fn new(angle: f64) -> Self;
-
     fn bound() -> f64;
 
     fn degrees(&self) -> Degrees;
@@ -38,10 +36,6 @@ pub trait Angle {
 pub struct Radians(f64);
 
 impl Angle for Radians {
-    fn new(angle: f64) -> Self {
-        Self(Self::normalize_angle(angle))
-    }
-
     fn bound() -> f64 {
         PI * 2.0
     }
@@ -88,6 +82,10 @@ macro_rules! assign_code {
 macro_rules! angle_code {
     ($type:tt) => {
         impl $type {
+            pub fn new(angle: f64) -> Self {
+                Self(Self::normalize_angle(angle))
+            }
+
             pub fn abs(&self) -> Self {
                 if self.0 < 0.0 {
                     $type::new(-self.0)
@@ -155,10 +153,6 @@ impl From<FloatPoint> for (f64, Degrees) {
 pub struct Degrees(f64);
 
 impl Angle for Degrees {
-    fn new(angle: f64) -> Self {
-        Self(Self::normalize_angle(angle))
-    }
-
     fn bound() -> f64 {
         360.0
     }
@@ -208,7 +202,7 @@ impl From<Degrees> for Radians {
 
 #[cfg(test)]
 mod tests {
-    use crate::angle::{Angle, Degrees};
+    use crate::angle::Degrees;
 
     #[test]
     fn test_distance() {

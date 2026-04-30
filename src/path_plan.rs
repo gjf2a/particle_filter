@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    angle::{Angle, Radians},
+    angle::Radians,
     bit_grid::BitGrid,
     point::{GridPoint, manhattan_offsets},
     pose::RobotPose,
