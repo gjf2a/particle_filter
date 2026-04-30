@@ -203,8 +203,11 @@ pub struct ParticleFilterSettings {
     pub robot_radius_m: f64,
     pub selection_strategy: SelectionStrategy,
     pub weight_strategy: WeightStrategy,
-    pub can_fail: bool,
     pub save_inputs: bool,
+    // These don't affect the Particle Filter directly but are used for identifying
+    // experimental variants. I may get rid of them eventually.
+    pub can_fail: bool,
+    pub use_obstacle_noise: bool,
 }
 
 impl Default for ParticleFilterSettings {
@@ -227,6 +230,7 @@ impl Default for ParticleFilterSettings {
             weight_strategy: WeightStrategy::MinPose,
             save_inputs: false,
             can_fail: true,
+            use_obstacle_noise: false,
         }
     }
 }
