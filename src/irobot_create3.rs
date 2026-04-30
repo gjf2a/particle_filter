@@ -1,7 +1,9 @@
-use crate::angle::Radians;
+use crate::{MapInput, MapObstacle, ObstacleNoise, angle::{Angle, Radians}};
 use std::{f64::consts::PI, str::FromStr};
 
 pub const RADIUS_M: f64 = 0.2032;
+pub const RADIUS_STDEV_M: f64 = 0.01; // TODO: 1 cm for now, but need to rethink.
+pub const HEADING_STDEV_RADIANS: f64 = PI / 8.0;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Bump {
@@ -45,7 +47,8 @@ impl Bump {
         }
     }
 
-    pub fn obstacle_at(&self) -> (f64, Radians) {
-        (RADIUS_M, self.angle_offset())
+    pub fn obstacle_at(&self) -> MapInput {
+        let noise = ObstacleNoise {stdev_distance: RADIUS_STDEV_M, stdev_heading: Radians::new(HEADING_STDEV_RADIANS)};
+        MapInput::Collision(MapObstacle { distance: RADIUS_M, heading: self.angle_offset(), noise })
     }
 }

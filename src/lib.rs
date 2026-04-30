@@ -40,13 +40,13 @@ macro_rules! pt {
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Noises<A: Angle + Copy> {
-    pub clear: Noise<A>,
-    pub obst: Noise<A>,
+pub struct Noises {
+    pub clear: PoseNoise,
+    pub obst: PoseNoise,
 }
 
-impl<A: Angle + Copy> Noises<A> {
-    fn noise(&self, collision: bool) -> Noise<A> {
+impl Noises {
+    fn noise(&self, collision: bool) -> PoseNoise {
         if collision {
             self.obst
         } else {
@@ -60,11 +60,11 @@ pub struct Particle {
     estimate: PoseEstimate,
     map: BitGridMap,
     parent: Option<usize>,
-    noises: Noises<Degrees>,
+    noises: Noises,
 }
 
 impl Particle {
-    fn new(square_size_m: f64, robot_radius_m: f64, noises: Noises<Degrees>) -> Self {
+    fn new(square_size_m: f64, robot_radius_m: f64, noises: Noises) -> Self {
         Self {
             estimate: PoseEstimate::default(),
             map: BitGridMap::new(square_size_m, robot_radius_m),
@@ -197,7 +197,7 @@ fn reversed_weights(weights: HashHistogram<usize, f64>) -> HashHistogram<usize, 
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParticleFilterSettings {
-    pub noises: Noises<Degrees>,
+    pub noises: Noises,
     pub num_particles: usize,
     pub square_size_m: f64,
     pub robot_radius_m: f64,
@@ -211,11 +211,11 @@ impl Default for ParticleFilterSettings {
     fn default() -> Self {
         Self {
             noises: Noises {
-                clear: Noise {
+                clear: PoseNoise {
                     stdev_x_y: 7e-4,
                     stdev_angle: Degrees::new(2e-4),
                 },
-                obst: Noise {
+                obst: PoseNoise {
                     stdev_x_y: 0.032,
                     stdev_angle: Degrees::new(0.62),
                 },
@@ -234,8 +234,8 @@ impl Default for ParticleFilterSettings {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum MapInput {
     Pose(RobotPose<Radians>),
-    Collision(f64, Radians),
-    RangeObject(f64, Radians),
+    Collision(MapObstacle),
+    RangeObject(MapObstacle),
 }
 
 impl MapInput {
@@ -248,17 +248,17 @@ impl MapInput {
     }
 
     pub fn collision(&self) -> bool {
-        if let Self::Collision(_, _) = self {
+        if let Self::Collision(_) = self {
             true
         } else {
             false
         }
     }
 
-    pub fn obstacle(&self) -> Option<(f64, Radians)> {
+    pub fn obstacle(&self) -> Option<MapObstacle> {
         match self {
-            Self::RangeObject(distance, heading) => Some((*distance, *heading)),
-            Self::Collision(distance, heading) => Some((*distance, *heading)),
+            Self::RangeObject(obj) => Some(*obj),
+            Self::Collision(obj) => Some(*obj),
             Self::Pose(_) => None
         }
     }
@@ -268,37 +268,35 @@ impl FromStr for MapInput {
     type Err = anyhow::Error;
 
     fn from_str(msg: &str) -> Result<Self, Self::Err> {
-        match msg.parse::<FloatPoint>() {
-            Ok(fp) => Ok(MapInput::Collision(fp[0], Radians::new(fp[1]))),
-            Err(_) => {
-                let msg = msg.trim();
-                let parts = msg[1..msg.len() - 1].split(",").map(|s| s.trim()).collect::<Vec<_>>();
-                if parts.len() == 3 {
-                    let distance = parts[1].parse::<f64>()?;
-                    let heading = Radians::new(parts[2].parse::<f64>()?);
-                    match parts[0] {
-                        "collision" => Ok(Self::Collision(distance, heading)),
-                        "object" => Ok(Self::RangeObject(distance, heading)),
-                        mismatch => Err(anyhow::anyhow!("Tag '{mismatch}' doesn't match known options 'collision' and 'object'"))
-                    }
-                } else if parts.len() == 4 && parts[0] == "pose" {
-                    let pos_x = parts[1].parse::<f64>()?;
-                    let pos_y = parts[2].parse::<f64>()?;
-                    let theta = Radians::new(parts[3].parse::<f64>()?);
-                    Ok(Self::Pose(RobotPose { pos: FloatPoint::new([pos_x, pos_y]), theta }))
-                } else {
-                    Err(anyhow::anyhow!("Input '{}' doesn't match MapInput format", msg))
-                }
+        let msg = msg.trim();
+        let parts = msg[1..msg.len() - 1].split(",").map(|s| s.trim()).collect::<Vec<_>>();
+        if parts.len() == 5 {
+            let distance = parts[1].parse::<f64>()?;
+            let heading = Radians::new(parts[2].parse::<f64>()?);
+            let stdev_distance = parts[3].parse::<f64>()?;
+            let stdev_heading = Radians::new(parts[4].parse::<f64>()?);
+            let obstacle = MapObstacle { distance, heading, noise: ObstacleNoise { stdev_distance, stdev_heading } };
+            match parts[0] {
+                "collision" => Ok(Self::Collision(obstacle)),
+                "object" => Ok(Self::RangeObject(obstacle)),
+                mismatch => Err(anyhow::anyhow!("Tag '{mismatch}' doesn't match known options 'collision' and 'object'"))
             }
-        }
+        } else if parts.len() == 4 && parts[0] == "pose" {
+            let pos_x = parts[1].parse::<f64>()?;
+            let pos_y = parts[2].parse::<f64>()?;
+            let theta = Radians::new(parts[3].parse::<f64>()?);
+            Ok(Self::Pose(RobotPose { pos: FloatPoint::new([pos_x, pos_y]), theta }))
+        } else {
+            Err(anyhow::anyhow!("Input '{}' doesn't match MapInput format", msg))
+        }   
     }
 }
 
 impl Display for MapInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Collision(distance, heading) => write!(f, "(collision,{distance},{heading})"),
-            Self::RangeObject(distance, heading) => write!(f, "(object,{distance},{heading})"),
+            Self::Collision(obj) => write!(f, "(collision,{},{},{},{})", obj.distance, obj.heading, obj.noise.stdev_distance, obj.noise.stdev_heading),
+            Self::RangeObject(obj) => write!(f, "(object,{},{},{},{})", obj.distance, obj.heading, obj.noise.stdev_distance, obj.noise.stdev_heading),
             Self::Pose(pose) => write!(f, "(pose,{},{},{})", pose.pos[0], pose.pos[1], f64::from(pose.theta))
         }
     }
@@ -308,7 +306,18 @@ impl Display for MapInput {
 pub struct MapObstacle {
     distance: f64,
     heading: Radians,
-    noise: Noise<Radians>,
+    noise: ObstacleNoise,
+}
+
+impl MapObstacle {
+    fn update(&self, pose: RobotPose<Radians>) -> MapUpdate {
+        let mut rng = rand::rng();
+        let distance_gaussian = Normal::new(0.0, self.noise.stdev_distance).unwrap();
+        let heading_gaussian = Normal::new(0.0, self.noise.stdev_heading.radians().into()).unwrap();
+        let noisy_distance = self.distance + distance_gaussian.sample(&mut rng);
+        let noisy_heading = self.heading + Radians::new(heading_gaussian.sample(&mut rng));
+        MapUpdate::NewObstacle { sensor: pose.pos, object: pose + (noisy_distance, noisy_heading) }
+    }
 }
 
 pub enum MapUpdate {
@@ -323,12 +332,8 @@ impl MapUpdate {
                 estimate.updated_raw_pose(*raw_pose);
                 Self::NewPosition(estimate.current_estimate.pos)
             }
-            MapInput::Collision(distance, radians) => {
-                Self::NewObstacle { sensor: estimate.current_estimate.pos, object: estimate.current_estimate + (*distance, *radians) }
-            }
-            MapInput::RangeObject(distance, radians) => {
-                Self::NewObstacle { sensor: estimate.current_estimate.pos, object: estimate.current_estimate + (*distance, *radians) }
-            }
+            MapInput::Collision(obstacle) => obstacle.update(estimate.current_estimate),
+            MapInput::RangeObject(obstacle) => obstacle.update(estimate.current_estimate),
         }
     }
 }
@@ -543,12 +548,12 @@ impl Index<usize> for ParticleFilter {
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Noise<A: Angle> {
+pub struct PoseNoise {
     pub stdev_x_y: f64,
-    pub stdev_angle: A,
+    pub stdev_angle: Degrees,
 }
 
-impl<A: Angle> Noise<A> {
+impl PoseNoise {
     fn noise(&self, pose: RobotPose<Radians>) -> RobotPose<Radians> {
         let mut rng = rand::rng();
         let x_y_gaussian = Normal::new(0.0, self.stdev_x_y).unwrap();
@@ -561,6 +566,12 @@ impl<A: Angle> Noise<A> {
             theta: pose.theta + theta_noise.into(),
         }
     }
+}
+
+#[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ObstacleNoise {
+    pub stdev_distance: f64,
+    pub stdev_heading: Radians,
 }
 
 pub trait StatCollector<M>: Default + Clone {
@@ -620,7 +631,7 @@ impl PoseEstimate {
         }
     }
 
-    pub fn add_noise(&mut self, noise: Noise<Degrees>) {
+    pub fn add_noise(&mut self, noise: PoseNoise) {
         self.current_estimate = noise.noise(self.current_estimate);
     }
 }
@@ -634,7 +645,7 @@ pub fn random_alternative_obstacle(original: &GridPoint, candidates: &BitGrid) -
 
 #[cfg(test)]
 mod tests {
-    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose};
+    use crate::{Degrees, FloatPoint, PoseEstimate, Radians, RobotPose, angle::Angle};
     use std::f64::consts::PI;
 
     #[test]
