@@ -350,6 +350,14 @@ pub struct MapObstacle {
 }
 
 impl MapObstacle {
+    pub fn distance(&self) -> f64 {
+        self.distance
+    }
+
+    pub fn heading(&self) -> Radians {
+        self.heading
+    }
+
     fn update(&self, pose: RobotPose<Radians>) -> MapUpdate {
         let mut rng = rand::rng();
         let distance_gaussian = Normal::new(0.0, self.noise.stdev_distance).unwrap();
