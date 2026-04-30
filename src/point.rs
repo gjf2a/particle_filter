@@ -435,7 +435,7 @@ pub struct GridLineIterator {
     dx: i64,
     dy: i64,
     a: i64,
-    b: i64, 
+    b: i64,
     diff: i64,
     y_increase: bool,
     x_increase: bool,
@@ -445,8 +445,16 @@ impl GridLineIterator {
     pub fn from_to(p1: &GridPoint, p2: &GridPoint) -> Self {
         let x_increase = p1[0] < p2[0];
         let y_increase = p1[1] < p2[1];
-        let dx = if x_increase {p2[0] - p1[0]} else {p1[0] - p2[0]};
-        let dy = if y_increase {p2[1] - p1[1]} else {p1[1] - p2[1]};
+        let dx = if x_increase {
+            p2[0] - p1[0]
+        } else {
+            p1[0] - p2[0]
+        };
+        let dy = if y_increase {
+            p2[1] - p1[1]
+        } else {
+            p1[1] - p2[1]
+        };
         Self {
             x: p1[0],
             y: p1[1],
@@ -462,8 +470,8 @@ impl GridLineIterator {
 
     pub fn pt(&self) -> GridPoint {
         GridPoint::new([
-            self.x + if self.x_increase {self.a} else {-self.a}, 
-            self.y + if self.y_increase {self.b} else {-self.b}
+            self.x + if self.x_increase { self.a } else { -self.a },
+            self.y + if self.y_increase { self.b } else { -self.b },
         ])
     }
 }
@@ -508,7 +516,10 @@ mod tests {
     use rand::RngExt;
 
     use crate::{
-        angle::{Angle, Degrees}, bit_grid::ColumnMajorCoordIter, point::{BoundingBox, Point, assert_valid_line_render}, pt
+        angle::{Angle, Degrees},
+        bit_grid::ColumnMajorCoordIter,
+        point::{BoundingBox, Point, assert_valid_line_render},
+        pt,
     };
 
     use super::GridPoint;
@@ -672,7 +683,8 @@ mod tests {
         let start = GridPoint::new([10, 10]);
         for incline in (0..360).step_by(30) {
             let incline = Degrees::new(incline as f64);
-            let offset = GridPoint::new([(15.0 * incline.cos()) as i64, (15.0 * incline.sin()) as i64]);
+            let offset =
+                GridPoint::new([(15.0 * incline.cos()) as i64, (15.0 * incline.sin()) as i64]);
             let end = start + offset;
             assert_valid_line_render(&start, &end);
         }

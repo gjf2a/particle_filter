@@ -1,4 +1,7 @@
-use crate::{MapInput, MapObstacle, ObstacleNoise, angle::{Angle, Radians}};
+use crate::{
+    MapInput, MapObstacle, ObstacleNoise,
+    angle::{Angle, Radians},
+};
 use std::{f64::consts::PI, str::FromStr};
 
 pub const RADIUS_M: f64 = 0.2032;
@@ -48,7 +51,14 @@ impl Bump {
     }
 
     pub fn obstacle_at(&self) -> MapInput {
-        let noise = ObstacleNoise {stdev_distance: RADIUS_STDEV_M, stdev_heading: Radians::new(HEADING_STDEV_RADIANS)};
-        MapInput::Collision(MapObstacle { distance: RADIUS_M, heading: self.angle_offset(), noise })
+        let noise = ObstacleNoise {
+            stdev_distance: RADIUS_STDEV_M,
+            stdev_heading: Radians::new(HEADING_STDEV_RADIANS),
+        };
+        MapInput::Collision(MapObstacle {
+            distance: RADIUS_M,
+            heading: self.angle_offset(),
+            noise,
+        })
     }
 }

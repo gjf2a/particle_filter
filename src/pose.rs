@@ -5,7 +5,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{angle::{Angle, Radians}, point::FloatPoint};
+use crate::{
+    angle::{Angle, Radians},
+    point::FloatPoint,
+};
 
 #[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug, Default)]
 pub struct RobotPose<A: Angle> {
@@ -44,12 +47,12 @@ impl<A: Angle + Add<Output = A>> Add<FloatPoint> for RobotPose<A> {
 
 impl Add<(f64, Radians)> for RobotPose<Radians> {
     type Output = FloatPoint;
-    
+
     fn add(self, rhs: (f64, Radians)) -> Self::Output {
         let (distance, heading) = rhs;
         let heading = self.theta + heading;
         self.pos + (distance, heading).into()
-    }   
+    }
 }
 
 impl<A: Angle + Add<Output = A>> Add<A> for RobotPose<A> {

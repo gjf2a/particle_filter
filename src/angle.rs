@@ -155,7 +155,6 @@ impl From<FloatPoint> for (f64, Degrees) {
 pub struct Degrees(f64);
 
 impl Angle for Degrees {
-    
     fn new(angle: f64) -> Self {
         Self(Self::normalize_angle(angle))
     }

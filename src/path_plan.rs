@@ -214,7 +214,8 @@ mod tests {
     const TEST_POSE_STR_1: &str = r#"{"pos":{"coords":[-1.5637336449019554,0.11068795293575091]},"theta":-3.074780485700006}"#;
 
     const TEST_MAP_STR_2: &str = r#"{"obstacles":{"bits":{"bits":[1]},"bounds":{"min":{"coords":[-15,3]},"max":{"coords":[-15,3]}}},"spaces":{"bits":{"bits":[14951951243906514944,18374686479671558143,805292031]},"bounds":{"min":{"coords":[-17,-5]},"max":{"coords":[2,2]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
-    const TEST_POSE_STR_2: &str = r#"{"pos":{"coords":[-1.5866413378378004,0.0998764804308733]},"theta":-3.086761081685883}"#;
+    const TEST_POSE_STR_2: &str =
+        r#"{"pos":{"coords":[-1.5866413378378004,0.0998764804308733]},"theta":-3.086761081685883}"#;
 
     #[test]
     fn test_unexpected_no_paths() {

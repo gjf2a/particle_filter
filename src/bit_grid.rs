@@ -16,8 +16,8 @@ trait_set! {
 use crate::point::{BoundingBox, GridPoint};
 
 pub fn span(a: i64, b: i64) -> u64 {
-    let max = if a > b {a} else {b};
-    let min = if a < b {a} else {b};
+    let max = if a > b { a } else { b };
+    let min = if a < b { a } else { b };
     (1 + max - min) as u64
 }
 

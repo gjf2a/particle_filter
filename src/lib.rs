@@ -46,11 +46,7 @@ pub struct Noises {
 
 impl Noises {
     fn noise(&self, collision: bool) -> PoseNoise {
-        if collision {
-            self.obst
-        } else {
-            self.clear
-        }
+        if collision { self.obst } else { self.clear }
     }
 }
 
@@ -71,7 +67,7 @@ impl Particle {
             noises,
         }
     }
-    
+
     pub fn estimate(&self) -> &PoseEstimate {
         &self.estimate
     }
@@ -99,7 +95,10 @@ impl Particle {
 
     pub fn consistent_alternative(&self, inconsistent_obstacle: &GridPoint) -> Self {
         let obstacle_meters = self.map.to_meters(*inconsistent_obstacle);
-        let alternative = random_alternative_obstacle( inconsistent_obstacle, &self.map.consistent_obstacle_options());
+        let alternative = random_alternative_obstacle(
+            inconsistent_obstacle,
+            &self.map.consistent_obstacle_options(),
+        );
         let offset = self.map.to_meters(alternative) - obstacle_meters;
         let mut map = self.map.clone();
         map.erase_obstacle(inconsistent_obstacle);
@@ -260,7 +259,7 @@ impl MapInput {
         match self {
             Self::RangeObject(obj) => Some(*obj),
             Self::Collision(obj) => Some(*obj),
-            Self::Pose(_) => None
+            Self::Pose(_) => None,
         }
     }
 
@@ -278,35 +277,67 @@ impl FromStr for MapInput {
 
     fn from_str(msg: &str) -> Result<Self, Self::Err> {
         let msg = msg.trim();
-        let parts = msg[1..msg.len() - 1].split(",").map(|s| s.trim()).collect::<Vec<_>>();
+        let parts = msg[1..msg.len() - 1]
+            .split(",")
+            .map(|s| s.trim())
+            .collect::<Vec<_>>();
         if parts.len() == 5 {
             let distance = parts[1].parse::<f64>()?;
             let heading = Radians::new(parts[2].parse::<f64>()?);
             let stdev_distance = parts[3].parse::<f64>()?;
             let stdev_heading = Radians::new(parts[4].parse::<f64>()?);
-            let obstacle = MapObstacle { distance, heading, noise: ObstacleNoise { stdev_distance, stdev_heading } };
+            let obstacle = MapObstacle {
+                distance,
+                heading,
+                noise: ObstacleNoise {
+                    stdev_distance,
+                    stdev_heading,
+                },
+            };
             match parts[0] {
                 "collision" => Ok(Self::Collision(obstacle)),
                 "object" => Ok(Self::RangeObject(obstacle)),
-                mismatch => Err(anyhow::anyhow!("Tag '{mismatch}' doesn't match known options 'collision' and 'object'"))
+                mismatch => Err(anyhow::anyhow!(
+                    "Tag '{mismatch}' doesn't match known options 'collision' and 'object'"
+                )),
             }
         } else if parts.len() == 4 && parts[0] == "pose" {
             let pos_x = parts[1].parse::<f64>()?;
             let pos_y = parts[2].parse::<f64>()?;
             let theta = Radians::new(parts[3].parse::<f64>()?);
-            Ok(Self::Pose(RobotPose { pos: FloatPoint::new([pos_x, pos_y]), theta }))
+            Ok(Self::Pose(RobotPose {
+                pos: FloatPoint::new([pos_x, pos_y]),
+                theta,
+            }))
         } else {
-            Err(anyhow::anyhow!("Input '{}' doesn't match MapInput format", msg))
-        }   
+            Err(anyhow::anyhow!(
+                "Input '{}' doesn't match MapInput format",
+                msg
+            ))
+        }
     }
 }
 
 impl Display for MapInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Collision(obj) => write!(f, "(collision,{},{},{},{})", obj.distance, obj.heading, obj.noise.stdev_distance, obj.noise.stdev_heading),
-            Self::RangeObject(obj) => write!(f, "(object,{},{},{},{})", obj.distance, obj.heading, obj.noise.stdev_distance, obj.noise.stdev_heading),
-            Self::Pose(pose) => write!(f, "(pose,{},{},{})", pose.pos[0], pose.pos[1], f64::from(pose.theta))
+            Self::Collision(obj) => write!(
+                f,
+                "(collision,{},{},{},{})",
+                obj.distance, obj.heading, obj.noise.stdev_distance, obj.noise.stdev_heading
+            ),
+            Self::RangeObject(obj) => write!(
+                f,
+                "(object,{},{},{},{})",
+                obj.distance, obj.heading, obj.noise.stdev_distance, obj.noise.stdev_heading
+            ),
+            Self::Pose(pose) => write!(
+                f,
+                "(pose,{},{},{})",
+                pose.pos[0],
+                pose.pos[1],
+                f64::from(pose.theta)
+            ),
         }
     }
 }
@@ -325,7 +356,10 @@ impl MapObstacle {
         let heading_gaussian = Normal::new(0.0, self.noise.stdev_heading.radians().into()).unwrap();
         let noisy_distance = self.distance + distance_gaussian.sample(&mut rng);
         let noisy_heading = self.heading + Radians::new(heading_gaussian.sample(&mut rng));
-        MapUpdate::NewObstacle { sensor: pose.pos, object: pose + (noisy_distance, noisy_heading) }
+        MapUpdate::NewObstacle {
+            sensor: pose.pos,
+            object: pose + (noisy_distance, noisy_heading),
+        }
     }
 
     fn without_noise(&self) -> Self {
@@ -339,7 +373,10 @@ impl MapObstacle {
 
 pub enum MapUpdate {
     NewPosition(FloatPoint),
-    NewObstacle {sensor: FloatPoint, object: FloatPoint}
+    NewObstacle {
+        sensor: FloatPoint,
+        object: FloatPoint,
+    },
 }
 
 impl MapUpdate {
@@ -582,7 +619,7 @@ impl PoseEstimate {
     pub fn replaced_estimate(&self, offset: &FloatPoint) -> Self {
         Self {
             last_raw: self.last_raw,
-            current_estimate: self.current_estimate + *offset
+            current_estimate: self.current_estimate + *offset,
         }
     }
 
@@ -605,7 +642,11 @@ impl PoseEstimate {
 
 pub fn random_alternative_obstacle(original: &GridPoint, candidates: &BitGrid) -> GridPoint {
     let candidates = candidates.iter().collect::<Vec<_>>();
-    let weights = candidates.iter().enumerate().map(|(i, p)| (i, original.euclidean_distance(*p))).collect::<HashHistogram<usize,f64>>();
+    let weights = candidates
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (i, original.euclidean_distance(*p)))
+        .collect::<HashHistogram<usize, f64>>();
     let walker = WalkerAliasTable::weighted(&weights);
     candidates[walker.choose()]
 }

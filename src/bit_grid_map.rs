@@ -73,10 +73,17 @@ impl BitGridMap {
         }
     }
 
-    pub fn from_map_inputs(square_size_m: f64, robot_radius_m: f64, map_input_filename: &str) -> anyhow::Result<Self> {
+    pub fn from_map_inputs(
+        square_size_m: f64,
+        robot_radius_m: f64,
+        map_input_filename: &str,
+    ) -> anyhow::Result<Self> {
         let mut result = Self::new(square_size_m, robot_radius_m);
         let file_contents = std::fs::read_to_string(map_input_filename)?;
-        let map_inputs = file_contents.lines().map(|line| line.parse::<MapInput>()).collect::<anyhow::Result<Vec<MapInput>>>()?;
+        let map_inputs = file_contents
+            .lines()
+            .map(|line| line.parse::<MapInput>())
+            .collect::<anyhow::Result<Vec<MapInput>>>()?;
         if let Some(starting_pose) = map_inputs.iter().find_map(|mi| mi.pose()) {
             let mut estimate = PoseEstimate::from(starting_pose);
             for map_input in map_inputs.iter() {
@@ -91,8 +98,12 @@ impl BitGridMap {
 
     pub fn add_map_update(&mut self, map_update: &MapUpdate) {
         match map_update {
-            MapUpdate::NewPosition(odometry_location) => self.add_odometry_reading(odometry_location),
-            MapUpdate::NewObstacle { sensor, object } => self.add_obstacle_sensed_from(object, sensor),
+            MapUpdate::NewPosition(odometry_location) => {
+                self.add_odometry_reading(odometry_location)
+            }
+            MapUpdate::NewObstacle { sensor, object } => {
+                self.add_obstacle_sensed_from(object, sensor)
+            }
         }
     }
 
@@ -203,7 +214,13 @@ impl BitGridMap {
     pub fn shadow_envelops_obstacle(&self, grid_point: GridPoint) -> bool {
         let shadow = self.grid_shadow(grid_point);
         let collisions = &shadow & &self.obstacles;
-        collisions.iter().any(|obst| shadow.manhattan_neighbors(&obst).filter(|(_, is_on)| *is_on).count() == 4)
+        collisions.iter().any(|obst| {
+            shadow
+                .manhattan_neighbors(&obst)
+                .filter(|(_, is_on)| *is_on)
+                .count()
+                == 4
+        })
     }
 
     fn draw_overlapping_shadow_on(&mut self, grid_point: GridPoint) -> bool {
@@ -242,15 +259,24 @@ impl BitGridMap {
         self.num_neighbors_spaces(p) < 4
     }
 
-    pub fn inconsistent_obstacles(&self) -> impl Iterator<Item=GridPoint> {
-        self.obstacles.iter().filter(|ob| !self.consistent_obstacle(ob))
+    pub fn inconsistent_obstacles(&self) -> impl Iterator<Item = GridPoint> {
+        self.obstacles
+            .iter()
+            .filter(|ob| !self.consistent_obstacle(ob))
     }
 
     pub fn consistent_obstacle_options(&self) -> BitGrid {
         let unvisited = self.unvisited();
-        let mut result = self.obstacles.iter().filter(|ob| self.consistent_obstacle(ob)).collect::<BitGrid>();
+        let mut result = self
+            .obstacles
+            .iter()
+            .filter(|ob| self.consistent_obstacle(ob))
+            .collect::<BitGrid>();
         for space in self.spaces.iter() {
-            for neighbor in space.manhattan_neighbors().filter(|n| unvisited.contains(n)) {
+            for neighbor in space
+                .manhattan_neighbors()
+                .filter(|n| unvisited.contains(n))
+            {
                 result.insert(neighbor);
             }
         }
