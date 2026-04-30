@@ -12,7 +12,6 @@ pub mod walker;
 pub use bit_grid_map::*;
 use bits::BitArray;
 use enum_iterator::Sequence;
-use rand::{RngExt, rng};
 use serde::{Deserialize, Serialize};
 pub use stats::*;
 
@@ -206,7 +205,6 @@ pub struct ParticleFilterSettings {
     pub save_inputs: bool,
     // These don't affect the Particle Filter directly but are used for identifying
     // experimental variants. I may get rid of them eventually.
-    pub can_fail: bool,
     pub use_obstacle_noise: bool,
 }
 
@@ -229,7 +227,6 @@ impl Default for ParticleFilterSettings {
             selection_strategy: SelectionStrategy::RankProportion,
             weight_strategy: WeightStrategy::MinPose,
             save_inputs: false,
-            can_fail: true,
             use_obstacle_noise: false,
         }
     }
@@ -431,7 +428,7 @@ impl ParticleFilter {
         }
     }
 
-    pub fn iterate(&mut self, map_input: MapInput, can_fail: bool) {
+    pub fn iterate(&mut self, map_input: MapInput) {
         if self.save_inputs {
             self.inputs.push(map_input);
         }
@@ -440,15 +437,11 @@ impl ParticleFilter {
         }
         self.total_iterations += 1;
         self.update_all_particles(map_input);
-        if can_fail {
-            let consistent = self.find_consistent_particles();
-            if consistent.len() == 0 {
-                self.example_failure = Some(self.particles[0].clone());
-            } else if consistent.len() < self.particles.len() {
-                self.repopulate(consistent, map_input.collision());
-            }
-        } else {
-            self.replacing_repopulate(map_input.collision());
+        let consistent = self.find_consistent_particles();
+        if consistent.len() == 0 {
+            self.example_failure = Some(self.particles[0].clone());
+        } else if consistent.len() < self.particles.len() {
+            self.repopulate(consistent, map_input.collision());
         }
     }
 
@@ -510,52 +503,6 @@ impl ParticleFilter {
         self.particles = permutation
             .map(|current| self.particles[current].clone())
             .collect();
-    }
-
-    fn replacing_repopulate(&mut self, collision: bool) {
-        let num_particles = self.particles.len();
-        let mut candidates = vec![];
-        std::mem::swap(&mut candidates, &mut self.particles);
-        let mut inconsistent = vec![];
-        let mut rng = rng();
-        for p in candidates.iter_mut() {
-            let problems = p.map.inconsistent_obstacles().collect::<Vec<_>>();
-            if problems.len() > 0 {
-                inconsistent.push(p.clone());
-                let choice = rng.random_range(0..problems.len());
-                *p = p.consistent_alternative(&problems[choice]);
-                for i in 0..problems.len() {
-                    if i != choice {
-                        p.map.erase_obstacle(&problems[i]);
-                    }
-                }
-            }
-        }
-        assert_eq!(candidates.len(), num_particles);
-        if inconsistent.len() > 0 {
-            let weights = reversed_weights(self
-                .weight_strategy
-                .weights(&candidates, &inconsistent))
-                .ranking_with_counts();
-            let mut ranked_candidates = vec![];
-            for (i, _) in weights.iter() {
-                ranked_candidates.push(candidates[*i].clone());
-            }
-            let weights = weights
-                .iter()
-                .map(|(_, w)| *w)
-                .enumerate()
-                .collect::<HashHistogram<usize, f64>>();
-            let selector = self.selection_strategy.selector(&weights);
-
-            while self.particles.len() < num_particles {
-                let mut chosen = ranked_candidates[selector.choose()].clone();
-                chosen.add_noise(collision);
-                self.particles.push(chosen);
-            }
-        } else {
-            std::mem::swap(&mut candidates, &mut self.particles);
-        }
     }
 }
 
