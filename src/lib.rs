@@ -29,6 +29,7 @@ use walker::WalkerAliasTable;
 
 use crate::angle::Angle;
 use crate::bit_grid::BitGrid;
+use crate::irobot_create3::HEADING_STDEV_RADIANS;
 use crate::point::GridPoint;
 
 #[macro_export]
@@ -236,6 +237,7 @@ pub enum MapInput {
     Pose(RobotPose<Radians>),
     Collision(MapObstacle),
     RangeObject(MapObstacle),
+    FreeSpace(f64,Radians,ObstacleNoise),
 }
 
 impl MapInput {
@@ -260,14 +262,7 @@ impl MapInput {
             Self::RangeObject(obj) => Some(*obj),
             Self::Collision(obj) => Some(*obj),
             Self::Pose(_) => None,
-        }
-    }
-
-    pub fn without_obstacle_noise(&self) -> Self {
-        match self {
-            Self::Pose(p) => Self::Pose(*p),
-            Self::RangeObject(obstacle) => Self::RangeObject(obstacle.without_noise()),
-            Self::Collision(obstacle) => Self::Collision(obstacle.without_noise()),
+            Self::FreeSpace(_, _, _) => None,
         }
     }
 }
@@ -297,6 +292,7 @@ impl FromStr for MapInput {
             match parts[0] {
                 "collision" => Ok(Self::Collision(obstacle)),
                 "object" => Ok(Self::RangeObject(obstacle)),
+                "freespace" => Ok(Self::FreeSpace(distance, heading, obstacle.noise)),
                 mismatch => Err(anyhow::anyhow!(
                     "Tag '{mismatch}' doesn't match known options 'collision' and 'object'"
                 )),
@@ -338,6 +334,10 @@ impl Display for MapInput {
                 pose.pos[1],
                 f64::from(pose.theta)
             ),
+            Self::FreeSpace(distance, heading, noise) => write!(
+                f,
+                "(freespace,{distance},{heading},{},{})", noise.stdev_distance, noise.stdev_heading
+            )
         }
     }
 }
@@ -359,22 +359,10 @@ impl MapObstacle {
     }
 
     fn update(&self, pose: RobotPose<Radians>) -> MapUpdate {
-        let mut rng = rand::rng();
-        let distance_gaussian = Normal::new(0.0, self.noise.stdev_distance).unwrap();
-        let heading_gaussian = Normal::new(0.0, self.noise.stdev_heading.radians().into()).unwrap();
-        let noisy_distance = self.distance + distance_gaussian.sample(&mut rng);
-        let noisy_heading = self.heading + Radians::new(heading_gaussian.sample(&mut rng));
+        let (noisy_distance, noisy_heading) = self.noise.noisy_distance_heading(self.distance, self.heading);
         MapUpdate::NewObstacle {
             sensor: pose.pos,
             object: pose + (noisy_distance, noisy_heading),
-        }
-    }
-
-    fn without_noise(&self) -> Self {
-        Self {
-            distance: self.distance,
-            heading: self.heading,
-            noise: ObstacleNoise::default(),
         }
     }
 }
@@ -384,6 +372,10 @@ pub enum MapUpdate {
     NewObstacle {
         sensor: FloatPoint,
         object: FloatPoint,
+    },
+    NewSpace {
+        sensor: FloatPoint,
+        range_end: FloatPoint,
     },
 }
 
@@ -396,6 +388,10 @@ impl MapUpdate {
             }
             MapInput::Collision(obstacle) => obstacle.update(estimate.current_estimate),
             MapInput::RangeObject(obstacle) => obstacle.update(estimate.current_estimate),
+            MapInput::FreeSpace(distance, heading, noise) => {
+                let ndh = noise.noisy_distance_heading(*distance, *heading);
+                MapUpdate::NewSpace { sensor: estimate.current_estimate.pos, range_end: estimate.current_estimate + ndh }
+            }
         }
     }
 }
@@ -584,6 +580,15 @@ impl PoseNoise {
 pub struct ObstacleNoise {
     pub stdev_distance: f64,
     pub stdev_heading: Radians,
+}
+
+impl ObstacleNoise {
+    fn noisy_distance_heading(&self, distance: f64, heading: Radians) -> (f64, Radians) {
+        let mut rng = rand::rng();
+        let distance_gaussian = Normal::new(0.0, self.stdev_distance).unwrap();
+        let heading_gaussian = Normal::new(0.0, self.stdev_heading.radians().into()).unwrap();
+        (distance + distance_gaussian.sample(&mut rng), heading + Radians::new(heading_gaussian.sample(&mut rng)))
+    }
 }
 
 pub trait StatCollector<M>: Default + Clone {

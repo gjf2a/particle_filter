@@ -102,7 +102,11 @@ impl BitGridMap {
                 self.add_odometry_reading(odometry_location)
             }
             MapUpdate::NewObstacle { sensor, object } => {
-                self.add_obstacle_sensed_from(object, sensor)
+                self.add_obstacle_at(object);
+                self.add_free_space(sensor, object);
+            }
+            MapUpdate::NewSpace { sensor, range_end } => {
+                self.add_free_space(sensor, range_end);
             }
         }
     }
@@ -120,10 +124,9 @@ impl BitGridMap {
         self.obstacles.insert(p);
     }
 
-    fn add_obstacle_sensed_from(&mut self, object: &FloatPoint, sensor: &FloatPoint) {
-        self.add_obstacle_at(object);
+    fn add_free_space(&mut self, sensor: &FloatPoint, range_end: &FloatPoint) {
         let start = self.to_point(*sensor);
-        let end = self.to_point(*object);
+        let end = self.to_point(*range_end);
         self.add_space_between(&start, &end);
     }
 
