@@ -29,7 +29,6 @@ use walker::WalkerAliasTable;
 
 use crate::angle::Angle;
 use crate::bit_grid::BitGrid;
-use crate::irobot_create3::HEADING_STDEV_RADIANS;
 use crate::point::GridPoint;
 
 #[macro_export]
@@ -203,9 +202,6 @@ pub struct ParticleFilterSettings {
     pub selection_strategy: SelectionStrategy,
     pub weight_strategy: WeightStrategy,
     pub save_inputs: bool,
-    // These don't affect the Particle Filter directly but are used for identifying
-    // experimental variants. I may get rid of them eventually.
-    pub use_obstacle_noise: bool,
 }
 
 impl Default for ParticleFilterSettings {
@@ -227,7 +223,6 @@ impl Default for ParticleFilterSettings {
             selection_strategy: SelectionStrategy::RankProportion,
             weight_strategy: WeightStrategy::MinPose,
             save_inputs: false,
-            use_obstacle_noise: false,
         }
     }
 }
