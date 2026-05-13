@@ -232,7 +232,7 @@ pub enum MapInput {
     Pose(RobotPose<Radians>),
     Collision(MapObstacle),
     RangeObject(MapObstacle),
-    FreeSpace(f64,Radians,ObstacleNoise),
+    FreeSpace(f64, Radians, ObstacleNoise),
 }
 
 impl MapInput {
@@ -331,8 +331,9 @@ impl Display for MapInput {
             ),
             Self::FreeSpace(distance, heading, noise) => write!(
                 f,
-                "(freespace,{distance},{heading},{},{})", noise.stdev_distance, noise.stdev_heading
-            )
+                "(freespace,{distance},{heading},{},{})",
+                noise.stdev_distance, noise.stdev_heading
+            ),
         }
     }
 }
@@ -354,7 +355,9 @@ impl MapObstacle {
     }
 
     fn update(&self, pose: RobotPose<Radians>) -> MapUpdate {
-        let (noisy_distance, noisy_heading) = self.noise.noisy_distance_heading(self.distance, self.heading);
+        let (noisy_distance, noisy_heading) = self
+            .noise
+            .noisy_distance_heading(self.distance, self.heading);
         MapUpdate::NewObstacle {
             sensor: pose.pos,
             object: pose + (noisy_distance, noisy_heading),
@@ -385,7 +388,10 @@ impl MapUpdate {
             MapInput::RangeObject(obstacle) => obstacle.update(estimate.current_estimate),
             MapInput::FreeSpace(distance, heading, noise) => {
                 let ndh = noise.noisy_distance_heading(*distance, *heading);
-                MapUpdate::NewSpace { sensor: estimate.current_estimate.pos, range_end: estimate.current_estimate + ndh }
+                MapUpdate::NewSpace {
+                    sensor: estimate.current_estimate.pos,
+                    range_end: estimate.current_estimate + ndh,
+                }
             }
         }
     }
@@ -582,7 +588,10 @@ impl ObstacleNoise {
         let mut rng = rand::rng();
         let distance_gaussian = Normal::new(0.0, self.stdev_distance).unwrap();
         let heading_gaussian = Normal::new(0.0, self.stdev_heading.radians().into()).unwrap();
-        (distance + distance_gaussian.sample(&mut rng), heading + Radians::new(heading_gaussian.sample(&mut rng)))
+        (
+            distance + distance_gaussian.sample(&mut rng),
+            heading + Radians::new(heading_gaussian.sample(&mut rng)),
+        )
     }
 }
 

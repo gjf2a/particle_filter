@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::point::GridLineIterator;
 use crate::{MapInput, MapUpdate, PoseEstimate, StatCollector};
 use crate::{
     angle::Radians,
@@ -333,6 +334,54 @@ impl BitGridMap {
 
     pub fn erase_obstacle(&mut self, obstacle: &GridPoint) {
         self.obstacles.remove(obstacle);
+    }
+
+    pub fn clear_path_between(&self, p1: &GridPoint, p2: &GridPoint) -> bool {
+        GridLineIterator::from_to(p1, p2)
+            .all(|p| !self.obstacles.contains(&p) && self.spaces.contains(&p))
+    }
+
+    pub fn map_pose_path_str(
+        &self,
+        pose: Option<RobotPose<Radians>>,
+        path_points: BitGrid,
+    ) -> String {
+        let mut strmap = String::new();
+        let bounds = self.bordered_bounding_box();
+        let shadow = pose.map(|p| self.robot_shadow(p));
+        let mut last_row = None;
+        for p in bounds.row_major_coord_iter() {
+            last_row = Some(last_row.map_or(p[1], |row| {
+                if p[1] > row {
+                    strmap.push('\n');
+                    p[1]
+                } else {
+                    row
+                }
+            }));
+            let c = match self.cell_for(&p) {
+                Cell::Obstacle => '#',
+                Cell::Space => {
+                    if path_points.contains(&p) {
+                        '+'
+                    } else if shadow.as_ref().map_or(false, |s| s.contains(&p)) {
+                        '@'
+                    } else {
+                        '.'
+                    }
+                }
+                Cell::Unvisited => {
+                    if path_points.contains(&p) {
+                        '*'
+                    } else {
+                        '?'
+                    }
+                }
+                Cell::Inconsistent => '!',
+            };
+            strmap.push(c);
+        }
+        strmap
     }
 }
 

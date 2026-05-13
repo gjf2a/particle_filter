@@ -1,7 +1,4 @@
-use crate::{
-    MapInput, MapObstacle, ObstacleNoise,
-    angle::Radians,
-};
+use crate::{MapInput, MapObstacle, ObstacleNoise, angle::Radians};
 use std::{f64::consts::PI, str::FromStr};
 
 pub const RADIUS_M: f64 = 0.2032;

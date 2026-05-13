@@ -36,6 +36,21 @@ impl PathsBackTo {
         Self::new(map, start, WhenToStop::First)
     }
 
+    pub fn shortest_path_points(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
+        Self::any(map, start).shortest_path().map_or(BitGrid::default(), |shortest| shortest.iter().collect())        
+    }
+
+    pub fn all_path_points(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
+        let paths_back = Self::all(map, start);
+        let mut grid = BitGrid::default();
+        for leaf in paths_back.leaves().iter() {
+            for square in paths_back.path_to_start(leaf) {
+                grid.insert(square);
+            }
+        }
+        grid
+    }
+
     pub fn done(particle: &Particle) -> bool {
         let pbt = Self::any(&particle.map, particle.estimated_pose());
         pbt.no_path_to_unvisited()
@@ -55,13 +70,6 @@ impl PathsBackTo {
         let mut queue = PriorityQueue::new();
         let start = GridVector::new(map, start);
         queue.push(start, Reverse(0));
-        /*
-        let (start, all_start_vecs) = GridVector::all_starts(map, start);
-        self.start = start;
-        for start_vec in all_start_vecs {
-            queue.push(start_vec, Reverse(0));
-        }
-        */
         while let Some((current, cost)) = queue.pop() {
             if !self.parent_of.contains_key(&current.current) && current.clear_path(map) {
                 self.add_vector(&current);
@@ -122,6 +130,16 @@ impl PathsBackTo {
     pub fn leaves(&self) -> &BitGrid {
         &self.leaves
     }
+}
+
+pub fn necessary_turns_from(path: &VecDeque<GridPoint>, map: &BitGridMap) -> Vec<GridPoint> {
+    let mut result = vec![path[0]];
+    for i in 1..path.len() {
+        if !map.clear_path_between(&result[result.len() - 1], &path[i]) {
+            result.push(path[i]);
+        }
+    }
+    result
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -217,6 +235,9 @@ mod tests {
     const TEST_POSE_STR_2: &str =
         r#"{"pos":{"coords":[-1.5866413378378004,0.0998764804308733]},"theta":-3.086761081685883}"#;
 
+    const TEST_MAP_316: &str = r#"{"obstacles":{"bits":{"bits":[216172783188049920,35701915648,549755813921,18014398509481984,274877923328,2251799813718016,72057594037927936,0,0,9223372036854775808,0,2305843009213693952,8796093022210,536870912,162160372911964208]},"bounds":{"min":{"coords":[-15,-21]},"max":{"coords":[24,2]}}},"spaces":{"bits":{"bits":[9223372036984799232,9006312343995391,17293259623443853056,1125075206013439,18446726482060247024,17870424058894221375,18445618105116786175,18158654434844835855,18446743938451636223,18176105883602192143,18446744009284517887,18412967076504265215,18446744057066553343,13835620902156329087,18311631686976081919,70300827910175,2305843009219952671,0]},"bounds":{"min":{"coords":[-16,-22]},"max":{"coords":[25,3]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
+    const TEST_POSE_316: &str = r#"{"pos":{"coords":[-0.6696478960737573,-1.5008256983736394]},"theta":-1.9513766899243616}"#;
+
     #[test]
     fn test_unexpected_no_paths() {
         let paths = paths_from(TEST_MAP_STR_1, TEST_POSE_STR_1);
@@ -227,6 +248,22 @@ mod tests {
     fn test_expected_paths() {
         let paths = paths_from(TEST_MAP_STR_2, TEST_POSE_STR_2);
         println!("{}", paths.leaves);
+    }
+
+    #[test]
+    fn test_316_shortest() {
+        let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
+        let pose: RobotPose<Radians> = serde_json::from_str(TEST_POSE_316).unwrap();
+        let shortest = PathsBackTo::shortest_path_points(&map, pose);
+        println!("{}", map.map_pose_path_str(Some(pose), shortest));
+    }
+
+    #[test]
+    fn test_316_all() {
+        let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
+        let pose: RobotPose<Radians> = serde_json::from_str(TEST_POSE_316).unwrap();
+        let shortest = PathsBackTo::all_path_points(&map, pose);
+        println!("{}", map.map_pose_path_str(Some(pose), shortest));
     }
 
     fn paths_from(map: &str, pose: &str) -> PathsBackTo {
@@ -246,4 +283,7 @@ mod tests {
         println!();
         PathsBackTo::any(&map, start)
     }
+
+    #[test]
+    fn test_necessary_turns_from() {}
 }
