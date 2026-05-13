@@ -276,7 +276,7 @@ mod tests {
     fn test_316_specific() {
         let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
         let pose: RobotPose<Radians> = serde_json::from_str(TEST_POSE_316).unwrap();
-        let shortest = PathsBackTo::path_points_to(&map, pose, pt!(18, -9));
+        let shortest = PathsBackTo::path_points_to(&map, pose, pt!(6, -23));
         println!("{}", map.map_pose_path_str(Some(pose), shortest));
     }
 
@@ -284,7 +284,8 @@ mod tests {
     fn test_316_bypass() {
         let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
         let pose: RobotPose<Radians> = serde_json::from_str(TEST_POSE_316).unwrap();
-        let path = necessary_turns_from(PathsBackTo::all(&map, pose).path_to_start(pt!(18, -9)).iter().copied(), &map);
+        let path = necessary_turns_from(PathsBackTo::all(&map, pose).path_to_start(pt!(6, -23)).iter().copied(), &map);
+        println!("{path:?}");
         let path_points = path.iter().collect::<BitGrid>();
         println!("{}", map.map_pose_path_str(Some(pose), path_points));
     }
@@ -309,6 +310,15 @@ mod tests {
 
     #[test]
     fn test_necessary_turns_from() {
-        
+        let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
+        let pose: RobotPose<Radians> = serde_json::from_str(TEST_POSE_316).unwrap();
+        for (end, expected_path) in [
+            (pt!(18,  -9),  vec![pt!(-6, -15), pt!(-4, -9), pt!(18,  -9)]),
+            (pt!(18, -19),  vec![pt!(-6, -15), pt!(-4, -9), pt!(18, -19)]),
+            (pt!( 6, -23),  vec![pt!(-6, -15), pt!(-4, -9), pt!( 6, -17), pt!(6, -23)])
+        ] {
+            let path = necessary_turns_from(PathsBackTo::all(&map, pose).path_to_start(end).iter().copied(), &map);
+            assert_eq!(expected_path, path);    
+        }
     }
 }
