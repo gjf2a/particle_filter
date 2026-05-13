@@ -136,11 +136,11 @@ impl PathsBackTo {
     }
 }
 
-pub fn necessary_turns_from(path: &VecDeque<GridPoint>, map: &BitGridMap) -> Vec<GridPoint> {
-    let mut result = vec![path[0]];
-    for i in 1..path.len() {
-        if !map.clear_path_between(&result[result.len() - 1], &path[i]) {
-            result.push(path[i]);
+pub fn necessary_turns_from<I: Iterator<Item=GridPoint>>(path: I, map: &BitGridMap) -> Vec<GridPoint> {
+    let mut result = vec![];
+    for point in path {
+        if result.len() == 0 || !map.clear_path_between(&result[result.len() - 1], &point) {
+            result.push(point);
         }
     }
     result
@@ -230,7 +230,7 @@ fn heading2manhattan(heading: Radians) -> GridPoint {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BitGridMap, angle::Radians, path_plan::PathsBackTo, pose::RobotPose, pt};
+    use crate::{BitGridMap, angle::Radians, bit_grid::BitGrid, path_plan::{PathsBackTo, necessary_turns_from}, pose::RobotPose, pt};
 
     const TEST_MAP_STR_1: &str = r#"{"obstacles":{"bits":{"bits":[1]},"bounds":{"min":{"coords":[-15,3]},"max":{"coords":[-15,3]}}},"spaces":{"bits":{"bits":[8935143584848674816,13835058055281115134,206156595199]},"bounds":{"min":{"coords":[-18,-5]},"max":{"coords":[2,2]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
     const TEST_POSE_STR_1: &str = r#"{"pos":{"coords":[-1.5637336449019554,0.11068795293575091]},"theta":-3.074780485700006}"#;
@@ -280,6 +280,15 @@ mod tests {
         println!("{}", map.map_pose_path_str(Some(pose), shortest));
     }
 
+    #[test]
+    fn test_316_bypass() {
+        let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
+        let pose: RobotPose<Radians> = serde_json::from_str(TEST_POSE_316).unwrap();
+        let path = necessary_turns_from(PathsBackTo::all(&map, pose).path_to_start(pt!(18, -9)).iter().copied(), &map);
+        let path_points = path.iter().collect::<BitGrid>();
+        println!("{}", map.map_pose_path_str(Some(pose), path_points));
+    }
+
     fn paths_from(map: &str, pose: &str) -> PathsBackTo {
         let map: BitGridMap = serde_json::from_str(map).unwrap();
         println!("Consistent? {}", map.is_consistent());
@@ -299,5 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn test_necessary_turns_from() {}
+    fn test_necessary_turns_from() {
+        
+    }
 }
