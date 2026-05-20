@@ -655,6 +655,10 @@ impl PoseEstimate {
     pub fn add_noise(&mut self, noise: PoseNoise) {
         self.current_estimate = noise.noise(self.current_estimate);
     }
+
+    pub fn last_raw_pose(&self) -> Option<RobotPose<Radians>> {
+        self.last_raw
+    }
 }
 
 pub fn random_alternative_obstacle(original: &GridPoint, candidates: &BitGrid) -> GridPoint {
