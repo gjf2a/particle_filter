@@ -75,14 +75,12 @@ impl PathsBackTo {
         let start = GridVector::new(map, start);
         queue.push(start, Reverse(0));
         while let Some((current, cost)) = queue.pop() {
-            eprintln!("Popped {current:?} clear? {}", current.clear_path(map));
             if !self.parent_of.contains_key(&current.current) && current.clear_path(map) {
                 self.add_vector(&current);
                 if unvisited.contains(&current.current) && stop == WhenToStop::First {
                     break;
                 }
                 if map.all_spaces().contains(&current.current) {
-                    eprintln!("is open space");
                     for (successor, upcharge) in current.successors(grid_step) {
                         queue.push(successor, Reverse(cost.0 + upcharge));
                     }
