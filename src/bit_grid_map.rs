@@ -218,12 +218,14 @@ impl BitGridMap {
     pub fn shadow_envelops_obstacle(&self, grid_point: GridPoint) -> bool {
         let shadow = self.grid_shadow(grid_point);
         let collisions = &shadow & &self.obstacles;
+        eprintln!("shadow:\n{shadow}");
+        eprintln!("collisions:\n{collisions}");
         collisions.iter().any(|obst| {
             shadow
-                .manhattan_neighbors(&obst)
+                .all_neighbors(&obst)
                 .filter(|(_, is_on)| *is_on)
                 .count()
-                == 4
+                == 8
         })
     }
 

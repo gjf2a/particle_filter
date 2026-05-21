@@ -106,6 +106,10 @@ impl BitGrid {
         manhattan_iter(p).map(|p| (p, self.contains(&p)))
     }
 
+    pub fn all_neighbors(&self, p: &GridPoint) -> impl Iterator<Item = (GridPoint, bool)> {
+        all_iter(p).map(|p| (p, self.contains(&p)))
+    }
+
     fn bits(&self) -> &BitArray {
         &self.bits
     }
@@ -409,9 +413,18 @@ impl RowMajorCoordIter {
 }
 
 const MANHATTAN_OFFSETS: [(i64, i64); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+const ALL_OFFSETS: [(i64, i64); 8] = [(-1, 0), (-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1)];
 
 fn manhattan_iter(p: &GridPoint) -> impl Iterator<Item = GridPoint> {
-    MANHATTAN_OFFSETS
+    offset_iter(p, &MANHATTAN_OFFSETS)
+}
+
+fn all_iter(p: &GridPoint) -> impl Iterator<Item = GridPoint> {
+    offset_iter(p, &ALL_OFFSETS)
+}
+
+fn offset_iter(p: &GridPoint, offsets: &[(i64, i64)]) -> impl Iterator<Item = GridPoint> {
+    offsets
         .iter()
         .copied()
         .map(move |(off_x, off_y)| pt!(off_x + p[0], off_y + p[1]))

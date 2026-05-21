@@ -75,12 +75,14 @@ impl PathsBackTo {
         let start = GridVector::new(map, start);
         queue.push(start, Reverse(0));
         while let Some((current, cost)) = queue.pop() {
+            eprintln!("Popped {current:?} clear? {}", current.clear_path(map));
             if !self.parent_of.contains_key(&current.current) && current.clear_path(map) {
                 self.add_vector(&current);
                 if unvisited.contains(&current.current) && stop == WhenToStop::First {
                     break;
                 }
                 if map.all_spaces().contains(&current.current) {
+                    eprintln!("is open space");
                     for (successor, upcharge) in current.successors(grid_step) {
                         queue.push(successor, Reverse(cost.0 + upcharge));
                     }
@@ -249,18 +251,21 @@ mod tests {
     fn test_unexpected_no_paths() {
         let paths = paths_from(TEST_MAP_STR_1, TEST_POSE_STR_1);
         println!("leaves: {}", paths.leaves);
+        assert!(paths.leaves.len() > 0);
     }
 
     #[test]
     fn test_expected_paths() {
         let paths = paths_from(TEST_MAP_STR_2, TEST_POSE_STR_2);
-        println!("{}", paths.leaves);
+        println!("leaves: {}", paths.leaves);
+        assert!(paths.leaves.len() > 0);
     }
 
     #[test]
     fn test_unexpected_no_paths_316() {
         let paths = paths_from(TEST_MAP_316_STOPPED, TEST_POSE_316_STOPPED);
         println!("leaves: {}", paths.leaves);
+        assert!(paths.leaves.len() > 0);
     }
 
     #[test]
