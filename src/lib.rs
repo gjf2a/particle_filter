@@ -440,6 +440,10 @@ impl ParticleFilter {
         self.actual_ending_point = Some(actual_ending_point);
     }
 
+    pub fn get_actual_ending_point(&self) -> Option<FloatPoint> {
+        self.actual_ending_point
+    }
+
     pub fn len(&self) -> usize {
         self.particles.len()
     }
