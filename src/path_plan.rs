@@ -242,16 +242,25 @@ mod tests {
     const TEST_MAP_316: &str = r#"{"obstacles":{"bits":{"bits":[216172783188049920,35701915648,549755813921,18014398509481984,274877923328,2251799813718016,72057594037927936,0,0,9223372036854775808,0,2305843009213693952,8796093022210,536870912,162160372911964208]},"bounds":{"min":{"coords":[-15,-21]},"max":{"coords":[24,2]}}},"spaces":{"bits":{"bits":[9223372036984799232,9006312343995391,17293259623443853056,1125075206013439,18446726482060247024,17870424058894221375,18445618105116786175,18158654434844835855,18446743938451636223,18176105883602192143,18446744009284517887,18412967076504265215,18446744057066553343,13835620902156329087,18311631686976081919,70300827910175,2305843009219952671,0]},"bounds":{"min":{"coords":[-16,-22]},"max":{"coords":[25,3]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
     const TEST_POSE_316: &str = r#"{"pos":{"coords":[-0.6696478960737573,-1.5008256983736394]},"theta":-1.9513766899243616}"#;
 
+    const TEST_MAP_316_STOPPED: &str = r#"{"obstacles":{"bits":{"bits":[1]},"bounds":{"min":{"coords":[1,37]},"max":{"coords":[1,37]}}},"spaces":{"bits":{"bits":[2296835809958820988,1135999956104789535,9782911240656141855,9782911240656142095,9782911240652070671,126647214570086159,1]},"bounds":{"min":{"coords":[-6,-4]},"max":{"coords":[2,38]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
+    const TEST_POSE_316_STOPPED: &str = r#"{"pos":{"coords":[0.09699651483408887,3.717113913552248]},"theta":1.2385537322981237}"#;
+
     #[test]
     fn test_unexpected_no_paths() {
         let paths = paths_from(TEST_MAP_STR_1, TEST_POSE_STR_1);
-        println!("{}", paths.leaves);
+        println!("leaves: {}", paths.leaves);
     }
 
     #[test]
     fn test_expected_paths() {
         let paths = paths_from(TEST_MAP_STR_2, TEST_POSE_STR_2);
         println!("{}", paths.leaves);
+    }
+
+    #[test]
+    fn test_unexpected_no_paths_316() {
+        let paths = paths_from(TEST_MAP_316_STOPPED, TEST_POSE_316_STOPPED);
+        println!("leaves: {}", paths.leaves);
     }
 
     #[test]
