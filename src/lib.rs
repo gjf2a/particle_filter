@@ -408,6 +408,7 @@ pub struct ParticleFilter {
     weight_strategy: WeightStrategy,
     save_inputs: bool,
     inputs: Vec<MapInput>,
+    actual_ending_point: Option<FloatPoint>,
 }
 
 impl ParticleFilter {
@@ -431,7 +432,12 @@ impl ParticleFilter {
             weight_strategy: settings.weight_strategy,
             save_inputs: settings.save_inputs,
             inputs: vec![],
+            actual_ending_point: None,
         }
+    }
+
+    pub fn set_actual_ending_point(&mut self, actual_ending_point: FloatPoint) {
+        self.actual_ending_point = Some(actual_ending_point);
     }
 
     pub fn len(&self) -> usize {
