@@ -37,7 +37,9 @@ impl PathsBackTo {
     }
 
     pub fn shortest_path_points(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
-        Self::any(map, start).shortest_path().map_or(BitGrid::default(), |shortest| shortest.iter().collect())        
+        Self::any(map, start)
+            .shortest_path()
+            .map_or(BitGrid::default(), |shortest| shortest.iter().collect())
     }
 
     pub fn all_path_points(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
@@ -51,7 +53,11 @@ impl PathsBackTo {
         grid
     }
 
-    pub fn path_points_to(map: &BitGridMap, start: RobotPose<Radians>, target: GridPoint) -> BitGrid {
+    pub fn path_points_to(
+        map: &BitGridMap,
+        start: RobotPose<Radians>,
+        target: GridPoint,
+    ) -> BitGrid {
         Self::all(map, start).path_to_start(target).iter().collect()
     }
 
@@ -136,7 +142,10 @@ impl PathsBackTo {
     }
 }
 
-pub fn necessary_turns_from<I: Iterator<Item=GridPoint>>(path: I, map: &BitGridMap) -> Vec<GridPoint> {
+pub fn necessary_turns_from<I: Iterator<Item = GridPoint>>(
+    path: I,
+    map: &BitGridMap,
+) -> Vec<GridPoint> {
     let mut result = vec![];
     for point in path {
         if result.len() == 0 || !map.clear_path_between(&result[result.len() - 1], &point) {
@@ -230,7 +239,14 @@ fn heading2manhattan(heading: Radians) -> GridPoint {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BitGridMap, angle::Radians, bit_grid::BitGrid, path_plan::{PathsBackTo, necessary_turns_from}, pose::RobotPose, pt};
+    use crate::{
+        BitGridMap,
+        angle::Radians,
+        bit_grid::BitGrid,
+        path_plan::{PathsBackTo, necessary_turns_from},
+        pose::RobotPose,
+        pt,
+    };
 
     const TEST_MAP_STR_1: &str = r#"{"obstacles":{"bits":{"bits":[1]},"bounds":{"min":{"coords":[-15,3]},"max":{"coords":[-15,3]}}},"spaces":{"bits":{"bits":[8935143584848674816,13835058055281115134,206156595199]},"bounds":{"min":{"coords":[-18,-5]},"max":{"coords":[2,2]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
     const TEST_POSE_STR_1: &str = r#"{"pos":{"coords":[-1.5637336449019554,0.11068795293575091]},"theta":-3.074780485700006}"#;
@@ -243,7 +259,8 @@ mod tests {
     const TEST_POSE_316: &str = r#"{"pos":{"coords":[-0.6696478960737573,-1.5008256983736394]},"theta":-1.9513766899243616}"#;
 
     const TEST_MAP_316_STOPPED: &str = r#"{"obstacles":{"bits":{"bits":[1]},"bounds":{"min":{"coords":[1,37]},"max":{"coords":[1,37]}}},"spaces":{"bits":{"bits":[2296835809958820988,1135999956104789535,9782911240656141855,9782911240656142095,9782911240652070671,126647214570086159,1]},"bounds":{"min":{"coords":[-6,-4]},"max":{"coords":[2,38]}}},"shadow":{"bits":{"bits":[4685252]},"bounds":{"min":{"coords":[-2,-2]},"max":{"coords":[2,2]}}},"square_size_m":0.1,"brand_new":false,"space_contiguous":true}"#;
-    const TEST_POSE_316_STOPPED: &str = r#"{"pos":{"coords":[0.09699651483408887,3.717113913552248]},"theta":1.2385537322981237}"#;
+    const TEST_POSE_316_STOPPED: &str =
+        r#"{"pos":{"coords":[0.09699651483408887,3.717113913552248]},"theta":1.2385537322981237}"#;
 
     #[test]
     fn test_unexpected_no_paths() {
@@ -296,7 +313,13 @@ mod tests {
     fn test_316_bypass() {
         let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
         let pose: RobotPose<Radians> = serde_json::from_str(TEST_POSE_316).unwrap();
-        let path = necessary_turns_from(PathsBackTo::all(&map, pose).path_to_start(pt!(6, -23)).iter().copied(), &map);
+        let path = necessary_turns_from(
+            PathsBackTo::all(&map, pose)
+                .path_to_start(pt!(6, -23))
+                .iter()
+                .copied(),
+            &map,
+        );
         println!("{path:?}");
         let path_points = path.iter().collect::<BitGrid>();
         println!("{}", map.map_pose_path_str(Some(pose), path_points));
@@ -325,12 +348,21 @@ mod tests {
         let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
         let pose: RobotPose<Radians> = serde_json::from_str(TEST_POSE_316).unwrap();
         for (end, expected_path) in [
-            (pt!(18,  -9),  vec![pt!(-6, -15), pt!(-4, -9), pt!(18,  -9)]),
-            (pt!(18, -19),  vec![pt!(-6, -15), pt!(-4, -9), pt!(18, -19)]),
-            (pt!( 6, -23),  vec![pt!(-6, -15), pt!(-4, -9), pt!( 6, -17), pt!(6, -23)])
+            (pt!(18, -9), vec![pt!(-6, -15), pt!(-4, -9), pt!(18, -9)]),
+            (pt!(18, -19), vec![pt!(-6, -15), pt!(-4, -9), pt!(18, -19)]),
+            (
+                pt!(6, -23),
+                vec![pt!(-6, -15), pt!(-4, -9), pt!(6, -17), pt!(6, -23)],
+            ),
         ] {
-            let path = necessary_turns_from(PathsBackTo::all(&map, pose).path_to_start(end).iter().copied(), &map);
-            assert_eq!(expected_path, path);    
+            let path = necessary_turns_from(
+                PathsBackTo::all(&map, pose)
+                    .path_to_start(end)
+                    .iter()
+                    .copied(),
+                &map,
+            );
+            assert_eq!(expected_path, path);
         }
     }
 }

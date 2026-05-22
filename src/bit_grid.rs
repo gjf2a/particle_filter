@@ -413,7 +413,16 @@ impl RowMajorCoordIter {
 }
 
 const MANHATTAN_OFFSETS: [(i64, i64); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
-const ALL_OFFSETS: [(i64, i64); 8] = [(-1, 0), (-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1)];
+const ALL_OFFSETS: [(i64, i64); 8] = [
+    (-1, 0),
+    (-1, -1),
+    (0, -1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+    (0, 1),
+    (-1, 1),
+];
 
 fn manhattan_iter(p: &GridPoint) -> impl Iterator<Item = GridPoint> {
     offset_iter(p, &MANHATTAN_OFFSETS)
