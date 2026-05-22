@@ -109,19 +109,11 @@ impl PathsBackTo {
     }
 
     pub fn shortest_path(&self) -> Option<VecDeque<GridPoint>> {
-        let mut result = None;
-        for leaf in self.leaves.iter() {
-            let path_back = self.path_to_start(leaf);
-            match result.as_mut() {
-                None => result = Some(path_back),
-                Some(best) => {
-                    if path_back.len() < best.len() {
-                        *best = path_back;
-                    }
-                }
-            }
-        }
-        result
+        self.leaves.iter().map(|leaf| self.path_to_start(leaf)).min_by_key(|p| p.len())
+    }
+
+    pub fn longest_path(&self) -> Option<VecDeque<GridPoint>> {
+        self.leaves.iter().map(|leaf| self.path_to_start(leaf)).max_by_key(|p| p.len())
     }
 
     pub fn path_to_start(&self, leaf: GridPoint) -> VecDeque<GridPoint> {
