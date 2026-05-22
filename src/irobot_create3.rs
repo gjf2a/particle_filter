@@ -1,7 +1,11 @@
-use crate::{MapInput, MapObstacle, ObstacleNoise, angle::Radians};
+use crate::{
+    MapInput, MapObstacle, ObstacleNoise,
+    angle::{Angle, Degrees, Radians},
+};
 use std::{f64::consts::PI, str::FromStr};
 
 pub const RADIUS_M: f64 = 0.2032;
+pub const RADIUS_IR_M: f64 = RADIUS_M * 1.1;
 pub const RADIUS_STDEV_M: f64 = 0.01; // TODO: 1 cm for now, but need to rethink.
 pub const HEADING_STDEV_RADIANS: f64 = PI / 8.0;
 
@@ -54,6 +58,56 @@ impl Bump {
         };
         MapInput::Collision(MapObstacle {
             distance: RADIUS_M,
+            heading: self.angle_offset(),
+            noise,
+        })
+    }
+}
+
+pub enum IrHazard {
+    SideLeft(u16),
+    Left(u16),
+    FrontLeft(u16),
+    FrontCenterLeft(u16),
+    FrontCenterRight(u16),
+    FrontRight(u16),
+    Right(u16),
+}
+
+impl IrHazard {
+    // Angle offsets from https://github.com/iRobotEducation/create3_docs/discussions/342
+    pub fn angle_offset(&self) -> Radians {
+        Degrees::new(match self {
+            Self::SideLeft(_) => 65.3,
+            Self::Left(_) => 38.0,
+            Self::FrontLeft(_) => 20.0,
+            Self::FrontCenterLeft(_) => 3.0,
+            Self::FrontCenterRight(_) => -14.25,
+            Self::FrontRight(_) => -34.0,
+            Self::Right(_) => -65.3,
+        })
+        .radians()
+    }
+
+    pub fn intensity(&self) -> u16 {
+        match self {
+            IrHazard::SideLeft(ir) => *ir,
+            IrHazard::Left(ir) => *ir,
+            IrHazard::FrontLeft(ir) => *ir,
+            IrHazard::FrontCenterLeft(ir) => *ir,
+            IrHazard::FrontCenterRight(ir) => *ir,
+            IrHazard::FrontRight(ir) => *ir,
+            IrHazard::Right(ir) => *ir,
+        }
+    }
+
+    pub fn reading_at(&self) -> MapInput {
+        let noise = ObstacleNoise {
+            stdev_distance: RADIUS_STDEV_M,
+            stdev_heading: Radians::new(HEADING_STDEV_RADIANS),
+        };
+        MapInput::RangeObject(MapObstacle {
+            distance: RADIUS_IR_M,
             heading: self.angle_offset(),
             noise,
         })
