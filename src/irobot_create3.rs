@@ -74,6 +74,13 @@ pub struct IrReading {
 }
 
 impl IrReading {
+    pub fn new(intensity: u16, heading: IrHeading) -> Self {
+        Self {
+            intensity,
+            heading,
+        }
+    }
+
     pub fn angle_offset(&self) -> Radians {
         self.heading.angle_offset()
     }
@@ -123,5 +130,22 @@ impl IrHeading {
             Self::Right => -65.3,
         })
         .radians()
+    }
+}
+
+impl FromStr for IrHeading {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self>  {
+        match s {
+            "ir_intensity_side_left" => Ok(Self::SideLeft),
+            "ir_intensity_left" => Ok(Self::Left),
+            "ir_intensity_front_left" => Ok(Self::FrontLeft),
+            "ir_intensity_front_center_left" => Ok(Self::FrontCenterLeft),
+            "ir_intensity_front_center_right" => Ok(Self::FrontCenterRight),
+            "ir_intensity_front_right" => Ok(Self::FrontRight),
+            "ir_intensity_right" => Ok(Self::Right),
+            _ => Err(anyhow::anyhow!("Did not recognize '{s}'")),
+        }
     }
 }
