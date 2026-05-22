@@ -5,9 +5,12 @@ use crate::{
 use std::{f64::consts::PI, str::FromStr};
 
 pub const RADIUS_M: f64 = 0.2032;
-pub const RADIUS_IR_M: f64 = RADIUS_M * 1.1;
+// This sensor is pretty unreliable, so this is a conservative estimate.
+pub const IR_SPACE_M: f64 = 0.02; 
+pub const RADIUS_IR_M: f64 = RADIUS_M + IR_SPACE_M;
 pub const RADIUS_STDEV_M: f64 = 0.01; // TODO: 1 cm for now, but need to rethink.
 pub const HEADING_STDEV_RADIANS: f64 = PI / 8.0;
+pub const MIN_IR_OBSTACLE_PRESENT: u16 = 30;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Bump {
@@ -64,52 +67,61 @@ impl Bump {
     }
 }
 
-pub enum IrHazard {
-    SideLeft(u16),
-    Left(u16),
-    FrontLeft(u16),
-    FrontCenterLeft(u16),
-    FrontCenterRight(u16),
-    FrontRight(u16),
-    Right(u16),
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct IrReading {
+    intensity: u16,
+    heading: IrHeading,
 }
 
-impl IrHazard {
-    // Angle offsets from https://github.com/iRobotEducation/create3_docs/discussions/342
+impl IrReading {
     pub fn angle_offset(&self) -> Radians {
-        Degrees::new(match self {
-            Self::SideLeft(_) => 65.3,
-            Self::Left(_) => 38.0,
-            Self::FrontLeft(_) => 20.0,
-            Self::FrontCenterLeft(_) => 3.0,
-            Self::FrontCenterRight(_) => -14.25,
-            Self::FrontRight(_) => -34.0,
-            Self::Right(_) => -65.3,
-        })
-        .radians()
+        self.heading.angle_offset()
     }
 
     pub fn intensity(&self) -> u16 {
-        match self {
-            IrHazard::SideLeft(ir) => *ir,
-            IrHazard::Left(ir) => *ir,
-            IrHazard::FrontLeft(ir) => *ir,
-            IrHazard::FrontCenterLeft(ir) => *ir,
-            IrHazard::FrontCenterRight(ir) => *ir,
-            IrHazard::FrontRight(ir) => *ir,
-            IrHazard::Right(ir) => *ir,
-        }
-    }
+        self.intensity
+    }  
 
     pub fn reading_at(&self) -> MapInput {
         let noise = ObstacleNoise {
             stdev_distance: RADIUS_STDEV_M,
             stdev_heading: Radians::new(HEADING_STDEV_RADIANS),
         };
-        MapInput::RangeObject(MapObstacle {
-            distance: RADIUS_IR_M,
-            heading: self.angle_offset(),
-            noise,
+        if self.intensity > MIN_IR_OBSTACLE_PRESENT {
+            MapInput::RangeObject(MapObstacle {
+                distance: RADIUS_IR_M,
+                heading: self.angle_offset(),
+                noise,
+            })
+        } else {
+            MapInput::FreeSpace(IR_SPACE_M, self.angle_offset(), noise)
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum IrHeading {
+    SideLeft,
+    Left,
+    FrontLeft,
+    FrontCenterLeft,
+    FrontCenterRight,
+    FrontRight,
+    Right,
+}
+
+impl IrHeading {
+    // Angle offsets from https://github.com/iRobotEducation/create3_docs/discussions/342
+    pub fn angle_offset(&self) -> Radians {
+        Degrees::new(match self {
+            Self::SideLeft => 65.3,
+            Self::Left => 38.0,
+            Self::FrontLeft => 20.0,
+            Self::FrontCenterLeft => 3.0,
+            Self::FrontCenterRight => -14.25,
+            Self::FrontRight => -34.0,
+            Self::Right => -65.3,
         })
+        .radians()
     }
 }
