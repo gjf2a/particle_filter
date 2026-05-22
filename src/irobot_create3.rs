@@ -10,7 +10,7 @@ pub const IR_SPACE_M: f64 = 0.02;
 pub const RADIUS_IR_M: f64 = RADIUS_M + IR_SPACE_M;
 pub const RADIUS_STDEV_M: f64 = 0.01; // TODO: 1 cm for now, but need to rethink.
 pub const HEADING_STDEV_RADIANS: f64 = PI / 8.0;
-pub const MIN_IR_OBSTACLE_PRESENT: u16 = 30;
+pub const MIN_IR_OBSTACLE_PRESENT: i16 = 30;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Bump {
@@ -69,12 +69,12 @@ impl Bump {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct IrReading {
-    intensity: u16,
+    intensity: i16,
     heading: IrHeading,
 }
 
 impl IrReading {
-    pub fn new(intensity: u16, heading: IrHeading) -> Self {
+    pub fn new(intensity: i16, heading: IrHeading) -> Self {
         Self {
             intensity,
             heading,
@@ -85,7 +85,7 @@ impl IrReading {
         self.heading.angle_offset()
     }
 
-    pub fn intensity(&self) -> u16 {
+    pub fn intensity(&self) -> i16 {
         self.intensity
     }  
 
