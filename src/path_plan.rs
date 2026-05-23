@@ -7,7 +7,7 @@ use std::{
 use crate::{
     angle::Radians,
     bit_grid::BitGrid,
-    point::{GridPoint, manhattan_offsets},
+    point::{GridLineIterator, GridPoint, manhattan_offsets},
     pose::RobotPose,
     pt,
 };
@@ -87,7 +87,7 @@ impl PathsBackTo {
                     break;
                 }
                 if map.all_spaces().contains(&current.current) {
-                    for (successor, upcharge) in current.successors(1) {
+                    for (successor, upcharge) in current.successors(grid_step) {
                         queue.push(successor, Reverse(cost.0 + upcharge));
                     }
                 }
@@ -170,16 +170,12 @@ impl GridVector {
     }
 
     fn clear_path(&self, map: &BitGridMap) -> bool {
-        if self.horizontal() {
-            (min(self.current[0], self.prev[0])..=max(self.current[0], self.prev[0]))
-                .all(|i| !map.shadow_envelops_obstacle(pt!(i, self.current[1])))
-        } else if self.vertical() {
-            (min(self.current[1], self.prev[1])..=max(self.current[1], self.prev[1]))
-                .all(|i| !map.shadow_envelops_obstacle(pt!(self.current[0], i)))
-        } else {
-            false
-        }
+        GridLineIterator::from_to(&self.prev, &self.current).all(|p| !map.shadow_envelops_obstacle(p))
     }
+
+    /*fn shadow_count(&self, map: &BitGridMap) -> usize {
+
+    }*/
 
     fn successors(&self, grid_step: i64) -> impl Iterator<Item = (Self, u64)> {
         let copy = *self;
