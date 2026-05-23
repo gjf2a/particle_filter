@@ -87,7 +87,7 @@ impl PathsBackTo {
                     break;
                 }
                 if map.all_spaces().contains(&current.current) {
-                    for (successor, upcharge) in current.successors(grid_step) {
+                    for (successor, upcharge) in current.successors(1) {
                         queue.push(successor, Reverse(cost.0 + upcharge));
                     }
                 }
