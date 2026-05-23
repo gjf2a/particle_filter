@@ -1,5 +1,5 @@
 use std::{
-    cmp::{Reverse, max, min},
+    cmp::Reverse,
     collections::{HashMap, VecDeque},
     f64::consts::PI,
 };
@@ -109,11 +109,17 @@ impl PathsBackTo {
     }
 
     pub fn shortest_path(&self) -> Option<VecDeque<GridPoint>> {
-        self.leaves.iter().map(|leaf| self.path_to_start(leaf)).min_by_key(|p| p.len())
+        self.leaves
+            .iter()
+            .map(|leaf| self.path_to_start(leaf))
+            .min_by_key(|p| p.len())
     }
 
     pub fn longest_path(&self) -> Option<VecDeque<GridPoint>> {
-        self.leaves.iter().map(|leaf| self.path_to_start(leaf)).max_by_key(|p| p.len())
+        self.leaves
+            .iter()
+            .map(|leaf| self.path_to_start(leaf))
+            .max_by_key(|p| p.len())
     }
 
     pub fn path_to_start(&self, leaf: GridPoint) -> VecDeque<GridPoint> {
@@ -127,6 +133,36 @@ impl PathsBackTo {
             path_back.push_front(parent);
         }
         path_back
+    }
+
+    pub fn obstacle_contacts_to_start(
+        &self,
+        map: &BitGridMap,
+        path_back: &VecDeque<GridPoint>,
+    ) -> usize {
+        path_back
+            .iter()
+            .map(|p| map.obstacles_within_shadow(*p))
+            .sum()
+    }
+
+    pub fn shortest_min_obstacle_path(&self, map: &BitGridMap) -> Option<VecDeque<GridPoint>> {
+        let paths = self
+            .leaves
+            .iter()
+            .map(|leaf| self.path_to_start(leaf))
+            .collect::<Vec<_>>();
+        paths
+            .iter()
+            .map(|p| self.obstacle_contacts_to_start(map, p))
+            .min()
+            .and_then(|min_obstacles| {
+                paths
+                    .iter()
+                    .filter(|p| self.obstacle_contacts_to_start(map, p) == min_obstacles)
+                    .min_by_key(|p| p.len())
+            })
+            .cloned()
     }
 
     pub fn leaves(&self) -> &BitGrid {
@@ -170,12 +206,9 @@ impl GridVector {
     }
 
     fn clear_path(&self, map: &BitGridMap) -> bool {
-        GridLineIterator::from_to(&self.prev, &self.current).all(|p| !map.shadow_envelops_obstacle(p))
+        GridLineIterator::from_to(&self.prev, &self.current)
+            .all(|p| !map.shadow_envelops_obstacle(p))
     }
-
-    /*fn shadow_count(&self, map: &BitGridMap) -> usize {
-
-    }*/
 
     fn successors(&self, grid_step: i64) -> impl Iterator<Item = (Self, u64)> {
         let copy = *self;

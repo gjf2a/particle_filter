@@ -6,7 +6,7 @@ use std::{f64::consts::PI, str::FromStr};
 
 pub const RADIUS_M: f64 = 0.2032;
 // This sensor is pretty unreliable, so this is a conservative estimate.
-pub const IR_SPACE_M: f64 = 0.02; 
+pub const IR_SPACE_M: f64 = 0.02;
 pub const RADIUS_IR_M: f64 = RADIUS_M + IR_SPACE_M;
 pub const RADIUS_STDEV_M: f64 = 0.01; // TODO: 1 cm for now, but need to rethink.
 pub const HEADING_STDEV_RADIANS: f64 = PI / 8.0;
@@ -75,10 +75,7 @@ pub struct IrReading {
 
 impl IrReading {
     pub fn new(intensity: i16, heading: IrHeading) -> Self {
-        Self {
-            intensity,
-            heading,
-        }
+        Self { intensity, heading }
     }
 
     pub fn angle_offset(&self) -> Radians {
@@ -87,7 +84,7 @@ impl IrReading {
 
     pub fn intensity(&self) -> i16 {
         self.intensity
-    }  
+    }
 
     pub fn reading_at(&self) -> MapInput {
         let noise = ObstacleNoise {
@@ -136,7 +133,7 @@ impl IrHeading {
 impl FromStr for IrHeading {
     type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> anyhow::Result<Self>  {
+    fn from_str(s: &str) -> anyhow::Result<Self> {
         match s {
             "ir_intensity_side_left" => Ok(Self::SideLeft),
             "ir_intensity_left" => Ok(Self::Left),
