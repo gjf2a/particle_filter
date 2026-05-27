@@ -71,11 +71,12 @@ impl Bump {
 pub struct IrReading {
     intensity: i16,
     heading: IrHeading,
+    min_ir_obstacle_present: i16,
 }
 
 impl IrReading {
-    pub fn new(intensity: i16, heading: IrHeading) -> Self {
-        Self { intensity, heading }
+    pub fn new(intensity: i16, heading: IrHeading, min_ir_obstacle_present: i16) -> Self {
+        Self { intensity, heading, min_ir_obstacle_present }
     }
 
     pub fn angle_offset(&self) -> Radians {
@@ -91,7 +92,7 @@ impl IrReading {
             stdev_distance: RADIUS_STDEV_M,
             stdev_heading: Radians::new(HEADING_STDEV_RADIANS),
         };
-        if self.intensity > MIN_IR_OBSTACLE_PRESENT {
+        if self.intensity > self.min_ir_obstacle_present {
             MapInput::RangeObject(MapObstacle {
                 distance: RADIUS_IR_M,
                 heading: self.angle_offset(),
