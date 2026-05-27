@@ -397,6 +397,18 @@ impl MapUpdate {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub enum ParticleType {
+    Failure,
+    Best,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RepresentativeParticle {
+    pub particle: Particle,
+    pub particle_type: ParticleType,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ParticleFilter {
     last_raw: Option<RobotPose<Radians>>,
@@ -458,6 +470,21 @@ impl ParticleFilter {
 
     pub fn stats(&self) -> BitGridStats {
         self.stats.clone()
+    }
+
+    pub fn representative_particle(&self) -> RepresentativeParticle {
+        let particle = match &self.example_failure {
+            None => self.particles().next().unwrap(),
+            Some(failure) => failure,
+        }
+        .clone();
+        RepresentativeParticle {
+            particle,
+            particle_type: self
+                .example_failure
+                .as_ref()
+                .map_or(ParticleType::Best, |_| ParticleType::Failure),
+        }
     }
 
     pub fn example_failure(&self) -> Option<Particle> {
