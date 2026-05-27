@@ -1,7 +1,7 @@
 use std::{
     f64::consts::PI,
     fmt::Display,
-    ops::{Add, AddAssign, Sub, SubAssign, Mul, Div},
+    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
 };
 
 use serde::{Deserialize, Serialize};
@@ -238,11 +238,7 @@ mod tests {
 
     #[test]
     fn test_mul_div() {
-        for (radians, scalar) in [
-            (2.0, 2.0),
-            (-3.0, 1.5),
-            (5.0, -1.0),
-        ] {
+        for (radians, scalar) in [(2.0, 2.0), (-3.0, 1.5), (5.0, -1.0)] {
             let product = Radians::new(radians * scalar);
             let quotient = Radians::new(radians / scalar);
             let radians = Radians::new(radians);
