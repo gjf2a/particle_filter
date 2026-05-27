@@ -1,7 +1,7 @@
 use std::{
     f64::consts::PI,
     fmt::Display,
-    ops::{Add, AddAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Sub, SubAssign, Mul, Div},
 };
 
 use serde::{Deserialize, Serialize};
@@ -117,6 +117,22 @@ macro_rules! angle_code {
             }
         }
 
+        impl Mul<f64> for $type {
+            type Output = Self;
+
+            fn mul(self, rhs: f64) -> Self::Output {
+                Self::new(self.0 * rhs)
+            }
+        }
+
+        impl Div<f64> for $type {
+            type Output = Self;
+
+            fn div(self, rhs: f64) -> Self::Output {
+                Self::new(self.0 / rhs)
+            }
+        }
+
         assign_code!($type);
     };
 }
@@ -202,7 +218,7 @@ impl From<Degrees> for Radians {
 
 #[cfg(test)]
 mod tests {
-    use crate::angle::Degrees;
+    use crate::angle::{Degrees, Radians};
 
     #[test]
     fn test_distance() {
@@ -217,6 +233,21 @@ mod tests {
             let distance = Degrees::new(distance);
             let actual = (baseline - angle).abs();
             assert_eq!(actual, distance);
+        }
+    }
+
+    #[test]
+    fn test_mul_div() {
+        for (radians, scalar) in [
+            (2.0, 2.0),
+            (-3.0, 1.5),
+            (5.0, -1.0),
+        ] {
+            let product = Radians::new(radians * scalar);
+            let quotient = Radians::new(radians / scalar);
+            let radians = Radians::new(radians);
+            assert_eq!(radians * scalar, product);
+            assert_eq!(radians / scalar, quotient);
         }
     }
 }
