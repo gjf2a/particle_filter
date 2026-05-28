@@ -165,6 +165,25 @@ impl PathsBackTo {
             .cloned()
     }
 
+    pub fn longest_min_obstacle_path(&self, map: &BitGridMap) -> Option<VecDeque<GridPoint>> {
+        let paths = self
+            .leaves
+            .iter()
+            .map(|leaf| self.path_to_start(leaf))
+            .collect::<Vec<_>>();
+        paths
+            .iter()
+            .map(|p| self.obstacle_contacts_to_start(map, p))
+            .max()
+            .and_then(|min_obstacles| {
+                paths
+                    .iter()
+                    .filter(|p| self.obstacle_contacts_to_start(map, p) == min_obstacles)
+                    .min_by_key(|p| p.len())
+            })
+            .cloned()
+    }
+
     pub fn leaves(&self) -> &BitGrid {
         &self.leaves
     }
