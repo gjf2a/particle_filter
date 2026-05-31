@@ -6,7 +6,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::point::FloatPoint;
+use crate::{
+    point::{FloatPoint, GridPoint},
+    pt,
+};
 
 pub trait Angle {
     fn bound() -> f64;
@@ -139,22 +142,9 @@ macro_rules! angle_code {
 
 angle_code!(Radians);
 
-impl From<(f64, Radians)> for FloatPoint {
-    fn from(value: (f64, Radians)) -> Self {
-        let (r, theta) = value;
-        FloatPoint::new([r * theta.0.cos(), r * theta.0.sin()])
-    }
-}
-
 impl From<FloatPoint> for f64 {
     fn from(value: FloatPoint) -> Self {
         value.iter().map(|n| n.powf(2.0)).sum::<f64>().sqrt()
-    }
-}
-
-impl From<FloatPoint> for (f64, Radians) {
-    fn from(value: FloatPoint) -> Self {
-        (value.into(), value.into())
     }
 }
 
@@ -213,6 +203,60 @@ impl From<Radians> for Degrees {
 impl From<Degrees> for Radians {
     fn from(value: Degrees) -> Self {
         Self::new(value.0 * PI / 180.0)
+    }
+}
+
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
+pub struct Polar {
+    r: f64,
+    theta: Radians,
+}
+
+impl Polar {
+    pub fn new(r: f64, theta: Radians) -> Self {
+        Self { r, theta }
+    }
+
+    pub fn r(&self) -> f64 {
+        self.r
+    }
+
+    pub fn theta(&self) -> Radians {
+        self.theta
+    }
+}
+
+impl From<Polar> for FloatPoint {
+    fn from(value: Polar) -> Self {
+        pt!(value.r * value.theta.cos(), value.r * value.theta.sin())
+    }
+}
+
+impl From<FloatPoint> for Polar {
+    fn from(value: FloatPoint) -> Self {
+        Polar {
+            r: (value[0].powf(2.0) + value[1].powf(2.0)).sqrt(),
+            theta: Radians::new(value[1].atan2(value[0])),
+        }
+    }
+}
+
+impl Add<Polar> for FloatPoint {
+    type Output = Self;
+
+    fn add(self, rhs: Polar) -> Self::Output {
+        let rhsfp: FloatPoint = rhs.into();
+        self + rhsfp
+    }
+}
+
+impl Add<Polar> for GridPoint {
+    type Output = Self;
+
+    fn add(self, rhs: Polar) -> Self::Output {
+        let fp = pt!(self[0] as f64, self[1] as f64);
+        let sum = fp + rhs;
+        pt!(sum[0] as i64, sum[1] as i64)
     }
 }
 

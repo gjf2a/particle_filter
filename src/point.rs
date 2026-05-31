@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    iter::Sum,
     ops::{
         Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
     },
@@ -188,6 +189,16 @@ impl<N: NumType, const S: usize> AddAssign for Point<N, S> {
         for i in 0..S {
             self[i] += rhs[i];
         }
+    }
+}
+
+impl<N: NumType, const S: usize> Sum for Point<N, S> {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        let mut total = Point::default();
+        for p in iter {
+            total += p;
+        }
+        total
     }
 }
 

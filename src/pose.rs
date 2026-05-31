@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    angle::{Angle, Radians},
+    angle::{Angle, Polar, Radians},
     point::FloatPoint,
 };
 
@@ -45,13 +45,12 @@ impl<A: Angle + Add<Output = A>> Add<FloatPoint> for RobotPose<A> {
     }
 }
 
-impl Add<(f64, Radians)> for RobotPose<Radians> {
+impl Add<Polar> for RobotPose<Radians> {
     type Output = FloatPoint;
 
-    fn add(self, rhs: (f64, Radians)) -> Self::Output {
-        let (distance, heading) = rhs;
-        let heading = self.theta + heading;
-        self.pos + (distance, heading).into()
+    fn add(self, rhs: Polar) -> Self::Output {
+        let heading = self.theta + rhs.theta();
+        self.pos + Polar::new(rhs.r(), heading)
     }
 }
 

@@ -27,7 +27,7 @@ use std::{cmp::Ordering, iter::repeat_n, ops::Index};
 
 use walker::WalkerAliasTable;
 
-use crate::angle::Angle;
+use crate::angle::{Angle, Polar};
 use crate::bit_grid::BitGrid;
 use crate::point::GridPoint;
 
@@ -355,12 +355,12 @@ impl MapObstacle {
     }
 
     fn update(&self, pose: RobotPose<Radians>) -> MapUpdate {
-        let (noisy_distance, noisy_heading) = self
+        let noise = self
             .noise
             .noisy_distance_heading(self.distance, self.heading);
         MapUpdate::NewObstacle {
             sensor: pose.pos,
-            object: pose + (noisy_distance, noisy_heading),
+            object: pose + noise,
         }
     }
 }
@@ -621,11 +621,11 @@ pub struct ObstacleNoise {
 }
 
 impl ObstacleNoise {
-    fn noisy_distance_heading(&self, distance: f64, heading: Radians) -> (f64, Radians) {
+    fn noisy_distance_heading(&self, distance: f64, heading: Radians) -> Polar {
         let mut rng = rand::rng();
         let distance_gaussian = Normal::new(0.0, self.stdev_distance).unwrap();
         let heading_gaussian = Normal::new(0.0, self.stdev_heading.radians().into()).unwrap();
-        (
+        Polar::new(
             distance + distance_gaussian.sample(&mut rng),
             heading + Radians::new(heading_gaussian.sample(&mut rng)),
         )

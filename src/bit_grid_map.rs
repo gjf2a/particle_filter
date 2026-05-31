@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::angle::Polar;
 use crate::point::GridLineIterator;
 use crate::{MapInput, MapUpdate, PoseEstimate, StatCollector};
 use crate::{
@@ -12,6 +13,8 @@ use crate::{
 use enum_iterator::{Sequence, all};
 use hash_histogram::HashHistogram;
 use serde::{Deserialize, Serialize};
+
+const NEIGHBORHOOD_MULTIPLIER: f64 = 2.0;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Cell {
@@ -42,6 +45,7 @@ pub struct BitGridMap {
     obstacles: BitGrid,
     spaces: BitGrid,
     shadow: BitGrid,
+    neighborhood: BitGrid,
     square_size_m: f64,
     brand_new: bool,
     space_contiguous: bool,
@@ -68,6 +72,10 @@ impl BitGridMap {
             obstacles: BitGrid::default(),
             spaces: BitGrid::default(),
             shadow: Self::create_shadow(square_size_m, robot_radius_m),
+            neighborhood: Self::create_shadow(
+                square_size_m,
+                robot_radius_m * NEIGHBORHOOD_MULTIPLIER,
+            ),
             square_size_m,
             brand_new: true,
             space_contiguous: true,
@@ -240,6 +248,23 @@ impl BitGridMap {
         let shadow = self.grid_shadow(grid_point);
         let collisions = &shadow & &self.obstacles;
         collisions.len()
+    }
+
+    pub fn freest_heading_within_neighborhood(&self, grid_point: GridPoint) -> Radians {
+        let neighborhood = self.neighborhood.translated(grid_point);
+        let collisions = &neighborhood & &self.obstacles;
+        let ones = BitGrid::one_grid(collisions.bounding_box());
+        let spaces = &collisions ^ &ones;
+        let centroid = spaces.centroid();
+        let vector = centroid - grid_point;
+        let vector = pt!(vector[0] as f64, vector[1] as f64);
+        vector.into()
+    }
+
+    pub fn freest_target_within_neighborhood(&self, grid_point: GridPoint) -> GridPoint {
+        let heading = self.freest_heading_within_neighborhood(grid_point);
+        let vector = Polar::new(self.neighborhood.width() as f64 / 2.0, heading);
+        grid_point + vector
     }
 
     pub fn num_obstacles(&self) -> usize {
@@ -467,5 +492,10 @@ mod tests {
 
         let intersected = tester.obstacles.overlapping_counts(&shadow);
         assert_eq!(intersected, 2);
+    }
+
+    #[test]
+    fn test_freest_heading_within_shadow() {
+        todo!("Write a test for freeest_heading_within_shadow()")
     }
 }

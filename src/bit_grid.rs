@@ -162,6 +162,10 @@ impl BitGrid {
         self.bounds.height()
     }
 
+    pub fn centroid(&self) -> GridPoint {
+        self.iter().sum::<GridPoint>() / (self.len() as i64)
+    }
+
     pub fn col_major_coord_iter(&self) -> ColumnMajorCoordIter {
         self.bounds.col_major_coord_iter()
     }

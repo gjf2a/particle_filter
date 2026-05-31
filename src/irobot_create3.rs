@@ -76,7 +76,11 @@ pub struct IrReading {
 
 impl IrReading {
     pub fn new(intensity: i16, heading: IrHeading, min_ir_obstacle_present: i16) -> Self {
-        Self { intensity, heading, min_ir_obstacle_present }
+        Self {
+            intensity,
+            heading,
+            min_ir_obstacle_present,
+        }
     }
 
     pub fn angle_offset(&self) -> Radians {
