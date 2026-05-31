@@ -292,6 +292,18 @@ impl<N: NumType, const S: usize> MulAssign<N> for Point<N, S> {
     }
 }
 
+impl<const S: usize> Mul<f64> for Point<i64, S> {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        let mut result = self;
+        for i in 0..S {
+            result[i] = (result[i] as f64 * rhs) as i64;
+        }
+        result
+    }
+}
+
 impl<N: NumType, const S: usize> DivAssign<N> for Point<N, S> {
     fn div_assign(&mut self, rhs: N) {
         for i in 0..S {
@@ -411,6 +423,14 @@ impl<N: NumType> BitOr for BoundingBox<N> {
             min: self.min.element_min(&rhs.min),
             max: self.max.element_max(&rhs.max),
         }
+    }
+}
+
+impl Mul<f64> for BoundingBox<i64> {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self {min: self.min * rhs, max: self.max * rhs}
     }
 }
 

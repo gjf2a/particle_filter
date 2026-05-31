@@ -78,6 +78,19 @@ impl BitGrid {
         }
     }
 
+    pub fn scaled(&self, scale: f64) -> Self {
+        let mut result = Self { 
+            bits: BitArray::default(), 
+            bounds: self.bounds * scale
+        };
+        for p in result.bounds.row_major_coord_iter() {
+            if self.contains(&(p * scale)) {
+                result.insert(p);
+            }
+        }
+        result
+    }
+
     pub fn center(&self) -> GridPoint {
         self.bounds.center()
     }
