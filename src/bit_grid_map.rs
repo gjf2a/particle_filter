@@ -290,7 +290,7 @@ impl BitGridMap {
             Some(self.freest_point_within_shadow(grid_point))
         } else {
             let path = PathsBackTo::all(self, start).shortest_min_obstacle_path(self);
-            path.and_then(|p| p.back().copied())
+            path.and_then(|p| p.iter().find(|g| **g != grid_point).copied())
         }
     }
 
