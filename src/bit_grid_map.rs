@@ -283,10 +283,32 @@ impl BitGridMap {
         best.0
     }
 
+    pub fn freest_point_within_neighborhood(&self, grid_point: GridPoint) -> GridPoint {
+        let neighborhood = self.shadow.scaled(NEIGHBORHOOD_MULTIPLIER);
+        let neighborhood = neighborhood.translated(grid_point);
+        let collisions = &neighborhood & &self.obstacles;
+        let spaces = &collisions ^ &neighborhood;
+
+        let mut best = (grid_point, 0);
+        for space in spaces.iter() {
+            let distance = collisions
+                .iter()
+                .map(|obst| obst.sum_squared_differences(space))
+                .min();
+            if let Some(distance) = distance {
+                if distance > best.1 {
+                    best = (space, distance)
+                }
+            }
+        }
+
+        best.0
+    }
+
     pub fn exploration_target(&self, start: RobotPose<Radians>) -> Option<GridPoint> {
         let grid_point = self.to_point(start.pos);
         if self.collides_at_position(grid_point) {
-            Some(self.freest_point_within_shadow(grid_point))
+            Some(self.freest_point_within_neighborhood(grid_point))
         } else {
             let path = PathsBackTo::all(self, start).shortest_min_obstacle_path(self);
             path.map(|p| necessary_turns_from(p.iter().copied(), self))
