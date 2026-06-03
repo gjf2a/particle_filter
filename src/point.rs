@@ -430,7 +430,10 @@ impl Mul<f64> for BoundingBox<i64> {
     type Output = Self;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Self {min: self.min * rhs, max: self.max * rhs}
+        Self {
+            min: self.min * rhs,
+            max: self.max * rhs,
+        }
     }
 }
 

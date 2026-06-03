@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::angle::Polar;
-use crate::path_plan::PathsBackTo;
+use crate::path_plan::{PathsBackTo, necessary_turns_from};
 use crate::point::GridLineIterator;
 use crate::{MapInput, MapUpdate, PoseEstimate, StatCollector};
 use crate::{
@@ -290,7 +290,8 @@ impl BitGridMap {
             Some(self.freest_point_within_shadow(grid_point))
         } else {
             let path = PathsBackTo::all(self, start).shortest_min_obstacle_path(self);
-            path.and_then(|p| p.iter().find(|g| **g != grid_point).copied())
+            path.map(|p| necessary_turns_from(p.iter().copied(), self))
+                .and_then(|p| p.iter().find(|g| **g != grid_point).copied())
         }
     }
 
