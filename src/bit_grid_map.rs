@@ -214,8 +214,12 @@ impl BitGridMap {
         self.shadow.translated(grid_point)
     }
 
+    pub fn grid_shadow_collisions(&self, grid_point: GridPoint) -> BitGrid {
+        &self.grid_shadow(grid_point) & &self.obstacles
+    }
+
     pub fn collides_at_position(&self, grid_point: GridPoint) -> bool {
-        (&self.grid_shadow(grid_point) & &self.obstacles).len() > 0
+        self.grid_shadow_collisions(grid_point).len() > 0
     }
 
     pub fn shadow_envelops_obstacle(&self, grid_point: GridPoint) -> bool {
@@ -240,9 +244,7 @@ impl BitGridMap {
     }
 
     pub fn obstacles_within_shadow(&self, grid_point: GridPoint) -> usize {
-        let shadow = self.grid_shadow(grid_point);
-        let collisions = &shadow & &self.obstacles;
-        collisions.len()
+        self.grid_shadow_collisions(grid_point).len()
     }
 
     pub fn freest_target_within_neighborhood(&self, grid_point: GridPoint) -> GridPoint {
@@ -260,7 +262,7 @@ impl BitGridMap {
     }
 
     pub fn freest_point_within_shadow(&self, grid_point: GridPoint) -> GridPoint {
-        let shadow = self.shadow.translated(grid_point);
+        let shadow = self.grid_shadow(grid_point);
         let collisions = &shadow & &self.obstacles;
         let mut distances_from_obstacle = HashMap::new();
         let mut queue = collisions.iter().map(|p| (p, 0)).collect::<VecDeque<_>>();
