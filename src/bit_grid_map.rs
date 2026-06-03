@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::angle::Polar;
 use crate::point::GridLineIterator;
@@ -257,6 +257,28 @@ impl BitGridMap {
         let heading: Radians = vector.into();
         let vector = Polar::new(neighborhood.width() as f64 / 2.0, heading);
         grid_point + vector
+    }
+
+    pub fn freest_point_within_shadow(&self, grid_point: GridPoint) -> GridPoint {
+        let shadow = self.shadow.translated(grid_point);
+        let collisions = &shadow & &self.obstacles;
+        let mut distances_from_obstacle = HashMap::new();
+        let mut queue = collisions.iter().map(|p| (p, 0)).collect::<VecDeque<_>>();
+        let mut freest = (0, grid_point);
+        while let Some((p, distance)) = queue.pop_front() {
+            if !distances_from_obstacle.contains_key(&p) {
+                if distance > freest.0 {
+                    freest = (distance, p);
+                }
+                distances_from_obstacle.insert(p, distance);
+                for n in p.manhattan_neighbors() {
+                    if shadow.contains(&n) {
+                        queue.push_back((n, distance + 1));
+                    }
+                }
+            }
+        }
+        freest.1
     }
 
     pub fn num_obstacles(&self) -> usize {
