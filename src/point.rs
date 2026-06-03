@@ -68,6 +68,15 @@ impl<N: NumType, const S: usize> Point<N, S> {
         Self { coords }
     }
 
+    pub fn sum_squared_differences(&self, other: Point<N, S>) -> N {
+        (0..S)
+            .map(|i| {
+                let difference = self[i] - other[i];
+                difference * difference
+            })
+            .sum()
+    }
+
     pub fn euclidean_distance(&self, other: Point<N, S>) -> f64 {
         (0..S)
             .map(|i| ((self[i] - other[i]).to_f64().expect("Shouldn't happen")).powf(2.0))

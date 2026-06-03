@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use crate::angle::Polar;
 use crate::path_plan::{PathsBackTo, necessary_turns_from};
@@ -265,23 +265,22 @@ impl BitGridMap {
     pub fn freest_point_within_shadow(&self, grid_point: GridPoint) -> GridPoint {
         let shadow = self.grid_shadow(grid_point);
         let collisions = &shadow & &self.obstacles;
-        let mut distances_from_obstacle = HashMap::new();
-        let mut queue = collisions.iter().map(|p| (p, 0)).collect::<VecDeque<_>>();
-        let mut freest = (0, grid_point);
-        while let Some((p, distance)) = queue.pop_front() {
-            if !distances_from_obstacle.contains_key(&p) {
-                if distance > freest.0 {
-                    freest = (distance, p);
-                }
-                distances_from_obstacle.insert(p, distance);
-                for n in p.manhattan_neighbors() {
-                    if shadow.contains(&n) {
-                        queue.push_back((n, distance + 1));
-                    }
+        let spaces = &collisions ^ &shadow;
+
+        let mut best = (grid_point, 0);
+        for space in spaces.iter() {
+            let distance = collisions
+                .iter()
+                .map(|obst| obst.sum_squared_differences(space))
+                .min();
+            if let Some(distance) = distance {
+                if distance > best.1 {
+                    best = (space, distance)
                 }
             }
         }
-        freest.1
+
+        best.0
     }
 
     pub fn exploration_target(&self, start: RobotPose<Radians>) -> Option<GridPoint> {
