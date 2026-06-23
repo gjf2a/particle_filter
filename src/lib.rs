@@ -31,6 +31,8 @@ use crate::angle::{Angle, Polar};
 use crate::bit_grid::BitGrid;
 use crate::point::GridPoint;
 
+const M_PER_RADIAN: f64 = 0.2;
+
 #[macro_export]
 macro_rules! pt {
     ($x:expr, $y:expr) => {
@@ -131,6 +133,8 @@ pub enum WeightStrategy {
     Uniform,
     MinPose,
     BoundingBoxArea,
+    TotalSpaces,
+    OdometryGap,
 }
 
 impl WeightStrategy {
@@ -144,15 +148,15 @@ impl WeightStrategy {
             let weight = self.weight(p, inconsistent);
             weights.bump_by(&i, weight);
         }
-        if self.reverse_weights() {
+        if self.prefer_small_values() {
             weights = reversed_weights(weights);
         }
         weights
     }
 
-    fn reverse_weights(&self) -> bool {
+    fn prefer_small_values(&self) -> bool {
         match self {
-            Self::BoundingBoxArea => true,
+            Self::BoundingBoxArea | Self::TotalSpaces | Self::OdometryGap => true,
             _ => false,
         }
     }
@@ -165,6 +169,11 @@ impl WeightStrategy {
                 let wh = p.map.width_height_meters();
                 wh[0] * wh[1]
             }
+            Self::TotalSpaces => p.map().num_spaces() as f64,
+            Self::OdometryGap => p
+                .estimate()
+                .last_raw_pose()
+                .map_or(1.0, |raw| p.estimated_pose().distance(&raw, M_PER_RADIAN)),
         }
     }
 

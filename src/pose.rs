@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    angle::{Angle, Polar, Radians},
+    angle::{Angle, Polar, Radians, angle_distance},
     point::FloatPoint,
 };
 
@@ -14,6 +14,13 @@ use crate::{
 pub struct RobotPose<A: Angle> {
     pub pos: FloatPoint,
     pub theta: A,
+}
+
+impl<A: Angle + Display + Sub<Output = A>> RobotPose<A> {
+    pub fn distance(&self, other: &RobotPose<A>, m_per_radian: f64) -> f64 {
+        self.pos.euclidean_distance(other.pos)
+            + m_per_radian * angle_distance(self.theta, other.theta).as_f64()
+    }
 }
 
 impl<A: Angle + Display> Display for RobotPose<A> {

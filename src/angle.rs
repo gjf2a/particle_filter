@@ -11,16 +11,22 @@ use crate::{
     pt,
 };
 
-pub trait Angle {
+pub trait Angle: Copy {
     fn bound() -> f64;
 
     fn degrees(&self) -> Degrees;
 
     fn radians(&self) -> Radians;
 
-    fn sin(&self) -> f64;
+    fn sin(&self) -> f64 {
+        self.radians().sin()
+    }
 
-    fn cos(&self) -> f64;
+    fn cos(&self) -> f64 {
+        self.radians().cos()
+    }
+
+    fn abs(&self) -> Self;
 
     fn normalize_angle(angle: f64) -> f64 {
         let mut angle = angle;
@@ -33,6 +39,12 @@ pub trait Angle {
         }
         angle
     }
+
+    fn as_f64(&self) -> f64;
+}
+
+pub fn angle_distance<A: Angle + Sub<Output = A>>(angle1: A, angle2: A) -> A {
+    (angle1 - angle2).abs()
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
@@ -51,12 +63,12 @@ impl Angle for Radians {
         *self
     }
 
-    fn sin(&self) -> f64 {
-        self.0.sin()
+    fn abs(&self) -> Self {
+        Self::new(self.0.abs())
     }
 
-    fn cos(&self) -> f64 {
-        self.0.cos()
+    fn as_f64(&self) -> f64 {
+        self.0
     }
 }
 
@@ -87,14 +99,6 @@ macro_rules! angle_code {
         impl $type {
             pub fn new(angle: f64) -> Self {
                 Self(Self::normalize_angle(angle))
-            }
-
-            pub fn abs(&self) -> Self {
-                if self.0 < 0.0 {
-                    $type::new(-self.0)
-                } else {
-                    *self
-                }
             }
         }
 
@@ -171,12 +175,12 @@ impl Angle for Degrees {
         (*self).into()
     }
 
-    fn sin(&self) -> f64 {
-        self.radians().sin()
+    fn abs(&self) -> Self {
+        Self::new(self.0.abs())
     }
 
-    fn cos(&self) -> f64 {
-        self.radians().cos()
+    fn as_f64(&self) -> f64 {
+        self.0
     }
 }
 
@@ -262,7 +266,7 @@ impl Add<Polar> for GridPoint {
 
 #[cfg(test)]
 mod tests {
-    use crate::angle::{Degrees, Radians};
+    use crate::angle::{Angle, Degrees, Radians, angle_distance};
 
     #[test]
     fn test_distance() {
@@ -277,6 +281,7 @@ mod tests {
             let distance = Degrees::new(distance);
             let actual = (baseline - angle).abs();
             assert_eq!(actual, distance);
+            assert_eq!(angle_distance(baseline, angle), actual);
         }
     }
 
