@@ -18,13 +18,9 @@ pub trait Angle: Copy {
 
     fn radians(&self) -> Radians;
 
-    fn sin(&self) -> f64 {
-        self.radians().sin()
-    }
+    fn sin(&self) -> f64;
 
-    fn cos(&self) -> f64 {
-        self.radians().cos()
-    }
+    fn cos(&self) -> f64;
 
     fn abs(&self) -> Self;
 
@@ -69,6 +65,14 @@ impl Angle for Radians {
 
     fn as_f64(&self) -> f64 {
         self.0
+    }
+    
+    fn sin(&self) -> f64 {
+        self.as_f64().sin()
+    }
+    
+    fn cos(&self) -> f64 {
+        self.as_f64().cos()
     }
 }
 
@@ -173,6 +177,14 @@ impl Angle for Degrees {
 
     fn radians(&self) -> Radians {
         (*self).into()
+    }
+
+    fn sin(&self) -> f64 {
+        self.radians().sin()
+    }
+
+    fn cos(&self) -> f64 {
+        self.radians().cos()
     }
 
     fn abs(&self) -> Self {
