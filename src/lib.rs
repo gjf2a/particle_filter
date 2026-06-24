@@ -128,6 +128,18 @@ impl SelectionStrategy {
     }
 }
 
+impl FromStr for SelectionStrategy {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Weighted" => Ok(Self::Weighted),
+            "RankProportion" => Ok(Self::RankProportion),
+            _ => anyhow::bail!("{s} is not a SelectionStrategy")
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug, Serialize, Deserialize)]
 pub enum WeightStrategy {
     Uniform,
