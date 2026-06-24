@@ -190,6 +190,21 @@ impl WeightStrategy {
     }
 }
 
+impl FromStr for WeightStrategy {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Uniform" => Ok(Self::Uniform),
+            "MinPose" => Ok(Self::MinPose),
+            "BoundingBoxArea" => Ok(Self::BoundingBoxArea),
+            "TotalSpaces" => Ok(Self::TotalSpaces),
+            "OdometryGap" => Ok(Self::OdometryGap),
+            _ => anyhow::bail!("Unrecognized WeightStrategy alternative {s}")
+        }
+    }
+}
+
 fn reversed_weights(weights: HashHistogram<usize, f64>) -> HashHistogram<usize, f64> {
     let max_weight = weights
         .iter()
