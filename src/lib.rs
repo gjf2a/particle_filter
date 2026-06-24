@@ -276,6 +276,14 @@ impl MapInput {
         }
     }
 
+    pub fn is_range_obstacle(&self) -> bool {
+        if let Self::RangeObject(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn obstacle(&self) -> Option<MapObstacle> {
         match self {
             Self::RangeObject(obj) => Some(*obj),
