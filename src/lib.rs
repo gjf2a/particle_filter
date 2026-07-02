@@ -596,6 +596,7 @@ impl ParticleFilter {
             })
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
+        let with_inconsistent_obstacles = inconsistent.iter().filter(|p| p.map.inconsistent_obstacles().next().is_some()).collect::<Vec<_>>();
 
         self.particles = consistent
             .iter()
@@ -605,8 +606,8 @@ impl ParticleFilter {
 
         let mut rng = rand::rng();
         while self.particles.len() < num_particles {
-            let new_particle = if rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE {
-                let src = inconsistent.choose(&mut rng).unwrap();
+            let new_particle = if with_inconsistent_obstacles.len() > 0 && rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE {
+                let src = with_inconsistent_obstacles.choose(&mut rng).unwrap();
                 src.consistent_alternative(&src.map.inconsistent_obstacles().next().unwrap())
             } else {
                 let choice = selector.choose();
