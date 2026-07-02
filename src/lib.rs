@@ -98,7 +98,7 @@ impl Particle {
         self.estimate.add_noise(noise);
     }
 
-    pub fn consistent_alternative(&self, inconsistent_obstacle: &GridPoint) -> Self {
+    pub fn consistent_alternative(&self, inconsistent_obstacle: &GridPoint) -> Option<Self> {
         let obstacle_meters = self.map.to_meters(*inconsistent_obstacle);
         let alternative = random_alternative_obstacle(
             inconsistent_obstacle,
@@ -107,11 +107,18 @@ impl Particle {
         let offset = self.map.to_meters(alternative) - obstacle_meters;
         let mut map = self.map.clone();
         map.erase_obstacle(inconsistent_obstacle);
-        Self {
+        let candidate = Self {
             estimate: self.estimate.replaced_estimate(&offset),
             map,
             parent: self.parent,
             noises: self.noises.clone(),
+        };
+        let shadow = candidate.robot_shadow();
+        let visited = candidate.map.all_visited();
+        if shadow.iter().all(|p| visited.contains(&p)) {
+            Some(candidate)
+        } else {
+            None
         }
     }
 }
@@ -606,16 +613,18 @@ impl ParticleFilter {
 
         let mut rng = rand::rng();
         while self.particles.len() < num_particles {
-            let new_particle = if with_inconsistent_obstacles.len() > 0 && rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE {
+            let mut possible_particle = None;
+            if with_inconsistent_obstacles.len() > 0 && rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE {
                 let src = with_inconsistent_obstacles.choose(&mut rng).unwrap();
-                src.consistent_alternative(&src.map.inconsistent_obstacles().next().unwrap())
-            } else {
+                possible_particle = src.consistent_alternative(&src.map.inconsistent_obstacles().next().unwrap());
+            }
+            if possible_particle.is_none() {
                 let choice = selector.choose();
                 let mut new_particle = self.particles[choice].clone();
                 new_particle.add_noise(collision);
-                new_particle
-            };
-            self.particles.push(new_particle);
+                possible_particle = Some(new_particle);
+            }
+            self.particles.push(possible_particle.unwrap());
         }
     }
 
