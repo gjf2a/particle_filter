@@ -12,6 +12,8 @@ pub mod walker;
 pub use bit_grid_map::*;
 use bits::BitArray;
 use enum_iterator::Sequence;
+use rand::RngExt;
+use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
 pub use stats::*;
 
@@ -32,6 +34,7 @@ use crate::bit_grid::BitGrid;
 use crate::point::GridPoint;
 
 const M_PER_RADIAN: f64 = 0.2;
+const PROB_USE_CONSISTENT_ALTERNATIVE: f64 = 0.5;
 
 #[macro_export]
 macro_rules! pt {
@@ -600,10 +603,17 @@ impl ParticleFilter {
             .collect::<Vec<_>>();
         let selector = self.make_selector(&inconsistent);
 
+        let mut rng = rand::rng();
         while self.particles.len() < num_particles {
-            let choice = selector.choose();
-            let mut new_particle = self.particles[choice].clone();
-            new_particle.add_noise(collision);
+            let new_particle = if rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE {
+                let src = inconsistent.choose(&mut rng).unwrap();
+                src.consistent_alternative(&src.map.inconsistent_obstacles().next().unwrap())
+            } else {
+                let choice = selector.choose();
+                let mut new_particle = self.particles[choice].clone();
+                new_particle.add_noise(collision);
+                new_particle
+            };
             self.particles.push(new_particle);
         }
     }
