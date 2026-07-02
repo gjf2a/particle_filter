@@ -66,11 +66,11 @@ impl Angle for Radians {
     fn as_f64(&self) -> f64 {
         self.0
     }
-    
+
     fn sin(&self) -> f64 {
         self.as_f64().sin()
     }
-    
+
     fn cos(&self) -> f64 {
         self.as_f64().cos()
     }

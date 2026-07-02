@@ -145,7 +145,7 @@ impl FromStr for SelectionStrategy {
         match s {
             "Weighted" => Ok(Self::Weighted),
             "RankProportion" => Ok(Self::RankProportion),
-            _ => anyhow::bail!("{s} is not a SelectionStrategy")
+            _ => anyhow::bail!("{s} is not a SelectionStrategy"),
         }
     }
 }
@@ -222,7 +222,7 @@ impl FromStr for WeightStrategy {
             "BoundingBoxArea" => Ok(Self::BoundingBoxArea),
             "TotalSpaces" => Ok(Self::TotalSpaces),
             "OdometryGap" => Ok(Self::OdometryGap),
-            _ => anyhow::bail!("Unrecognized WeightStrategy alternative {s}")
+            _ => anyhow::bail!("Unrecognized WeightStrategy alternative {s}"),
         }
     }
 }
@@ -603,7 +603,10 @@ impl ParticleFilter {
             })
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
-        let with_inconsistent_obstacles = inconsistent.iter().filter(|p| p.map.inconsistent_obstacles().next().is_some()).collect::<Vec<_>>();
+        let with_inconsistent_obstacles = inconsistent
+            .iter()
+            .filter(|p| p.map.inconsistent_obstacles().next().is_some())
+            .collect::<Vec<_>>();
 
         self.particles = consistent
             .iter()
@@ -614,9 +617,12 @@ impl ParticleFilter {
         let mut rng = rand::rng();
         while self.particles.len() < num_particles {
             let mut possible_particle = None;
-            if with_inconsistent_obstacles.len() > 0 && rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE {
+            if with_inconsistent_obstacles.len() > 0
+                && rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE
+            {
                 let src = with_inconsistent_obstacles.choose(&mut rng).unwrap();
-                possible_particle = src.consistent_alternative(&src.map.inconsistent_obstacles().next().unwrap());
+                possible_particle =
+                    src.consistent_alternative(&src.map.inconsistent_obstacles().next().unwrap());
             }
             if possible_particle.is_none() {
                 let choice = selector.choose();
