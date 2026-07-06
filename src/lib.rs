@@ -607,7 +607,9 @@ impl ParticleFilter {
             .iter()
             .filter(|p| p.map.inconsistent_obstacles().next().is_some())
             .collect::<Vec<_>>();
-        println!("All inconsistent: {} obstacles: {}", inconsistent.len(), with_inconsistent_obstacles.len());
+        if inconsistent.len() != with_inconsistent_obstacles.len() {
+            println!("All inconsistent: {} obstacles: {}", inconsistent.len(), with_inconsistent_obstacles.len());
+        }
 
         self.particles = consistent
             .iter()
