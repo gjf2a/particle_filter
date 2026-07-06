@@ -19,3 +19,4 @@ serde = {version = "1.0.228", features = ["derive"]}
 serde_arrays = "0.2.0"
 serde_json = "1.0.149"
 hash_histogram = "0.14.0"
+z3 = "0.20.2"

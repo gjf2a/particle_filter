@@ -2,6 +2,7 @@ pub mod angle;
 pub mod bit_grid;
 pub mod bit_grid_map;
 pub mod bits;
+pub mod input_constraints;
 pub mod irobot_create3;
 pub mod path_plan;
 pub mod point;
@@ -607,6 +608,7 @@ impl ParticleFilter {
             .iter()
             .filter(|p| p.map.inconsistent_obstacles().next().is_some())
             .collect::<Vec<_>>();
+        println!("All inconsistent: {} obstacles: {}", inconsistent.len(), with_inconsistent_obstacles.len());
 
         self.particles = consistent
             .iter()
