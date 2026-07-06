@@ -588,7 +588,7 @@ impl ParticleFilter {
 
     fn find_consistent_particles(&mut self) -> BitArray {
         (0..self.particles.len())
-            .filter(|i| self.particles[*i].map.is_consistent())
+            .filter(|i| self.particles[*i].map.last_inconsistency().is_none())
             .collect()
     }
 
@@ -603,13 +603,6 @@ impl ParticleFilter {
             })
             .map(|i| self.particles[i].clone())
             .collect::<Vec<_>>();
-        let with_inconsistent_obstacles = inconsistent
-            .iter()
-            .filter(|p| p.map.inconsistent_obstacles().next().is_some())
-            .collect::<Vec<_>>();
-        if inconsistent.len() != with_inconsistent_obstacles.len() {
-            println!("All inconsistent: {} obstacles: {}", inconsistent.len(), with_inconsistent_obstacles.len());
-        }
 
         self.particles = consistent
             .iter()
@@ -620,12 +613,11 @@ impl ParticleFilter {
         let mut rng = rand::rng();
         while self.particles.len() < num_particles {
             let mut possible_particle = None;
-            if with_inconsistent_obstacles.len() > 0
-                && rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE
+            if rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE
             {
-                let src = with_inconsistent_obstacles.choose(&mut rng).unwrap();
+                let src = inconsistent.choose(&mut rng).unwrap();
                 possible_particle =
-                    src.consistent_alternative(&src.map.inconsistent_obstacles().next().unwrap());
+                    src.consistent_alternative(&src.map.last_inconsistency().unwrap());
             }
             if possible_particle.is_none() {
                 let choice = selector.choose();
