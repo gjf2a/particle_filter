@@ -100,23 +100,28 @@ impl Particle {
 
     pub fn consistent_alternative(&self, inconsistent_obstacle: &GridPoint) -> Option<Self> {
         let obstacle_meters = self.map.to_meters(*inconsistent_obstacle);
-        let alternative = random_alternative_obstacle(
-            inconsistent_obstacle,
-            &self.map.consistent_obstacle_options(),
-        );
-        let offset = self.map.to_meters(alternative) - obstacle_meters;
-        let mut map = self.map.clone();
-        map.erase_obstacle(inconsistent_obstacle);
-        let candidate = Self {
-            estimate: self.estimate.replaced_estimate(&offset),
-            map,
-            parent: self.parent,
-            noises: self.noises.clone(),
-        };
-        let shadow = candidate.robot_shadow();
-        let visited = candidate.map.all_visited();
-        if shadow.iter().all(|p| visited.contains(&p)) {
-            Some(candidate)
+        let options = self.map.consistent_obstacle_options();
+        if options.len() > 0 {
+            let alternative = random_alternative_obstacle(
+                inconsistent_obstacle,
+                &self.map.consistent_obstacle_options(),
+            );
+            let offset = self.map.to_meters(alternative) - obstacle_meters;
+            let mut map = self.map.clone();
+            map.erase_obstacle(inconsistent_obstacle);
+            let candidate = Self {
+                estimate: self.estimate.replaced_estimate(&offset),
+                map,
+                parent: self.parent,
+                noises: self.noises.clone(),
+            };
+            let shadow = candidate.robot_shadow();
+            let visited = candidate.map.all_visited();
+            if shadow.iter().all(|p| visited.contains(&p)) {
+                Some(candidate)
+            } else {
+                None
+            }
         } else {
             None
         }
