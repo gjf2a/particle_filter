@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::angle::Polar;
 use crate::path_plan::{PathsBackTo, necessary_turns_from};
 use crate::point::GridLineIterator;
@@ -9,6 +11,7 @@ use crate::{
     pose::RobotPose,
     pt,
 };
+use enum_iterator::{Sequence, all};
 use hash_histogram::HashHistogram;
 use serde::{Deserialize, Serialize};
 
@@ -38,26 +41,14 @@ fn to_grid_point(square_size_m: f64, fp: FloatPoint) -> GridPoint {
     fp.iter().map(|f| to_square(square_size_m, f)).collect()
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-pub enum MapConsistent {
-    Yes,
-    OneBad(GridPoint),
-    ManyBad,
-}
-
-impl MapConsistent {
-    pub fn consistent(&self) -> bool {
-        *self == Self::Yes
-    }
-}
-
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct BitGridMap {
     obstacles: BitGrid,
     spaces: BitGrid,
     shadow: BitGrid,
     square_size_m: f64,
-    consistency: MapConsistent
+    brand_new: bool,
+    space_contiguous: bool,
 }
 
 impl BitGridMap {
@@ -82,7 +73,8 @@ impl BitGridMap {
             spaces: BitGrid::default(),
             shadow: Self::create_shadow(square_size_m, robot_radius_m),
             square_size_m,
-            consistency: MapConsistent::Yes,
+            brand_new: true,
+            space_contiguous: true,
         }
     }
 
@@ -129,20 +121,12 @@ impl BitGridMap {
     }
 
     pub fn is_consistent(&self) -> bool {
-        self.obstacles.iter().all(|p| self.consistent_obstacle(&p))
-    }
-
-    pub fn consistency(&self) -> MapConsistent {
-        self.consistency
+        self.space_contiguous && self.obstacle_space_independent()
     }
 
     fn add_obstacle_at(&mut self, obstacle: &FloatPoint) {
         let p = self.to_point(*obstacle);
         self.obstacles.insert(p);
-        if !self.consistent_obstacle(&p) {
-            println!("there!");
-            self.consistency = MapConsistent::OneBad(p);
-        }
     }
 
     fn add_free_space(&mut self, sensor: &FloatPoint, range_end: &FloatPoint) {
@@ -158,7 +142,9 @@ impl BitGridMap {
     }
 
     fn add_odometry_reading(&mut self, odometry_location: &FloatPoint) {
-        self.draw_overlapping_shadow_on(self.to_point(*odometry_location));
+        let overlap = self.draw_overlapping_shadow_on(self.to_point(*odometry_location));
+        self.space_contiguous = self.space_contiguous && (self.brand_new || overlap);
+        self.brand_new = false;
     }
 
     pub fn map_words_used(&self) -> usize {
@@ -249,25 +235,13 @@ impl BitGridMap {
         shadow.all_neighbors(pt).filter(|(_, is_on)| *is_on).count()
     }
 
-    fn draw_overlapping_shadow_on(&mut self, grid_point: GridPoint) {
-        let shadow =  self.grid_shadow(grid_point);
-        for p in shadow.iter() {
+    fn draw_overlapping_shadow_on(&mut self, grid_point: GridPoint) -> bool {
+        let mut overlapping = false;
+        for p in self.grid_shadow(grid_point).iter() {
+            overlapping |= self.spaces.contains(&p);
             self.spaces.insert(p);
         }
-        let affected_obstacles = &shadow.dilated() & &self.obstacles;
-        for obstacle in affected_obstacles.iter() {
-            if !self.consistent_obstacle(&obstacle) {
-                self.consistency = match self.consistency {
-                    MapConsistent::Yes => {println!("here!"); MapConsistent::OneBad(obstacle)},
-                    MapConsistent::OneBad(point) => if point == obstacle {
-                        MapConsistent::OneBad(obstacle)
-                    } else {
-                        MapConsistent::ManyBad
-                    },
-                    MapConsistent::ManyBad => MapConsistent::ManyBad,
-                };
-            }
-        }
+        overlapping
     }
 
     pub fn obstacles_within_shadow(&self, grid_point: GridPoint) -> usize {
@@ -350,6 +324,14 @@ impl BitGridMap {
         self.spaces.len()
     }
 
+    pub fn space_contiguous(&self) -> bool {
+        self.space_contiguous
+    }
+
+    pub fn obstacle_space_independent(&self) -> bool {
+        self.obstacles.iter().all(|p| self.consistent_obstacle(&p))
+    }
+
     pub fn num_neighbors_spaces(&self, p: &GridPoint) -> usize {
         self.spaces
             .manhattan_neighbors(p)
@@ -361,12 +343,38 @@ impl BitGridMap {
         self.num_neighbors_spaces(p) < 4
     }
 
+    pub fn inconsistent_obstacles(&self) -> impl Iterator<Item = GridPoint> {
+        self.obstacles
+            .iter()
+            .filter(|ob| !self.consistent_obstacle(ob))
+    }
+
     pub fn consistent_obstacle_options(&self) -> BitGrid {
-        let mut result = self.obstacles.clone();
-        if let MapConsistent::OneBad(inconsistent) = self.consistency {
-            result.remove(&inconsistent);
+        let unvisited = self.unvisited();
+        let mut result = self
+            .obstacles
+            .iter()
+            .filter(|ob| self.consistent_obstacle(ob))
+            .collect::<BitGrid>();
+        for space in self.spaces.iter() {
+            for neighbor in space
+                .manhattan_neighbors()
+                .filter(|n| unvisited.contains(n))
+            {
+                result.insert(neighbor);
+            }
         }
         result
+    }
+
+    pub fn inconsistency(&self) -> Option<Inconsistency> {
+        if !self.space_contiguous {
+            Some(Inconsistency::SeparatedSpaces)
+        } else if !self.obstacle_space_independent() {
+            Some(Inconsistency::ObstacleSpaceOverlap)
+        } else {
+            None
+        }
     }
 
     pub fn all_spaces(&self) -> &BitGrid {
@@ -404,11 +412,8 @@ impl BitGridMap {
             .collect()
     }
 
-    pub fn erase_inconsistent_obstacle(&mut self) {
-        if let MapConsistent::OneBad(obstacle) = self.consistency {
-            self.obstacles.remove(&obstacle);
-            self.consistency = MapConsistent::Yes;
-        }
+    pub fn erase_obstacle(&mut self, obstacle: &GridPoint) {
+        self.obstacles.remove(obstacle);
     }
 
     pub fn clear_path_between(&self, p1: &GridPoint, p2: &GridPoint) -> bool {
@@ -462,24 +467,57 @@ impl BitGridMap {
 
 impl StatCollector<BitGridMap> for BitGridStats {
     fn gather_data_from(&mut self, iteration: usize, map: &BitGridMap) {
-        if !map.consistency.consistent() {
-            self.iteration_inconsistencies.bump(&iteration);
+        if let Some(inconsistency) = map.inconsistency() {
+            if let Some(histogram) = self.stats.get_mut(&inconsistency) {
+                histogram.bump(&iteration);
+            }
         }
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Sequence, Debug, Serialize, Deserialize)]
+pub enum Inconsistency {
+    ObstacleSpaceOverlap,
+    SeparatedSpaces,
+    OffMap,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BitGridStats {
-    iteration_inconsistencies: HashHistogram<usize, usize>,
+    pub stats: HashMap<Inconsistency, HashHistogram<usize, usize>>,
 }
 
 impl BitGridStats {
+    pub fn stats_for(&self, key: &Inconsistency) -> &HashHistogram<usize, usize> {
+        self.stats.get(key).unwrap()
+    }
+
+    pub fn total_for(&self, key: &Inconsistency) -> usize {
+        self.stats_for(key).total_count()
+    }
+
     pub fn total(&self) -> usize {
-        self.iteration_inconsistencies.total_count()
+        all::<Inconsistency>().map(|inc| self.total_for(&inc)).sum()
     }
 
     pub fn by_iteration(&self) -> HashHistogram<usize, usize> {
-        self.iteration_inconsistencies.clone()
+        let mut result = HashHistogram::new();
+        for counts in self.stats.values() {
+            for (key, count) in counts.iter() {
+                result.bump_by(key, *count);
+            }
+        }
+        result
+    }
+}
+
+impl Default for BitGridStats {
+    fn default() -> Self {
+        Self {
+            stats: all::<Inconsistency>()
+                .map(|inc| (inc, HashHistogram::default()))
+                .collect(),
+        }
     }
 }
 

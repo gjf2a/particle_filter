@@ -68,7 +68,7 @@ impl PathsBackTo {
 
     fn new(map: &BitGridMap, start: RobotPose<Radians>, stop: WhenToStop) -> Self {
         let mut result = PathsBackTo::default();
-        if map.consistency().consistent() {
+        if map.is_consistent() {
             result.exhaustive_search(map, start, stop);
         }
         result
@@ -348,7 +348,7 @@ mod tests {
 
     fn paths_from(map: &str, pose: &str) -> PathsBackTo {
         let map: BitGridMap = serde_json::from_str(map).unwrap();
-        println!("Consistent? {}", map.consistency().consistent());
+        println!("Consistent? {}", map.is_consistent());
         print!("Obstacles:");
         for obstacle in map.all_obstacles().iter() {
             print!(" {obstacle} ({}) ", map.num_neighbors_spaces(&obstacle));
