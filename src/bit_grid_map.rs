@@ -1,4 +1,3 @@
-use crate::Cell::Inconsistent;
 use crate::angle::Polar;
 use crate::path_plan::{PathsBackTo, necessary_turns_from};
 use crate::point::GridLineIterator;
@@ -10,7 +9,6 @@ use crate::{
     pose::RobotPose,
     pt,
 };
-use enum_iterator::Sequence;
 use hash_histogram::HashHistogram;
 use serde::{Deserialize, Serialize};
 
