@@ -592,7 +592,7 @@ impl ParticleFilter {
 
     fn find_consistent_particles(&mut self) -> BitArray {
         (0..self.particles.len())
-            .filter(|i| {/*assert_eq!(self.particles[*i].map.consistency().consistent(), self.particles[*i].map.is_consistent()); */self.particles[*i].map.consistency().consistent()})
+            .filter(|i| {assert_eq!(self.particles[*i].map.consistency().consistent(), self.particles[*i].map.is_consistent()); self.particles[*i].map.consistency().consistent()})
             .collect()
     }
 

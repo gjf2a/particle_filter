@@ -407,6 +407,7 @@ impl BitGridMap {
     pub fn erase_inconsistent_obstacle(&mut self) {
         if let MapConsistent::OneBad(obstacle) = self.consistency {
             self.obstacles.remove(&obstacle);
+            self.consistency = MapConsistent::Yes;
         }
     }
 
