@@ -91,6 +91,16 @@ impl BitGrid {
         result
     }
 
+    pub fn dilated(&self) -> Self {
+        let mut result = Self::default();
+        for one in self.iter() {
+            for n in one.manhattan_neighbors() {
+                result.insert(n);
+            }
+        }
+        result
+    }
+
     pub fn center(&self) -> GridPoint {
         self.bounds.center()
     }

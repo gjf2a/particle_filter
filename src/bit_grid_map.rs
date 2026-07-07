@@ -1,3 +1,4 @@
+use crate::Cell::Inconsistent;
 use crate::angle::Polar;
 use crate::path_plan::{PathsBackTo, necessary_turns_from};
 use crate::point::GridLineIterator;
@@ -39,13 +40,26 @@ fn to_grid_point(square_size_m: f64, fp: FloatPoint) -> GridPoint {
     fp.iter().map(|f| to_square(square_size_m, f)).collect()
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub enum MapConsistent {
+    Yes,
+    OneBad(GridPoint),
+    ManyBad,
+}
+
+impl MapConsistent {
+    pub fn consistent(&self) -> bool {
+        *self == Self::Yes
+    }
+}
+
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct BitGridMap {
     obstacles: BitGrid,
     spaces: BitGrid,
     shadow: BitGrid,
     square_size_m: f64,
-    last_inconsistency: Option<GridPoint>,
+    consistency: MapConsistent
 }
 
 impl BitGridMap {
@@ -70,7 +84,7 @@ impl BitGridMap {
             spaces: BitGrid::default(),
             shadow: Self::create_shadow(square_size_m, robot_radius_m),
             square_size_m,
-            last_inconsistency: None,
+            consistency: MapConsistent::Yes,
         }
     }
 
@@ -120,15 +134,16 @@ impl BitGridMap {
         self.obstacles.iter().all(|p| self.consistent_obstacle(&p))
     }
 
-    pub fn last_inconsistency(&self) -> Option<GridPoint> {
-        self.last_inconsistency
+    pub fn consistency(&self) -> MapConsistent {
+        self.consistency
     }
 
     fn add_obstacle_at(&mut self, obstacle: &FloatPoint) {
         let p = self.to_point(*obstacle);
         self.obstacles.insert(p);
         if !self.consistent_obstacle(&p) {
-            self.last_inconsistency = Some(p);
+            println!("there!");
+            self.consistency = MapConsistent::OneBad(p);
         }
     }
 
@@ -236,13 +251,25 @@ impl BitGridMap {
         shadow.all_neighbors(pt).filter(|(_, is_on)| *is_on).count()
     }
 
-    fn draw_overlapping_shadow_on(&mut self, grid_point: GridPoint) -> bool {
-        let mut overlapping = false;
-        for p in self.grid_shadow(grid_point).iter() {
-            overlapping |= self.spaces.contains(&p);
+    fn draw_overlapping_shadow_on(&mut self, grid_point: GridPoint) {
+        let shadow =  self.grid_shadow(grid_point);
+        for p in shadow.iter() {
             self.spaces.insert(p);
         }
-        overlapping
+        let affected_obstacles = &shadow.dilated() & &self.obstacles;
+        for obstacle in affected_obstacles.iter() {
+            if !self.consistent_obstacle(&obstacle) {
+                self.consistency = match self.consistency {
+                    MapConsistent::Yes => {println!("here!"); MapConsistent::OneBad(obstacle)},
+                    MapConsistent::OneBad(point) => if point == obstacle {
+                        MapConsistent::OneBad(obstacle)
+                    } else {
+                        MapConsistent::ManyBad
+                    },
+                    MapConsistent::ManyBad => MapConsistent::ManyBad,
+                };
+            }
+        }
     }
 
     pub fn obstacles_within_shadow(&self, grid_point: GridPoint) -> usize {
@@ -338,7 +365,7 @@ impl BitGridMap {
 
     pub fn consistent_obstacle_options(&self) -> BitGrid {
         let mut result = self.obstacles.clone();
-        if let Some(inconsistent) = self.last_inconsistency {
+        if let MapConsistent::OneBad(inconsistent) = self.consistency {
             result.remove(&inconsistent);
         }
         result
@@ -380,7 +407,7 @@ impl BitGridMap {
     }
 
     pub fn erase_inconsistent_obstacle(&mut self) {
-        if let Some(obstacle) = self.last_inconsistency {
+        if let MapConsistent::OneBad(obstacle) = self.consistency {
             self.obstacles.remove(&obstacle);
         }
     }
@@ -436,16 +463,10 @@ impl BitGridMap {
 
 impl StatCollector<BitGridMap> for BitGridStats {
     fn gather_data_from(&mut self, iteration: usize, map: &BitGridMap) {
-        if map.last_inconsistency().is_some() {
+        if !map.consistency.consistent() {
             self.iteration_inconsistencies.bump(&iteration);
         }
     }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Sequence, Debug, Serialize, Deserialize)]
-pub enum Inconsistency {
-    ObstacleSpaceOverlap,
-    SeparatedSpaces,
 }
 
 #[derive(Clone, Serialize, Deserialize, Default)]

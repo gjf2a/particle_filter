@@ -99,7 +99,7 @@ impl Particle {
     }
 
     pub fn consistent_alternative(&self) -> Option<Self> {
-        if let Some(inconsistent_obstacle) = self.map.last_inconsistency() {
+        if let MapConsistent::OneBad(inconsistent_obstacle) = self.map.consistency() {
             let obstacle_meters = self.map.to_meters(inconsistent_obstacle);
             let options = self.map.consistent_obstacle_options();
             if options.len() > 0 {
@@ -592,7 +592,7 @@ impl ParticleFilter {
 
     fn find_consistent_particles(&mut self) -> BitArray {
         (0..self.particles.len())
-            .filter(|i| {assert_eq!(self.particles[*i].map.last_inconsistency().is_none(), self.particles[*i].map.is_consistent()); self.particles[*i].map.last_inconsistency().is_none()})
+            .filter(|i| {assert_eq!(self.particles[*i].map.consistency().consistent(), self.particles[*i].map.is_consistent()); self.particles[*i].map.consistency().consistent()})
             .collect()
     }
 
