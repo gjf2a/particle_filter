@@ -98,33 +98,32 @@ impl Particle {
         self.estimate.add_noise(noise);
     }
 
-    pub fn consistent_alternative(&self, inconsistent_obstacle: &GridPoint) -> Option<Self> {
-        let obstacle_meters = self.map.to_meters(*inconsistent_obstacle);
-        let options = self.map.consistent_obstacle_options();
-        if options.len() > 0 {
-            let alternative = random_alternative_obstacle(
-                inconsistent_obstacle,
-                &self.map.consistent_obstacle_options(),
-            );
-            let offset = self.map.to_meters(alternative) - obstacle_meters;
-            let mut map = self.map.clone();
-            map.erase_obstacle(inconsistent_obstacle);
-            let candidate = Self {
-                estimate: self.estimate.replaced_estimate(&offset),
-                map,
-                parent: self.parent,
-                noises: self.noises.clone(),
-            };
-            let shadow = candidate.robot_shadow();
-            let visited = candidate.map.all_visited();
-            if shadow.iter().all(|p| visited.contains(&p)) {
-                Some(candidate)
-            } else {
-                None
+    pub fn consistent_alternative(&self) -> Option<Self> {
+        if let Some(inconsistent_obstacle) = self.map.last_inconsistency() {
+            let obstacle_meters = self.map.to_meters(inconsistent_obstacle);
+            let options = self.map.consistent_obstacle_options();
+            if options.len() > 0 {
+                let alternative = random_alternative_obstacle(
+                    &inconsistent_obstacle,
+                    &self.map.consistent_obstacle_options(),
+                );
+                let offset = self.map.to_meters(alternative) - obstacle_meters;
+                let mut map = self.map.clone();
+                map.erase_inconsistent_obstacle();
+                let candidate = Self {
+                    estimate: self.estimate.replaced_estimate(&offset),
+                    map,
+                    parent: self.parent,
+                    noises: self.noises.clone(),
+                };
+                let shadow = candidate.robot_shadow();
+                let visited = candidate.map.all_visited();
+                if shadow.iter().all(|p| visited.contains(&p)) {
+                    return Some(candidate);
+                }
             }
-        } else {
-            None
         }
+        None
     }
 }
 
@@ -593,7 +592,7 @@ impl ParticleFilter {
 
     fn find_consistent_particles(&mut self) -> BitArray {
         (0..self.particles.len())
-            .filter(|i| self.particles[*i].map.last_inconsistency().is_none())
+            .filter(|i| {assert_eq!(self.particles[*i].map.last_inconsistency().is_none(), self.particles[*i].map.is_consistent()); self.particles[*i].map.last_inconsistency().is_none()})
             .collect()
     }
 
@@ -618,11 +617,9 @@ impl ParticleFilter {
         let mut rng = rand::rng();
         while self.particles.len() < num_particles {
             let mut possible_particle = None;
-            if rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE
-            {
+            if rng.random::<f64>() < PROB_USE_CONSISTENT_ALTERNATIVE {
                 let src = inconsistent.choose(&mut rng).unwrap();
-                possible_particle =
-                    src.consistent_alternative(&src.map.last_inconsistency().unwrap());
+                possible_particle = src.consistent_alternative();
             }
             if possible_particle.is_none() {
                 let choice = selector.choose();

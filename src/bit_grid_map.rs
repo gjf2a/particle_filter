@@ -116,6 +116,10 @@ impl BitGridMap {
         self.square_size_m
     }
 
+    pub fn is_consistent(&self) -> bool {
+        self.obstacles.iter().all(|p| self.consistent_obstacle(&p))
+    }
+
     pub fn last_inconsistency(&self) -> Option<GridPoint> {
         self.last_inconsistency
     }
@@ -375,8 +379,10 @@ impl BitGridMap {
             .collect()
     }
 
-    pub fn erase_obstacle(&mut self, obstacle: &GridPoint) {
-        self.obstacles.remove(obstacle);
+    pub fn erase_inconsistent_obstacle(&mut self) {
+        if let Some(obstacle) = self.last_inconsistency {
+            self.obstacles.remove(&obstacle);
+        }
     }
 
     pub fn clear_path_between(&self, p1: &GridPoint, p2: &GridPoint) -> bool {
@@ -444,7 +450,7 @@ pub enum Inconsistency {
 
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct BitGridStats {
-    iteration_inconsistencies: HashHistogram<usize, usize>
+    iteration_inconsistencies: HashHistogram<usize, usize>,
 }
 
 impl BitGridStats {
