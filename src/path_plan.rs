@@ -5,11 +5,7 @@ use std::{
 };
 
 use crate::{
-    angle::{Angle, Radians},
-    bit_grid::BitGrid,
-    point::{GridLineIterator, GridPoint, manhattan_offsets},
-    pose::RobotPose,
-    pt,
+    angle::{Angle, Polar, Radians}, bit_grid::BitGrid, point::{GridLineIterator, GridPoint, manhattan_offsets}, pose::RobotPose, pt,
 };
 use priority_queue::PriorityQueue;
 
@@ -19,6 +15,7 @@ use crate::{BitGridMap, Particle};
 pub struct PathsBackTo {
     parent_of: HashMap<GridPoint, Option<GridPoint>>,
     leaves: BitGrid,
+    path_points: BitGrid,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -34,6 +31,12 @@ impl PathsBackTo {
 
     pub fn any(map: &BitGridMap, start: RobotPose<Radians>) -> PathsBackTo {
         Self::new(map, start, WhenToStop::First)
+    }
+
+    pub fn robot_on_path(map: &BitGridMap, start: RobotPose<Radians>) -> bool {
+        let all_paths = Self::all(map, start);
+        let next_point = map.to_point(start.pos + Polar::new(map.square_size_m(), start.theta));
+        all_paths.path_points.contains(&next_point)
     }
 
     pub fn shortest_path_points(map: &BitGridMap, start: RobotPose<Radians>) -> BitGrid {
@@ -97,6 +100,7 @@ impl PathsBackTo {
     }
 
     fn add_vector(&mut self, v: &GridVector) {
+        self.path_points.insert(v.current);
         self.parent_of.insert(v.current, v.parent());
         self.leaves.insert(v.current);
         if let Some(parent) = v.parent().as_ref() {
