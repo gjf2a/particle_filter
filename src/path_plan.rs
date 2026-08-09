@@ -5,7 +5,11 @@ use std::{
 };
 
 use crate::{
-    angle::{Angle, Polar, Radians}, bit_grid::BitGrid, point::{GridLineIterator, GridPoint, manhattan_offsets}, pose::RobotPose, pt,
+    angle::{Angle, Polar, Radians},
+    bit_grid::BitGrid,
+    point::{GridLineIterator, GridPoint, manhattan_offsets},
+    pose::RobotPose,
+    pt,
 };
 use priority_queue::PriorityQueue;
 

@@ -314,6 +314,22 @@ impl MapInput {
             Self::FreeSpace(_, _, _) => None,
         }
     }
+
+    pub fn denoised(&self) -> Self {
+        match self {
+            Self::Pose(_) => *self,
+            Self::Collision(map_obstacle) => Self::Collision(map_obstacle.denoised()),
+            Self::RangeObject(map_obstacle) => Self::RangeObject(map_obstacle.denoised()),
+            Self::FreeSpace(f, radians, _) => Self::FreeSpace(
+                *f,
+                *radians,
+                ObstacleNoise {
+                    stdev_distance: 0.0,
+                    stdev_heading: Radians::new(0.0),
+                },
+            ),
+        }
+    }
 }
 
 impl FromStr for MapInput {
@@ -406,6 +422,17 @@ impl MapObstacle {
 
     pub fn heading(&self) -> Radians {
         self.heading
+    }
+
+    pub fn denoised(&self) -> Self {
+        Self {
+            distance: self.distance,
+            heading: self.heading,
+            noise: ObstacleNoise {
+                stdev_distance: 0.0,
+                stdev_heading: Radians::new(0.0),
+            },
+        }
     }
 
     fn update(&self, pose: RobotPose<Radians>) -> MapUpdate {
