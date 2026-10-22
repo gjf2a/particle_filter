@@ -2,7 +2,6 @@ use std::{
     cmp::max,
     ops::{BitAnd, BitOr, BitXor},
     str::FromStr,
-    u64,
 };
 
 use serde::{Deserialize, Serialize};
