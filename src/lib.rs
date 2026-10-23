@@ -121,6 +121,23 @@ impl Particle {
             None
         }
     }
+
+    pub fn has_straight_path_to_unvisited(&self) -> bool {
+        for pt in point::GridLineIterator::starting_at(
+            self.map.to_point(self.estimated_pose().pos),
+            self.estimated_pose().theta,
+            (self.map.width() + self.map.height()) as i64,
+        ) {
+            if self.map.grid_shadow_collisions(pt).len() > 0 {
+                return false;
+            }
+
+            if self.map.cell_for(&pt) == Cell::Unvisited {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Sequence, Debug, Serialize, Deserialize)]

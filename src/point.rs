@@ -10,7 +10,11 @@ use std::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::bit_grid::{ColumnMajorCoordIter, NumType, RowMajorCoordIter, span};
+use crate::{
+    angle::Angle,
+    bit_grid::{ColumnMajorCoordIter, NumType, RowMajorCoordIter, span},
+    pt,
+};
 
 pub type GridPoint = Point<i64, 2>;
 pub type FloatPoint = Point<f64, 2>;
@@ -517,6 +521,20 @@ impl GridLineIterator {
             self.y + if self.y_increase { self.b } else { -self.b },
         ])
     }
+
+    pub fn starting_at<A: Angle>(start: GridPoint, direction: A, length: i64) -> Self {
+        let offset = pt!(
+            ceil_magnitude(length as f64 * direction.cos()),
+            ceil_magnitude(length as f64 * direction.sin())
+        );
+        let end = start + offset;
+        Self::from_to(&start, &end)
+    }
+}
+
+fn ceil_magnitude(f: f64) -> i64 {
+    let v = if f < 0.0 { -f.abs().ceil() } else { f.ceil() };
+    v as i64
 }
 
 impl Iterator for GridLineIterator {
@@ -556,12 +574,13 @@ pub fn assert_valid_line_render(p1: &GridPoint, p2: &GridPoint) {
 mod tests {
     use std::collections::HashSet;
 
+    use assert_float_eq::assert_float_absolute_eq;
     use rand::RngExt;
 
     use crate::{
-        angle::{Angle, Degrees},
+        angle::{Angle, Degrees, Radians},
         bit_grid::ColumnMajorCoordIter,
-        point::{BoundingBox, Point, assert_valid_line_render},
+        point::{BoundingBox, GridLineIterator, Point, assert_valid_line_render, ceil_magnitude},
         pt,
     };
 
@@ -741,5 +760,39 @@ mod tests {
             let p2 = GridPoint::new([rnd.random_range(-100..=100), rnd.random_range(-100..=100)]);
             assert_valid_line_render(&p1, &p2);
         }
+    }
+
+    #[test]
+    fn test_ceil_magnitude() {
+        for (p, x) in [(2.4, 3), (5.6, 6), (6.8, 7), (100.1, 101)] {
+            assert_eq!(ceil_magnitude(p), x);
+            assert_eq!(ceil_magnitude(-p), -x);
+        }
+    }
+
+    #[test]
+    fn test_grid_starting_direction() {
+        let start = pt!(0, 0);
+        for heading in (0..360).step_by(30) {
+            let length = 100;
+            let heading = Degrees::new(heading as f64);
+            let (last_heading, last_length) = last_heading_length(start, heading, length);
+            assert_float_absolute_eq!(heading.radians().as_f64(), last_heading.as_f64(), 0.01);
+            assert_float_absolute_eq!(length as f64, last_length, 1.0);
+
+            for offset in (90..360).step_by(90) {
+                let alt_heading = heading + Degrees::new(offset as f64);
+                let (_, alt_last_length) = last_heading_length(start, alt_heading, length);
+                assert_float_absolute_eq!(alt_last_length, last_length, 1.0);
+            }
+        }
+    }
+
+    fn last_heading_length(start: GridPoint, heading: Degrees, length: i64) -> (Radians, f64) {
+        let points = GridLineIterator::starting_at(start, heading, length).collect::<Vec<_>>();
+        let last = points.last().unwrap();
+        let last_heading = Radians::from(pt!(last[0] as f64, last[1] as f64));
+        let last_length = ((last[0].pow(2) + last[1].pow(2)) as f64).sqrt();
+        (last_heading, last_length)
     }
 }
