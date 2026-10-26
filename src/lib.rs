@@ -55,6 +55,12 @@ impl Noises {
     }
 }
 
+pub enum StraightPathDestination {
+    Obstacle(GridPoint, f64),
+    Unvisited(GridPoint, f64),
+    Freespace(GridPoint, f64),
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Particle {
     estimate: PoseEstimate,
@@ -122,18 +128,22 @@ impl Particle {
         }
     }
 
-    pub fn unvisited_on_straight_path(&self) -> Option<GridPoint> {
-        for pt in point::GridLineIterator::starting_at(
-            self.map.to_point(self.estimated_pose().pos),
-            self.estimated_pose().theta,
-            (self.map.width() + self.map.height()) as i64,
-        ) {
+    pub fn straight_path_destination(&self) -> Option<StraightPathDestination> {
+        let start = self.map.to_point(self.estimated_pose().pos);
+        let length = (self.map.width() + self.map.height()) as i64;
+        for pt in point::GridLineIterator::starting_at(start, self.estimated_pose().theta, length) {
             if self.map.grid_shadow_collisions(pt).len() > 0 {
-                return None;
+                return Some(StraightPathDestination::Obstacle(
+                    pt,
+                    start.euclidean_distance(pt),
+                ));
             }
 
             if self.map.cell_for(&pt) == Cell::Unvisited {
-                return Some(pt);
+                return Some(StraightPathDestination::Unvisited(
+                    pt,
+                    start.euclidean_distance(pt),
+                ));
             }
         }
         None
