@@ -58,7 +58,6 @@ impl Noises {
 pub enum StraightPathDestination {
     Obstacle(GridPoint, f64),
     Unvisited(GridPoint, f64),
-    Freespace(GridPoint, f64),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
