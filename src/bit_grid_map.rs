@@ -418,7 +418,7 @@ impl BitGridMap {
 
     pub fn clear_path_between(&self, p1: &GridPoint, p2: &GridPoint) -> bool {
         GridLineIterator::from_to(p1, p2)
-            .all(|p| !self.obstacles.contains(&p) && self.spaces.contains(&p))
+            .all(|p| self.grid_shadow_collisions(p).len() == 0)
     }
 
     pub fn map_pose_path_str(
