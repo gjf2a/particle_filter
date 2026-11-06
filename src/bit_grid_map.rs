@@ -181,6 +181,10 @@ impl BitGridMap {
         }
     }
 
+    pub fn origin_meters(&self) -> FloatPoint {
+        self.to_meters(self.bounding_box().min())
+    }
+
     pub fn bounding_box(&self) -> BoundingBox<i64> {
         self.spaces.bounding_box() | self.obstacles.bounding_box()
     }
