@@ -389,7 +389,7 @@ impl BitGridMap {
         &self.obstacles
     }
 
-    pub fn corners(&self) -> BitGrid {
+    pub fn all_corners(&self) -> BitGrid {
         let mut result = BitGrid::default();
         for obst in self.obstacles.iter() {
             for diagonal_offset in [(1, 1), (1, -1), (-1, -1), (-1, 1)] {
