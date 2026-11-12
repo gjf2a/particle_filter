@@ -389,6 +389,25 @@ impl BitGridMap {
         &self.obstacles
     }
 
+    pub fn corners(&self) -> BitGrid {
+        let mut result = BitGrid::default();
+        for obst in self.obstacles.iter() {
+            for diagonal_offset in [(1, 1), (1, -1), (-1, -1), (-1, 1)] {
+                let diagonal = obst + diagonal_offset;
+                if self.spaces.contains(&diagonal) {
+                    let n1 = obst + (diagonal_offset.0, 0);
+                    if self.spaces.contains(&n1) {
+                        let n2 = obst + (0, diagonal_offset.1);
+                        if self.spaces.contains(&n2) {
+                            result.insert(diagonal);
+                        }
+                    }
+                }
+            }
+        }
+        result
+    }
+
     pub fn all_visited(&self) -> BitGrid {
         &self.spaces | &self.obstacles
     }
