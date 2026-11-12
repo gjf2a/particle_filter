@@ -197,6 +197,14 @@ impl<N: NumType, const S: usize> Add for Point<N, S> {
     }
 }
 
+impl<N: NumType> Add<(N, N)> for Point<N, 2> {
+    type Output = Self;
+
+    fn add(self, rhs: (N, N)) -> Self::Output {
+        pt!(self[0] + rhs.0, self[1] + rhs.1)
+    }
+}
+
 impl<N: NumType, const S: usize> AddAssign for Point<N, S> {
     fn add_assign(&mut self, rhs: Self) {
         for i in 0..S {
