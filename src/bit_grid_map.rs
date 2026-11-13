@@ -490,7 +490,9 @@ impl BitGridMap {
     pub fn shrink_bot_expand_obstacles(&self) -> Self {
         let mut result = Self::new(self.square_size_m, self.square_size_m);
         for obstacle in self.obstacles.iter() {
-            result.draw_overlapping_shadow_on(obstacle);
+            for shadow in self.grid_shadow(obstacle).iter() {
+                result.obstacles.insert(shadow);
+            }
         }
         for space in self.spaces.iter() {
             if !result.obstacles.contains(&space) {
