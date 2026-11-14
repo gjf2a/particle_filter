@@ -106,17 +106,17 @@ impl ShortestPaths {
         assert!(graph.is_connected());
         let mut distances = HashMap::new();
         let mut predecessors = HashMap::new();
-        for n1 in graph.vertices().iter() {
-            set_from_to(&mut distances, &n1, &n1, 0.0);
-            set_from_to(&mut predecessors, &n1, &n1, n1);
-            for (n2, cost) in graph.edges_from(&n1) {
-                set_from_to(&mut distances, &n1, n2, *cost);
-                set_from_to(&mut predecessors, &n1, n2, n1);
+        for n1 in graph.vertices() {
+            set_from_to(&mut distances, n1, n1, 0.0);
+            set_from_to(&mut predecessors, n1, n1, *n1);
+            for (n2, cost) in graph.edges_from(n1) {
+                set_from_to(&mut distances, n1, n2, *cost);
+                set_from_to(&mut predecessors, n1, n2, *n1);
             }
         }
-        for k in graph.vertices().iter() {
-            for i in graph.vertices().iter() {
-                for j in graph.vertices().iter() {
+        for k in graph.vertices() {
+            for i in graph.vertices() {
+                for j in graph.vertices() {
                     if let Some(i2k) = distances.get(&i).unwrap().get(&k) {
                         if let Some(k2j) = distances.get(&k).unwrap().get(&j) {
                             let alt_i2j = i2k + k2j;
