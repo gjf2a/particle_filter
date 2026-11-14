@@ -7,8 +7,8 @@ pub struct ClearPathGraph {
     vertices: BitGrid,
 }
 
-fn obstruction_in_path(map: &BitGridMap, a: &GridPoint, b: &GridPoint) -> Option<GridPoint> {
-    a.line_to(b).find(|p| map.all_obstacles().contains(p))
+fn all_clear(map: &BitGridMap, a: &GridPoint, b: &GridPoint) -> bool {
+    a.line_to(b).all(|p| map.all_spaces().contains(&p))
 }
 
 fn set_from_to<V>(map: &mut HashMap<GridPoint,HashMap<GridPoint,V>>, from: &GridPoint, to: &GridPoint, value: V) {
@@ -55,7 +55,7 @@ impl ClearPathGraph {
         let mut distances = HashMap::new();
         for i in 0..vertices.len() {
             for j in (i + 1)..vertices.len() {
-                if obstruction_in_path(&map, &vertices[i], &vertices[j]).is_none() {
+                if all_clear(&map, &vertices[i], &vertices[j]) {
                     let distance = vertices[i].euclidean_distance(vertices[j]);
                     set_from_to(&mut distances, &vertices[i], &vertices[j], distance);
                     set_from_to(&mut distances, &vertices[j], &vertices[i], distance);
