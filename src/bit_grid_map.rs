@@ -49,15 +49,16 @@ pub struct BitGridMap {
     square_size_m: f64,
     brand_new: bool,
     space_contiguous: bool,
+    robot_radius_grid: i64,
 }
 
 impl BitGridMap {
     fn create_shadow(square_size_m: f64, robot_radius_m: f64) -> BitGrid {
-        let grid_radius = to_square(square_size_m, robot_radius_m);
-        let grid_diameter = grid_radius as u64 * 2 + 1;
+        let robot_radius_grid = to_square(square_size_m, robot_radius_m);
+        let grid_diameter = robot_radius_grid as u64 * 2 + 1;
         let mut shadow = BitGrid::default();
         for coord in
-            ColumnMajorCoordIter::new(-grid_radius, -grid_radius, grid_diameter, grid_diameter)
+            ColumnMajorCoordIter::new(-robot_radius_grid, -robot_radius_grid, grid_diameter, grid_diameter)
         {
             let float = to_float_point(square_size_m, coord);
             if float.euclidean_distance(pt!(0.0, 0.0)) < robot_radius_m {
@@ -75,6 +76,7 @@ impl BitGridMap {
             square_size_m,
             brand_new: true,
             space_contiguous: true,
+            robot_radius_grid: to_square(square_size_m, robot_radius_m),
         }
     }
 
@@ -393,6 +395,7 @@ impl BitGridMap {
         let mut result = BitGrid::default();
         for obst in self.obstacles.iter() {
             for diagonal_offset in [(1, 1), (1, -1), (-1, -1), (-1, 1)] {
+                let diagonal_offset = (diagonal_offset.0 * self.robot_radius_grid, diagonal_offset.1 * self.robot_radius_grid);
                 let diagonal = obst + diagonal_offset;
                 if self.spaces.contains(&diagonal) {
                     let n1 = obst + (diagonal_offset.0, 0);
@@ -485,21 +488,6 @@ impl BitGridMap {
             strmap.push(c);
         }
         strmap
-    }
-
-    pub fn shrink_bot_expand_obstacles(&self) -> Self {
-        let mut result = Self::new(self.square_size_m, self.square_size_m);
-        for obstacle in self.obstacles.iter() {
-            for shadow in self.grid_shadow(obstacle).iter() {
-                result.obstacles.insert(shadow);
-            }
-        }
-        for space in self.spaces.iter() {
-            if !result.obstacles.contains(&space) {
-                result.spaces.insert(space);
-            }
-        }
-        result
     }
 }
 

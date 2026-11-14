@@ -6,10 +6,6 @@ pub struct ClearPathGraph {
     distances: HashMap<GridPoint,HashMap<GridPoint,f64>>,
 }
 
-fn all_clear(map: &BitGridMap, a: &GridPoint, b: &GridPoint) -> bool {
-    a.line_to(b).all(|p| map.all_spaces().contains(&p))
-}
-
 fn set_from_to<V>(map: &mut HashMap<GridPoint,HashMap<GridPoint,V>>, from: &GridPoint, to: &GridPoint, value: V) {
     match map.get_mut(from) {
         Some(to_values) => {
@@ -25,13 +21,11 @@ fn set_from_to<V>(map: &mut HashMap<GridPoint,HashMap<GridPoint,V>>, from: &Grid
 
 impl ClearPathGraph {
     pub fn corner_graph(map: &BitGridMap) -> Self {
-        let map = map.shrink_bot_expand_obstacles();
         let corners = map.all_corners().iter().collect::<Vec<_>>();
         Self::new_help(&map, corners)
     }
 
     pub fn corner_current_graph(map: &BitGridMap, current: GridPoint) -> Self {
-        let map = map.shrink_bot_expand_obstacles();
         let mut corners = map.all_corners().iter().collect::<Vec<_>>();
         corners.push(current);
         Self::new_help(&map, corners)        
@@ -39,7 +33,6 @@ impl ClearPathGraph {
 
     pub fn corner_current_frontier_graph(map: &BitGridMap, current: GridPoint) -> Self {
         let frontier = map.unvisited();
-        let map = map.shrink_bot_expand_obstacles();
         let mut corners = map.all_corners().iter().collect::<Vec<_>>();
         corners.push(current);
         for frontier_square in frontier.iter() {
@@ -54,7 +47,7 @@ impl ClearPathGraph {
         let mut distances = HashMap::new();
         for i in 0..vertices.len() {
             for j in (i + 1)..vertices.len() {
-                if all_clear(&map, &vertices[i], &vertices[j]) {
+                if map.clear_path_between(&vertices[i], &vertices[j]) {
                     let distance = vertices[i].euclidean_distance(vertices[j]);
                     set_from_to(&mut distances, &vertices[i], &vertices[j], distance);
                     set_from_to(&mut distances, &vertices[j], &vertices[i], distance);
