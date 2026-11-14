@@ -4,7 +4,6 @@ use crate::{BitGridMap, bit_grid::BitGrid, point::GridPoint};
 
 pub struct ClearPathGraph {
     distances: HashMap<GridPoint,HashMap<GridPoint,f64>>,
-    vertices: BitGrid,
 }
 
 fn all_clear(map: &BitGridMap, a: &GridPoint, b: &GridPoint) -> bool {
@@ -62,7 +61,7 @@ impl ClearPathGraph {
                 }
             }
         }        
-        Self {distances, vertices: vertices.iter().collect()}
+        Self {distances}
     }
 
     pub fn edges_from(&self, p: &GridPoint) -> impl Iterator<Item=(&GridPoint,&f64)> {
@@ -70,12 +69,13 @@ impl ClearPathGraph {
         self.distances.get(p).into_iter().flatten()
     }
 
-    pub fn vertices(&self) -> &BitGrid {
-        &self.vertices
+    pub fn vertices(&self) -> impl Iterator<Item=&GridPoint> {
+        self.distances.keys()
     }
 
     pub fn is_connected(&self) -> bool {
-        match self.vertices.iter().next() {
+        let vertices = self.vertices().collect::<BitGrid>();
+        match vertices.iter().next() {
             None => true,
             Some(start) => {
                 let mut visited = BitGrid::default();
@@ -88,7 +88,7 @@ impl ClearPathGraph {
                         }
                     }
                 }
-                visited == self.vertices
+                visited == vertices
             }
         }
     }
