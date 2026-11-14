@@ -4,8 +4,11 @@ use crate::{BitGridMap, bit_grid::BitGrid, point::GridPoint};
 
 pub struct ClearPathGraph {
     distances: HashMap<GridPoint,HashMap<GridPoint,f64>>,
-    frontier: BitGrid,
-    visitable: BitGrid,
+    vertices: BitGrid,
+}
+
+fn obstruction_in_path(map: &BitGridMap, a: &GridPoint, b: &GridPoint) -> Option<GridPoint> {
+    a.line_to(b).find(|p| map.all_obstacles().contains(p))
 }
 
 fn set_from_to<V>(map: &mut HashMap<GridPoint,HashMap<GridPoint,V>>, from: &GridPoint, to: &GridPoint, value: V) {
@@ -22,21 +25,44 @@ fn set_from_to<V>(map: &mut HashMap<GridPoint,HashMap<GridPoint,V>>, from: &Grid
 }
 
 impl ClearPathGraph {
-    pub fn new(map: &BitGridMap) -> Self {
+    pub fn corner_graph(map: &BitGridMap) -> Self {
+        let map = map.shrink_bot_expand_obstacles();
+        let corners = map.all_corners().iter().collect::<Vec<_>>();
+        Self::new_help(&map, corners)
+    }
+
+    pub fn corner_current_graph(map: &BitGridMap, current: GridPoint) -> Self {
+        let map = map.shrink_bot_expand_obstacles();
+        let mut corners = map.all_corners().iter().collect::<Vec<_>>();
+        corners.push(current);
+        Self::new_help(&map, corners)        
+    }
+
+    pub fn corner_current_frontier_graph(map: &BitGridMap, current: GridPoint) -> Self {
         let frontier = map.unvisited();
-        let visitable = &frontier | &map.all_spaces();
-        let visitable_vec = visitable.iter().collect::<Vec<_>>();
-        let mut distances = HashMap::new();
-        for i in 0..visitable_vec.len() {
-            for j in (i + 1)..visitable_vec.len() {
-                if map.clear_path_between(&visitable_vec[i], &visitable_vec[j]) {
-                    let distance = visitable_vec[i].euclidean_distance(visitable_vec[j]);
-                    set_from_to(&mut distances, &visitable_vec[i], &visitable_vec[j], distance);
-                    set_from_to(&mut distances, &visitable_vec[j], &visitable_vec[i], distance);
-                }
+        let map = map.shrink_bot_expand_obstacles();
+        let mut corners = map.all_corners().iter().collect::<Vec<_>>();
+        corners.push(current);
+        for frontier_square in frontier.iter() {
+            if !map.all_obstacles().contains(&frontier_square) {
+                corners.push(frontier_square)
             }
         }
-        Self {distances, frontier, visitable}
+        Self::new_help(&map, corners)
+    }
+
+    fn new_help(map: &BitGridMap, vertices: Vec<GridPoint>) -> Self {
+        let mut distances = HashMap::new();
+        for i in 0..vertices.len() {
+            for j in (i + 1)..vertices.len() {
+                if obstruction_in_path(&map, &vertices[i], &vertices[j]).is_none() {
+                    let distance = vertices[i].euclidean_distance(vertices[j]);
+                    set_from_to(&mut distances, &vertices[i], &vertices[j], distance);
+                    set_from_to(&mut distances, &vertices[j], &vertices[i], distance);
+                }
+            }
+        }        
+        Self {distances, vertices: vertices.iter().collect()}
     }
 
     pub fn edges_from(&self, p: &GridPoint) -> impl Iterator<Item=(&GridPoint,&f64)> {
@@ -44,16 +70,12 @@ impl ClearPathGraph {
         self.distances.get(p).into_iter().flatten()
     }
 
-    pub fn frontier(&self) -> &BitGrid {
-        &self.frontier
-    }
-
-    pub fn visitable(&self) -> &BitGrid {
-        &self.visitable
+    pub fn vertices(&self) -> &BitGrid {
+        &self.vertices
     }
 
     pub fn is_connected(&self) -> bool {
-        match self.visitable.iter().next() {
+        match self.vertices.iter().next() {
             None => true,
             Some(start) => {
                 let mut visited = BitGrid::default();
@@ -66,7 +88,7 @@ impl ClearPathGraph {
                         }
                     }
                 }
-                visited == self.visitable
+                visited == self.vertices
             }
         }
     }
@@ -84,7 +106,7 @@ impl ShortestPaths {
         assert!(graph.is_connected());
         let mut distances = HashMap::new();
         let mut predecessors = HashMap::new();
-        for n1 in graph.visitable().iter() {
+        for n1 in graph.vertices().iter() {
             set_from_to(&mut distances, &n1, &n1, 0.0);
             set_from_to(&mut predecessors, &n1, &n1, n1);
             for (n2, cost) in graph.edges_from(&n1) {
@@ -92,9 +114,9 @@ impl ShortestPaths {
                 set_from_to(&mut predecessors, &n1, n2, n1);
             }
         }
-        for k in graph.visitable().iter() {
-            for i in graph.visitable().iter() {
-                for j in graph.visitable().iter() {
+        for k in graph.vertices().iter() {
+            for i in graph.vertices().iter() {
+                for j in graph.vertices().iter() {
                     if let Some(i2k) = distances.get(&i).unwrap().get(&k) {
                         if let Some(k2j) = distances.get(&k).unwrap().get(&j) {
                             let alt_i2j = i2k + k2j;
@@ -136,7 +158,7 @@ mod tests {
     fn test_build_graph() {
         let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
         println!("About to build graph");
-        let graph = ClearPathGraph::new(&map);
+        let graph = ClearPathGraph::corner_graph(&map);
         println!("Built graph");
         for p in map.unvisited().iter().chain(map.all_spaces().iter()) {
             assert!(graph.edges_from(&p).count() > 0);
