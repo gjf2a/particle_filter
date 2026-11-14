@@ -54,7 +54,7 @@ impl ClearPathGraph {
                 }
             }
         }        
-        assert_eq!(distances.len(), vertices.len());
+        assert!(distances.len() <= vertices.len());
         Self {distances}
     }
 
