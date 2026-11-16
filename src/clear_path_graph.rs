@@ -32,7 +32,7 @@ impl ClearPathGraph {
     }
 
     pub fn corner_current_frontier_graph(map: &BitGridMap, current: GridPoint) -> Self {
-        let frontier = map.unvisited();
+        let frontier = map.open_frontier_spaces();
         let mut corners = map.all_corners().iter().collect::<Vec<_>>();
         corners.push(current);
         for frontier_square in frontier.iter() {
@@ -41,6 +41,20 @@ impl ClearPathGraph {
             }
         }
         Self::new_help(&map, corners)
+    }
+
+    pub fn shortest_frontier_path(map: &BitGridMap, current: GridPoint) -> Option<VecDeque<GridPoint>> {
+        let cpg = Self::corner_current_frontier_graph(map, current);
+        let paths = ShortestPaths::new(&cpg);
+        let frontier = map.open_frontier_spaces();
+        let mut closest = None;
+        for candidate in frontier.iter() {
+            let distance = paths.distance_between(&current, &candidate);
+            if closest.map_or(true, |(min_distance, _)| distance < min_distance) {
+                closest = Some((distance, candidate));
+            }
+        }
+        closest.map(|(_, frontier)| paths.path_between(&current, &frontier))
     }
 
     fn new_help(map: &BitGridMap, vertices: Vec<GridPoint>) -> Self {
