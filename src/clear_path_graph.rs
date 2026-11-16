@@ -3,10 +3,15 @@ use std::collections::{HashMap, VecDeque};
 use crate::{BitGridMap, bit_grid::BitGrid, point::GridPoint};
 
 pub struct ClearPathGraph {
-    distances: HashMap<GridPoint,HashMap<GridPoint,f64>>,
+    distances: HashMap<GridPoint, HashMap<GridPoint, f64>>,
 }
 
-fn set_from_to<V>(map: &mut HashMap<GridPoint,HashMap<GridPoint,V>>, from: &GridPoint, to: &GridPoint, value: V) {
+fn set_from_to<V>(
+    map: &mut HashMap<GridPoint, HashMap<GridPoint, V>>,
+    from: &GridPoint,
+    to: &GridPoint,
+    value: V,
+) {
     match map.get_mut(from) {
         Some(to_values) => {
             to_values.insert(*to, value);
@@ -28,7 +33,7 @@ impl ClearPathGraph {
     pub fn corner_current_graph(map: &BitGridMap, current: GridPoint) -> Self {
         let mut corners = map.all_corners().iter().collect::<Vec<_>>();
         corners.push(current);
-        Self::new_help(&map, corners)        
+        Self::new_help(&map, corners)
     }
 
     pub fn corner_current_frontier_graph(map: &BitGridMap, current: GridPoint) -> Self {
@@ -43,7 +48,10 @@ impl ClearPathGraph {
         Self::new_help(&map, corners)
     }
 
-    pub fn shortest_frontier_path(map: &BitGridMap, current: GridPoint) -> Option<VecDeque<GridPoint>> {
+    pub fn shortest_frontier_path(
+        map: &BitGridMap,
+        current: GridPoint,
+    ) -> Option<VecDeque<GridPoint>> {
         let cpg = Self::corner_current_frontier_graph(map, current);
         let paths = ShortestPaths::new(&cpg);
         let frontier = map.open_frontier_spaces();
@@ -68,17 +76,17 @@ impl ClearPathGraph {
                     set_from_to(&mut distances, &vertices[j], &vertices[i], distance);
                 }
             }
-        }        
+        }
         assert!(distances.len() <= vertices.len());
-        Self {distances}
+        Self { distances }
     }
 
-    pub fn edges_from(&self, p: &GridPoint) -> impl Iterator<Item=(&GridPoint,&f64)> {
+    pub fn edges_from(&self, p: &GridPoint) -> impl Iterator<Item = (&GridPoint, &f64)> {
         // From https://users.rust-lang.org/t/how-to-return-an-empty-iterator-if-my-vector-isnt-found/100248
         self.distances.get(p).into_iter().flatten()
     }
 
-    pub fn vertices(&self) -> impl Iterator<Item=&GridPoint> {
+    pub fn vertices(&self) -> impl Iterator<Item = &GridPoint> {
         self.distances.keys()
     }
 
@@ -129,9 +137,15 @@ impl ShortestPaths {
                     if let Some(i2k) = distances.get(&i).unwrap().get(&k) {
                         if let Some(k2j) = distances.get(&k).unwrap().get(&j) {
                             let alt_i2j = i2k + k2j;
-                            if distances.get(&i).unwrap().get(&j).map_or(true, |i2j| *i2j > alt_i2j) {
+                            if distances
+                                .get(&i)
+                                .unwrap()
+                                .get(&j)
+                                .map_or(true, |i2j| *i2j > alt_i2j)
+                            {
                                 set_from_to(&mut distances, &i, &j, alt_i2j);
-                                let k_pred = predecessors.get(&k).unwrap().get(&j).copied().unwrap();
+                                let k_pred =
+                                    predecessors.get(&k).unwrap().get(&j).copied().unwrap();
                                 set_from_to(&mut predecessors, &i, &j, k_pred);
                             }
                         }
@@ -139,7 +153,10 @@ impl ShortestPaths {
                 }
             }
         }
-        Self {distances, predecessors}
+        Self {
+            distances,
+            predecessors,
+        }
     }
 
     pub fn distance_between(&self, p1: &GridPoint, p2: &GridPoint) -> Option<f64> {
