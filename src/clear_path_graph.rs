@@ -49,9 +49,10 @@ impl ClearPathGraph {
         let frontier = map.open_frontier_spaces();
         let mut closest = None;
         for candidate in frontier.iter() {
-            let distance = paths.distance_between(&current, &candidate);
-            if closest.map_or(true, |(min_distance, _)| distance < min_distance) {
-                closest = Some((distance, candidate));
+            if let Some(distance) = paths.distance_between(&current, &candidate) {
+                if closest.map_or(true, |(min_distance, _)| distance < min_distance) {
+                    closest = Some((distance, candidate));
+                }
             }
         }
         closest.map(|(_, frontier)| paths.path_between(&current, &frontier))
@@ -141,8 +142,8 @@ impl ShortestPaths {
         Self {distances, predecessors}
     }
 
-    pub fn distance_between(&self, p1: &GridPoint, p2: &GridPoint) -> f64 {
-        self.distances.get(p1).unwrap().get(p2).copied().unwrap()
+    pub fn distance_between(&self, p1: &GridPoint, p2: &GridPoint) -> Option<f64> {
+        self.distances.get(p1).and_then(|ds| ds.get(p2)).copied()
     }
 
     pub fn path_between(&self, p1: &GridPoint, p2: &GridPoint) -> VecDeque<GridPoint> {
