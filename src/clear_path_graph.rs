@@ -66,6 +66,24 @@ impl ClearPathGraph {
         closest.map(|(_, frontier)| paths.path_between(&current, &frontier))
     }
 
+    pub fn longest_frontier_path(
+        map: &BitGridMap,
+        current: GridPoint,
+    ) -> Option<VecDeque<GridPoint>> {
+        let cpg = Self::corner_current_frontier_graph(map, current);
+        let paths = ShortestPaths::new(&cpg);
+        let frontier = map.open_frontier_spaces();
+        let mut farthest = None;
+        for candidate in frontier.iter() {
+            if let Some(distance) = paths.distance_between(&current, &candidate) {
+                if farthest.map_or(true, |(max_distance, _)| distance > max_distance) {
+                    farthest = Some((distance, candidate));
+                }
+            }
+        }
+        farthest.map(|(_, frontier)| paths.path_between(&current, &frontier))
+    }
+
     fn new_help(map: &BitGridMap, vertices: Vec<GridPoint>) -> Self {
         let mut distances = HashMap::new();
         for i in 0..vertices.len() {
