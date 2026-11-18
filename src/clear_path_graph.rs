@@ -48,40 +48,33 @@ impl ClearPathGraph {
         Self::new_help(&map, corners)
     }
 
+    fn frontier_path<F: Fn(f64, f64) -> bool>(map: &BitGridMap, current: GridPoint, prefer_first_distance: F) -> Option<VecDeque<GridPoint>> {
+        let cpg = Self::corner_current_frontier_graph(map, current);
+        let paths = ShortestPaths::new(&cpg);
+        let frontier = map.open_frontier_spaces();
+        let mut best = None;
+        for candidate in frontier.iter() {
+            if let Some(distance) = paths.distance_between(&current, &candidate) {
+                if best.map_or(true, |(best_distance, _)| prefer_first_distance(distance, best_distance)) {
+                    best = Some((distance, candidate));
+                }
+            }
+        }
+        best.map(|(_, frontier)| paths.path_between(&current, &frontier))
+    }
+
     pub fn shortest_frontier_path(
         map: &BitGridMap,
         current: GridPoint,
     ) -> Option<VecDeque<GridPoint>> {
-        let cpg = Self::corner_current_frontier_graph(map, current);
-        let paths = ShortestPaths::new(&cpg);
-        let frontier = map.open_frontier_spaces();
-        let mut closest = None;
-        for candidate in frontier.iter() {
-            if let Some(distance) = paths.distance_between(&current, &candidate) {
-                if closest.map_or(true, |(min_distance, _)| distance < min_distance) {
-                    closest = Some((distance, candidate));
-                }
-            }
-        }
-        closest.map(|(_, frontier)| paths.path_between(&current, &frontier))
+        Self::frontier_path(map, current, |a, b| a < b)
     }
 
     pub fn longest_frontier_path(
         map: &BitGridMap,
         current: GridPoint,
     ) -> Option<VecDeque<GridPoint>> {
-        let cpg = Self::corner_current_frontier_graph(map, current);
-        let paths = ShortestPaths::new(&cpg);
-        let frontier = map.open_frontier_spaces();
-        let mut farthest = None;
-        for candidate in frontier.iter() {
-            if let Some(distance) = paths.distance_between(&current, &candidate) {
-                if farthest.map_or(true, |(max_distance, _)| distance > max_distance) {
-                    farthest = Some((distance, candidate));
-                }
-            }
-        }
-        farthest.map(|(_, frontier)| paths.path_between(&current, &frontier))
+        Self::frontier_path(map, current, |a, b| a > b)
     }
 
     fn new_help(map: &BitGridMap, vertices: Vec<GridPoint>) -> Self {
