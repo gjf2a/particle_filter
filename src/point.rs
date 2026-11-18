@@ -578,6 +578,53 @@ pub fn assert_valid_line_render(p1: &GridPoint, p2: &GridPoint) {
     }
 }
 
+pub struct GridOutlineIterator {
+    starts: [GridPoint; 4],
+    size: i64,
+    current_start: usize,
+    i: i64,
+}
+
+impl GridOutlineIterator {
+    pub fn new(center: GridPoint, size: i64) -> Self {
+        let start = center - pt!(size / 2, size / 2);
+        GridOutlineIterator {
+            starts: [
+                start,
+                start,
+                start + pt!(0, size - 1),
+                start + pt!(size - 1, 0),
+            ],
+            size,
+            current_start: 0,
+            i: 0,
+        }
+    }
+}
+
+impl Iterator for GridOutlineIterator {
+    type Item = GridPoint;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_start < self.starts.len() {
+            let offset = if self.current_start % 2 == 0 {
+                pt!(self.i, 0)
+            } else {
+                pt!(0, self.i)
+            };
+            let result = Some(self.starts[self.current_start] + offset);
+            self.i += 1;
+            if self.i == self.size {
+                self.i = 0;
+                self.current_start += 1;
+            }
+            result
+        } else {
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -588,7 +635,10 @@ mod tests {
     use crate::{
         angle::{Angle, Degrees, Radians},
         bit_grid::ColumnMajorCoordIter,
-        point::{BoundingBox, GridLineIterator, Point, assert_valid_line_render, ceil_magnitude},
+        point::{
+            BoundingBox, GridLineIterator, GridOutlineIterator, Point, assert_valid_line_render,
+            ceil_magnitude,
+        },
         pt,
     };
 
@@ -802,5 +852,22 @@ mod tests {
         let last_heading = Radians::from(pt!(last[0] as f64, last[1] as f64));
         let last_length = ((last[0].pow(2) + last[1].pow(2)) as f64).sqrt();
         (last_heading, last_length)
+    }
+
+    #[test]
+    fn test_grid_outline_iterator() {
+        let center = pt!(3, 4);
+        let size = 4;
+        let start = center - pt!(size / 2, size / 2);
+
+        for (a, b) in GridOutlineIterator::new(center, size).zip(
+            (0..size)
+                .map(|i| start + pt!(i, 0))
+                .chain((0..size).map(|i| start + pt!(0, i)))
+                .chain((0..size).map(|i| start + pt!(0, size - 1) + pt!(i, 0)))
+                .chain((0..size).map(|i| start + pt!(size - 1, 0) + pt!(0, i))),
+        ) {
+            assert_eq!(a, b);
+        }
     }
 }

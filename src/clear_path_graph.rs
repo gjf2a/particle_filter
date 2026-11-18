@@ -1,6 +1,10 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::{BitGridMap, bit_grid::BitGrid, point::GridPoint};
+use crate::{
+    BitGridMap,
+    bit_grid::BitGrid,
+    point::{GridOutlineIterator, GridPoint},
+};
 
 pub struct ClearPathGraph {
     distances: HashMap<GridPoint, HashMap<GridPoint, f64>>,
@@ -27,40 +31,53 @@ fn set_from_to<V>(
 impl ClearPathGraph {
     pub fn corner_graph(map: &BitGridMap) -> Self {
         let corners = map.all_corners().iter().collect::<Vec<_>>();
-        Self::new_help(&map, corners)
+        Self::make_graph(&map, corners)
     }
 
-    pub fn corner_current_graph(map: &BitGridMap, current: GridPoint) -> Self {
-        let mut corners = map.all_corners().iter().collect::<Vec<_>>();
-        corners.push(current);
-        Self::new_help(&map, corners)
+    pub fn corner_current_graph(map: &BitGridMap, current: GridPoint) -> Option<Self> {
+        find_clear_current(map, current).map(|current| {
+            let mut corners = map.all_corners().iter().collect::<Vec<_>>();
+            corners.push(current);
+            Self::make_graph(&map, corners)
+        })
     }
 
-    pub fn corner_current_frontier_graph(map: &BitGridMap, current: GridPoint) -> Self {
-        let frontier = map.open_frontier_spaces();
-        let mut corners = map.all_corners().iter().collect::<Vec<_>>();
-        corners.push(current);
-        for frontier_square in frontier.iter() {
-            if !map.all_obstacles().contains(&frontier_square) {
-                corners.push(frontier_square)
-            }
-        }
-        Self::new_help(&map, corners)
-    }
-
-    fn frontier_path<F: Fn(f64, f64) -> bool>(map: &BitGridMap, current: GridPoint, prefer_first_distance: F) -> Option<VecDeque<GridPoint>> {
-        let cpg = Self::corner_current_frontier_graph(map, current);
-        let paths = ShortestPaths::new(&cpg);
-        let frontier = map.open_frontier_spaces();
-        let mut best = None;
-        for candidate in frontier.iter() {
-            if let Some(distance) = paths.distance_between(&current, &candidate) {
-                if best.map_or(true, |(best_distance, _)| prefer_first_distance(distance, best_distance)) {
-                    best = Some((distance, candidate));
+    pub fn corner_current_frontier_graph(map: &BitGridMap, current: GridPoint) -> Option<Self> {
+        find_clear_current(map, current).map(|current| {
+            let frontier = map.open_frontier_spaces();
+            let mut corners = map.all_corners().iter().collect::<Vec<_>>();
+            corners.push(current);
+            for frontier_square in frontier.iter() {
+                if !map.all_obstacles().contains(&frontier_square) {
+                    corners.push(frontier_square)
                 }
             }
+            Self::make_graph(&map, corners)
+        })
+    }
+
+    fn frontier_path<F: Fn(f64, f64) -> bool>(
+        map: &BitGridMap,
+        current: GridPoint,
+        prefer_first_distance: F,
+    ) -> Option<VecDeque<GridPoint>> {
+        if let Some(cpg) = Self::corner_current_frontier_graph(map, current) {
+            let paths = ShortestPaths::new(&cpg);
+            let frontier = map.open_frontier_spaces();
+            let mut best = None;
+            for candidate in frontier.iter() {
+                if let Some(distance) = paths.distance_between(&current, &candidate) {
+                    if best.map_or(true, |(best_distance, _)| {
+                        prefer_first_distance(distance, best_distance)
+                    }) {
+                        best = Some((distance, candidate));
+                    }
+                }
+            }
+            best.map(|(_, frontier)| paths.path_between(&current, &frontier))
+        } else {
+            None
         }
-        best.map(|(_, frontier)| paths.path_between(&current, &frontier))
     }
 
     pub fn shortest_frontier_path(
@@ -77,7 +94,7 @@ impl ClearPathGraph {
         Self::frontier_path(map, current, |a, b| a > b)
     }
 
-    fn new_help(map: &BitGridMap, vertices: Vec<GridPoint>) -> Self {
+    fn make_graph(map: &BitGridMap, vertices: Vec<GridPoint>) -> Self {
         let mut distances = HashMap::new();
         for i in 0..vertices.len() {
             for j in (i + 1)..vertices.len() {
@@ -120,6 +137,18 @@ impl ClearPathGraph {
             }
         }
     }
+}
+
+fn find_clear_current(map: &BitGridMap, current: GridPoint) -> Option<GridPoint> {
+    for d in 0..map.robot_radius_grid() {
+        for candidate in GridOutlineIterator::new(current, d) {
+            let collisions = &map.grid_shadow(current) & map.all_obstacles();
+            if collisions.len() == 0 {
+                return Some(candidate);
+            }
+        }
+    }
+    None
 }
 
 pub struct ShortestPaths {
