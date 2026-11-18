@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::angle::Polar;
-use crate::path_plan::{PathsBackTo, necessary_turns_from};
 use crate::point::GridLineIterator;
 use crate::{MapInput, MapUpdate, PoseEstimate, StatCollector};
 use crate::{
@@ -314,17 +313,6 @@ impl BitGridMap {
         }
 
         best.0
-    }
-
-    pub fn exploration_target(&self, start: RobotPose<Radians>) -> Option<GridPoint> {
-        let grid_point = self.to_point(start.pos);
-        if self.collides_at_position(grid_point) {
-            Some(self.freest_point_within_neighborhood(grid_point))
-        } else {
-            let path = PathsBackTo::all(self, start).shortest_min_obstacle_path(self);
-            path.map(|p| necessary_turns_from(p.iter().copied(), self))
-                .and_then(|p| p.iter().find(|g| **g != grid_point).copied())
-        }
     }
 
     pub fn num_obstacles(&self) -> usize {

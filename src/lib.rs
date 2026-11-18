@@ -4,7 +4,6 @@ pub mod bit_grid_map;
 pub mod bits;
 pub mod clear_path_graph;
 pub mod irobot_create3;
-pub mod path_plan;
 pub mod point;
 pub mod pose;
 pub mod stats;
