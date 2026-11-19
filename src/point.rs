@@ -579,25 +579,88 @@ pub fn assert_valid_line_render(p1: &GridPoint, p2: &GridPoint) {
 }
 
 pub struct GridOutlineIterator {
-    starts: [GridPoint; 4],
-    size: i64,
-    current_start: usize,
-    i: i64,
+    min_x: i64,
+    min_y: i64,
+    max_x: i64,
+    max_y: i64,
+    start: GridPoint,
+    current: Option<GridPoint>,
+    state: GoiState,
 }
 
 impl GridOutlineIterator {
     pub fn new(center: GridPoint, size: i64) -> Self {
-        let start = center - pt!(size / 2, size / 2);
-        GridOutlineIterator {
-            starts: [
+        if size > 0 {
+            let start = center - pt!(size / 2, size / 2);
+            let min_x = start[0];
+            let min_y = start[1];
+            let max_x = min_x + size - 1;
+            let max_y = min_y + size - 1;
+            let state = if size == 1 {
+                GoiState::MinusY
+            } else {
+                GoiState::PlusX
+            };
+            Self {
+                min_x,
+                min_y,
+                max_x,
+                max_y,
                 start,
-                start,
-                start + pt!(0, size - 1),
-                start + pt!(size - 1, 0),
-            ],
-            size,
-            current_start: 0,
-            i: 0,
+                current: Some(start),
+                state,
+            }
+        } else {
+            Self {
+                min_x: 0,
+                min_y: 0,
+                max_x: 0,
+                max_y: 0,
+                start: pt!(0, 0),
+                current: None,
+                state: GoiState::Done,
+            }
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum GoiState {
+    PlusX,
+    PlusY,
+    MinusX,
+    MinusY,
+    Done,
+}
+
+impl GoiState {
+    fn next(&self) -> Self {
+        match self {
+            Self::PlusX => Self::PlusY,
+            Self::PlusY => Self::MinusX,
+            Self::MinusX => Self::MinusY,
+            _ => Self::Done,
+        }
+    }
+
+    fn goal(&self, iter: &GridOutlineIterator) -> Option<GridPoint> {
+        match self {
+            Self::Done => None,
+            Self::PlusX => Some(pt!(iter.max_x, iter.min_y)),
+            Self::PlusY => Some(pt!(iter.max_x, iter.max_y)),
+            Self::MinusX => Some(pt!(iter.min_x, iter.max_y)),
+            Self::MinusY => Some(pt!(iter.min_x, iter.min_y)),
+        }
+    }
+
+    fn update(&self, p: &GridPoint, goal: &GridPoint) -> (Self, Option<GridPoint>) {
+        let new_state = if p == goal { self.next() } else { *self };
+        match new_state {
+            Self::Done => (Self::Done, None),
+            Self::PlusX => (new_state, Some(pt!(p[0] + 1, p[1]))),
+            Self::PlusY => (new_state, Some(pt!(p[0], p[1] + 1))),
+            Self::MinusX => (new_state, Some(pt!(p[0] - 1, p[1]))),
+            Self::MinusY => (new_state, Some(pt!(p[0], p[1] - 1))),
         }
     }
 }
@@ -606,22 +669,20 @@ impl Iterator for GridOutlineIterator {
     type Item = GridPoint;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_start < self.starts.len() {
-            let offset = if self.current_start % 2 == 0 {
-                pt!(self.i, 0)
-            } else {
-                pt!(0, self.i)
-            };
-            let result = Some(self.starts[self.current_start] + offset);
-            self.i += 1;
-            if self.i == self.size {
-                self.i = 0;
-                self.current_start += 1;
+        let result = self.current;
+        if let Some(current) = self.current {
+            if let Some(goal) = self.state.goal(self) {
+                let (state, updated) = self.state.update(&current, &goal);
+                if let Some(update) = updated && update == self.start {
+                    self.state = GoiState::Done;
+                    self.current = None;
+                } else {
+                    self.state = state;
+                    self.current = updated;
+                }
             }
-            result
-        } else {
-            None
         }
+        result
     }
 }
 
@@ -855,19 +916,82 @@ mod tests {
     }
 
     #[test]
-    fn test_grid_outline_iterator() {
-        let center = pt!(3, 4);
-        let size = 4;
-        let start = center - pt!(size / 2, size / 2);
+    fn test_grid_outline_iterator_0() {
+        let points = GridOutlineIterator::new(pt!(0, 0), 0).collect::<Vec<_>>();
+        assert_eq!(points.len(), 0);
+    }
 
-        for (a, b) in GridOutlineIterator::new(center, size).zip(
-            (0..size)
-                .map(|i| start + pt!(i, 0))
-                .chain((0..size).map(|i| start + pt!(0, i)))
-                .chain((0..size).map(|i| start + pt!(0, size - 1) + pt!(i, 0)))
-                .chain((0..size).map(|i| start + pt!(size - 1, 0) + pt!(0, i))),
-        ) {
-            assert_eq!(a, b);
-        }
+    #[test]
+    fn test_grid_outline_iterator_1() {
+        let center = pt!(1, 2);
+        let size = 1;
+        let points = GridOutlineIterator::new(center, size).collect::<Vec<_>>();
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0], center);
+    }
+
+    #[test]
+    fn test_grid_outline_iterator_2() {
+        let center = pt!(-3, -1);
+        let size = 2;
+        let points = GridOutlineIterator::new(center, size).collect::<Vec<_>>();
+        assert_eq!(points.len(), 4);
+        assert_eq!(
+            points,
+            vec![pt!(-4, -2), pt!(-3, -2), pt!(-3, -1), pt!(-4, -1)]
+        );
+    }
+
+    #[test]
+    fn test_grid_outline_iterator_2b() {
+        let center = pt!(3, 1);
+        let size = 2;
+        let points = GridOutlineIterator::new(center, size).collect::<Vec<_>>();
+        assert_eq!(points.len(), 4);
+        assert_eq!(points, vec![pt!(2, 0), pt!(3, 0), pt!(3, 1), pt!(2, 1)]);
+    }
+
+    #[test]
+    fn test_grid_outline_iterator_3() {
+        let center = pt!(-3, 5);
+        let points = GridOutlineIterator::new(center, 3).collect::<Vec<_>>();
+        assert_eq!(points.len(), 8);
+        assert_eq!(
+            points,
+            vec![
+                pt!(-4, 4),
+                pt!(-3, 4),
+                pt!(-2, 4),
+                pt!(-2, 5),
+                pt!(-2, 6),
+                pt!(-3, 6),
+                pt!(-4, 6),
+                pt!(-4, 5)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_grid_outline_iterator_4() {
+        let center = pt!(3, 4);
+        let points = GridOutlineIterator::new(center, 4).collect::<Vec<_>>();
+        assert_eq!(points.len(), 12);
+        assert_eq!(
+            points,
+            vec![
+                pt!(1, 2),
+                pt!(2, 2),
+                pt!(3, 2),
+                pt!(4, 2),
+                pt!(4, 3),
+                pt!(4, 4),
+                pt!(4, 5),
+                pt!(3, 5),
+                pt!(2, 5),
+                pt!(1, 5),
+                pt!(1, 4),
+                pt!(1, 3),
+            ]
+        );
     }
 }
