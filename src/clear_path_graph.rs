@@ -29,21 +29,21 @@ fn set_from_to<V>(
 }
 
 impl ClearPathGraph {
-    pub fn corner_graph(map: &BitGridMap) -> Self {
+    pub fn corner_graph(map: &BitGridMap, max_path_overlap: usize) -> Self {
         let corners = map.all_corners().iter().collect::<Vec<_>>();
-        Self::make_graph(&map, corners)
+        Self::make_graph(&map, corners, max_path_overlap)
     }
 
-    pub fn corner_current_graph(map: &BitGridMap, current: GridPoint) -> Option<Self> {
-        find_clear_current(map, current).map(|current| {
+    pub fn corner_current_graph(map: &BitGridMap, current: GridPoint, max_path_overlap: usize, max_current_overlap: usize) -> Option<Self> {
+        find_clear_current(map, current, max_current_overlap).map(|current| {
             let mut corners = map.all_corners().iter().collect::<Vec<_>>();
             corners.push(current);
-            Self::make_graph(&map, corners)
+            Self::make_graph(&map, corners, max_path_overlap)
         })
     }
 
-    pub fn corner_current_frontier_graph(map: &BitGridMap, current: GridPoint) -> Option<Self> {
-        find_clear_current(map, current).map(|current| {
+    pub fn corner_current_frontier_graph(map: &BitGridMap, current: GridPoint, max_path_overlap: usize, max_current_overlap: usize) -> Option<Self> {
+        find_clear_current(map, current, max_current_overlap).map(|current| {
             let frontier = map.open_frontier_spaces();
             let mut corners = map.all_corners().iter().collect::<Vec<_>>();
             corners.push(current);
@@ -52,18 +52,23 @@ impl ClearPathGraph {
                     corners.push(frontier_square)
                 }
             }
-            Self::make_graph(&map, corners)
+            Self::make_graph(&map, corners, max_path_overlap)
         })
     }
 
     fn frontier_path<F: Fn(f64, f64) -> bool>(
         map: &BitGridMap,
         current: GridPoint,
+        max_path_overlap: usize,
+        max_current_overlap: usize,
         prefer_first_distance: F,
     ) -> Option<VecDeque<GridPoint>> {
-        if let Some(cpg) = Self::corner_current_frontier_graph(map, current) {
+        if let Some(cpg) = Self::corner_current_frontier_graph(map, current, max_path_overlap, max_current_overlap) {
+            println!("Created ClearPathGraph object");
             let paths = ShortestPaths::new(&cpg);
+            println!("Created ShortestPaths object");
             let frontier = map.open_frontier_spaces();
+            println!("{} frontier spaces", frontier.len());
             let mut best = None;
             for candidate in frontier.iter() {
                 if let Some(distance) = paths.distance_between(&current, &candidate) {
@@ -83,22 +88,26 @@ impl ClearPathGraph {
     pub fn shortest_frontier_path(
         map: &BitGridMap,
         current: GridPoint,
+        max_path_overlap: usize,
+        max_current_overlap: usize,
     ) -> Option<VecDeque<GridPoint>> {
-        Self::frontier_path(map, current, |a, b| a < b)
+        Self::frontier_path(map, current, max_path_overlap, max_current_overlap, |a, b| a < b)
     }
 
     pub fn longest_frontier_path(
         map: &BitGridMap,
         current: GridPoint,
+        max_path_overlap: usize,
+        max_current_overlap: usize,
     ) -> Option<VecDeque<GridPoint>> {
-        Self::frontier_path(map, current, |a, b| a > b)
+        Self::frontier_path(map, current, max_path_overlap, max_current_overlap, |a, b| a > b)
     }
 
-    fn make_graph(map: &BitGridMap, vertices: Vec<GridPoint>) -> Self {
+    fn make_graph(map: &BitGridMap, vertices: Vec<GridPoint>, max_path_overlap: usize) -> Self {
         let mut distances = HashMap::new();
         for i in 0..vertices.len() {
             for j in (i + 1)..vertices.len() {
-                if map.clear_path_between(&vertices[i], &vertices[j]) {
+                if map.clear_path_between(&vertices[i], &vertices[j], max_path_overlap) {
                     let distance = vertices[i].euclidean_distance(vertices[j]);
                     set_from_to(&mut distances, &vertices[i], &vertices[j], distance);
                     set_from_to(&mut distances, &vertices[j], &vertices[i], distance);
@@ -139,11 +148,11 @@ impl ClearPathGraph {
     }
 }
 
-fn find_clear_current(map: &BitGridMap, current: GridPoint) -> Option<GridPoint> {
-    for d in 0..map.robot_radius_grid() {
+fn find_clear_current(map: &BitGridMap, current: GridPoint, max_current_overlap: usize) -> Option<GridPoint> {
+    for d in 1..=(1 + map.robot_radius_grid()) {
         for candidate in GridOutlineIterator::new(current, d) {
             let collisions = &map.grid_shadow(current) & map.all_obstacles();
-            if collisions.len() == 0 {
+            if collisions.len() <= max_current_overlap {
                 return Some(candidate);
             }
         }
@@ -224,7 +233,7 @@ mod tests {
     fn test_build_graph() {
         let map: BitGridMap = serde_json::from_str(TEST_MAP_316).unwrap();
         println!("About to build graph");
-        let graph = ClearPathGraph::corner_graph(&map);
+        let graph = ClearPathGraph::corner_graph(&map, 0);
         println!("Built graph");
         for p in map.unvisited().iter().chain(map.all_spaces().iter()) {
             assert!(graph.edges_from(&p).count() > 0);
