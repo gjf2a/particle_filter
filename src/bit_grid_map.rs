@@ -438,7 +438,8 @@ impl BitGridMap {
         self.obstacles.remove(obstacle);
     }
 
-    pub fn clear_path_between(&self, p1: &GridPoint, p2: &GridPoint, max_path_overlap: usize) -> bool {
+    pub fn clear_path_between(&self, p1: &GridPoint, p2: &GridPoint) -> bool {
+        let max_path_overlap = self.robot_radius_grid() as usize;
         GridLineIterator::from_to(p1, p2).all(|p| self.obstacles_within_shadow(p) <= max_path_overlap)
     }
 
