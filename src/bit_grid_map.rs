@@ -564,9 +564,4 @@ mod tests {
         let intersected = tester.obstacles.overlapping_counts(&shadow);
         assert_eq!(intersected, 2);
     }
-
-    #[test]
-    fn test_freest_heading_within_shadow() {
-        todo!("Write a test for freeest_heading_within_shadow()")
-    }
 }
