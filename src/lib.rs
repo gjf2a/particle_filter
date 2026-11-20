@@ -641,7 +641,12 @@ impl ParticleFilter {
 
     fn find_consistent_particles(&mut self) -> BitArray {
         (0..self.particles.len())
-            .filter(|i| self.particles[*i].map.is_consistent())
+            .filter(|i| {
+                let map = &self.particles[*i].map;
+                let robot = map.to_point(self.particles[*i].estimated_pose().pos);
+                map.is_consistent() && map.grid_shadow_collisions(robot).len() <= 1
+            })
+            //.filter(|i| self.particles[*i].map.is_consistent())
             .collect()
     }
 
