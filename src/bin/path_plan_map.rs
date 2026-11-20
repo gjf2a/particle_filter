@@ -3,8 +3,8 @@ use particle_filter::{
     clear_path_graph::{self, ClearPathGraph},
 };
 
-const MAX_PATH_OVERLAP: usize = 0;
-const MAX_CURRENT_OVERLAP: usize = 0;
+const MAX_PATH_OVERLAP: usize = 2;
+const MAX_CURRENT_OVERLAP: usize = 2;
 
 fn main() -> anyhow::Result<()> {
     let filename = std::env::args().skip(1).next().unwrap();

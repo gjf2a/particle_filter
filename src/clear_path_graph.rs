@@ -149,15 +149,23 @@ impl ClearPathGraph {
 }
 
 fn find_clear_current(map: &BitGridMap, current: GridPoint, max_current_overlap: usize) -> Option<GridPoint> {
+    let collisions = &map.grid_shadow(current) & map.all_obstacles();
+    if collisions.len() <= max_current_overlap {
+        Some(current)
+    } else {
+        None
+    }
+    /*
     for d in 1..=(1 + map.robot_radius_grid()) {
         for candidate in GridOutlineIterator::new(current, d) {
-            let collisions = &map.grid_shadow(current) & map.all_obstacles();
+            let collisions = &map.grid_shadow(candidate) & map.all_obstacles();
             if collisions.len() <= max_current_overlap {
                 return Some(candidate);
             }
         }
     }
     None
+    */
 }
 
 pub struct ShortestPaths {
