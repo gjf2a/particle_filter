@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::angle::Polar;
 use crate::point::GridLineIterator;
-use crate::{MapInput, MapUpdate, PoseEstimate, StatCollector};
+use crate::{MAX_COLLISIONS, MapInput, MapUpdate, PoseEstimate, StatCollector};
 use crate::{
     angle::Radians,
     bit_grid::{BitGrid, ColumnMajorCoordIter},
@@ -439,8 +439,7 @@ impl BitGridMap {
     }
 
     pub fn clear_path_between(&self, p1: &GridPoint, p2: &GridPoint) -> bool {
-        let max_path_overlap = self.robot_radius_grid() as usize;
-        GridLineIterator::from_to(p1, p2).all(|p| self.obstacles_within_shadow(p) <= max_path_overlap)
+        GridLineIterator::from_to(p1, p2).all(|p| self.obstacles_within_shadow(p) <= MAX_COLLISIONS)
     }
 
     pub fn map_pose_path_str(

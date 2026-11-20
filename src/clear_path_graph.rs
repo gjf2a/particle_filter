@@ -1,9 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::{
-    BitGridMap,
-    bit_grid::BitGrid,
-    point::GridPoint,
+    BitGridMap, MAX_COLLISIONS, bit_grid::BitGrid, point::GridPoint,
 };
 
 pub struct ClearPathGraph {
@@ -141,7 +139,7 @@ impl ClearPathGraph {
 
 fn find_clear_current(map: &BitGridMap, current: GridPoint) -> Option<GridPoint> {
     let collisions = &map.grid_shadow(current) & map.all_obstacles();
-    if collisions.len() <= map.robot_radius_grid() as usize {
+    if collisions.len() <= MAX_COLLISIONS {
         Some(current)
     } else {
         None

@@ -35,6 +35,7 @@ use crate::point::GridPoint;
 
 const M_PER_RADIAN: f64 = 0.2;
 const PROB_USE_CONSISTENT_ALTERNATIVE: f64 = 0.5;
+const MAX_COLLISIONS: usize = 1;
 
 #[macro_export]
 macro_rules! pt {
@@ -644,9 +645,8 @@ impl ParticleFilter {
             .filter(|i| {
                 let map = &self.particles[*i].map;
                 let robot = map.to_point(self.particles[*i].estimated_pose().pos);
-                map.is_consistent() && map.grid_shadow_collisions(robot).len() <= 1
+                map.is_consistent() && map.grid_shadow_collisions(robot).len() <= MAX_COLLISIONS
             })
-            //.filter(|i| self.particles[*i].map.is_consistent())
             .collect()
     }
 
