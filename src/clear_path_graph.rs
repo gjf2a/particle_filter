@@ -62,11 +62,8 @@ impl ClearPathGraph {
         prefer_first_distance: F,
     ) -> Option<VecDeque<GridPoint>> {
         if let Some(cpg) = Self::corner_current_frontier_graph(map, current) {
-            println!("Created ClearPathGraph object");
             let paths = ShortestPaths::new(&cpg);
-            println!("Created ShortestPaths object");
             let frontier = map.open_frontier_spaces();
-            println!("{} frontier spaces", frontier.len());
             let mut best = None;
             for candidate in frontier.iter() {
                 if let Some(distance) = paths.distance_between(&current, &candidate) {
