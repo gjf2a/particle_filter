@@ -5,8 +5,7 @@ use particle_filter::{
 
 fn main() -> anyhow::Result<()> {
     let filename = std::env::args().skip(1).next().unwrap();
-    let particle =
-        serde_json::from_str::<Particle>(std::fs::read_to_string(filename)?.as_str())?;
+    let particle = serde_json::from_str::<Particle>(std::fs::read_to_string(filename)?.as_str())?;
     let start = particle.map().to_point(particle.estimated_pose().pos);
     println!("start: {start}");
     let cpg = ClearPathGraph::corner_graph(particle.map());

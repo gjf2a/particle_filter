@@ -673,7 +673,9 @@ impl Iterator for GridOutlineIterator {
         if let Some(current) = self.current {
             if let Some(goal) = self.state.goal(self) {
                 let (state, updated) = self.state.update(&current, &goal);
-                if let Some(update) = updated && update == self.start {
+                if let Some(update) = updated
+                    && update == self.start
+                {
                     self.state = GoiState::Done;
                     self.current = None;
                 } else {
