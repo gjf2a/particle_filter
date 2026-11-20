@@ -1,9 +1,12 @@
 use std::collections::{HashMap, VecDeque};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     BitGridMap, MAX_COLLISIONS, bit_grid::BitGrid, point::GridPoint,
 };
 
+#[derive(Serialize, Deserialize)]
 pub struct ClearPathGraph {
     distances: HashMap<GridPoint, HashMap<GridPoint, f64>>,
 }

@@ -91,6 +91,10 @@ impl Particle {
         &self.map
     }
 
+    pub fn map_point(&self) -> GridPoint {
+        self.map.to_point(self.estimated_pose().pos)
+    }
+
     pub fn robot_shadow(&self) -> BitGrid {
         self.map.robot_shadow(self.estimated_pose())
     }
@@ -644,7 +648,7 @@ impl ParticleFilter {
         (0..self.particles.len())
             .filter(|i| {
                 let map = &self.particles[*i].map;
-                let robot = map.to_point(self.particles[*i].estimated_pose().pos);
+                let robot = self.particles[*i].map_point();
                 map.is_consistent() && map.grid_shadow_collisions(robot).len() <= MAX_COLLISIONS
             })
             .collect()
