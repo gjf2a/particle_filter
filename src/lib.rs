@@ -133,7 +133,7 @@ impl Particle {
     }
 
     pub fn straight_path_destination(&self) -> Option<StraightPathDestination> {
-        let start = self.map.to_point(self.estimated_pose().pos);
+        let start = self.map_point();
         let length = (self.map.width() + self.map.height()) as i64;
         for pt in point::GridLineIterator::starting_at(start, self.estimated_pose().theta, length) {
             if self.map.grid_shadow_collisions(pt).len() > 0 {
