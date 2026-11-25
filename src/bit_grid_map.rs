@@ -130,7 +130,7 @@ impl BitGridMap {
         self.space_contiguous && self.obstacle_space_independent()
     }
 
-    fn add_obstacle_at(&mut self, obstacle: &FloatPoint) {
+    pub fn add_obstacle_at(&mut self, obstacle: &FloatPoint) {
         let p = self.to_point(*obstacle);
         self.obstacles.insert(p);
     }
@@ -147,7 +147,7 @@ impl BitGridMap {
         }
     }
 
-    fn add_odometry_reading(&mut self, odometry_location: &FloatPoint) {
+    pub fn add_odometry_reading(&mut self, odometry_location: &FloatPoint) {
         let overlap = self.draw_overlapping_shadow_on(self.to_point(*odometry_location));
         self.space_contiguous = self.space_contiguous && (self.brand_new || overlap);
         self.brand_new = false;
