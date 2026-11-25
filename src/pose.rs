@@ -6,8 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    angle::{Angle, Polar, Radians, angle_distance},
-    point::FloatPoint,
+    angle::{Angle, Polar, Radians, angle_distance}, point::{BoundingBox, FloatPoint},
 };
 
 #[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug, Default)]
@@ -20,6 +19,15 @@ impl<A: Angle + Display + Sub<Output = A>> RobotPose<A> {
     pub fn distance(&self, other: &RobotPose<A>, m_per_radian: f64) -> f64 {
         self.pos.euclidean_distance(other.pos)
             + m_per_radian * angle_distance(self.theta, other.theta).as_f64()
+    }
+
+    pub fn bounding_box(poses: &Vec<Self>) -> BoundingBox<f64> {
+        assert!(poses.len() > 0);
+        let mut result = BoundingBox::new(poses[0].pos, poses[0].pos);
+        for i in 1..poses.len() {
+            result.observe(&poses[i].pos); 
+        }
+        result
     }
 }
 
